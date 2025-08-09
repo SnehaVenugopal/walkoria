@@ -33,15 +33,16 @@ class SignUpForm(forms.Form):
             raise ValidationError("Mobile number already exists.")
         return mobile
 
-    def clean_password(self):
-        password = self.cleaned_data.get('password')
-        confirm_password = self.cleaned_data.get('confirm_password')
+    def clean(self):
+        cleaned_data = super().clean()
+        password = cleaned_data.get('password')
+        confirm_password = cleaned_data.get('confirm_password')
         if " " in password:
             raise ValidationError("Password should not contain spaces.")
         elif len(password) < 8:
             raise ValidationError('Password length should atleast 8 char.')
-        # elif password != confirm_password:
-        #     raise ValidationError('Password do not match.')
+        elif password != confirm_password:
+            raise ValidationError('Password do not match.')
         return password
 
     def clean(self):

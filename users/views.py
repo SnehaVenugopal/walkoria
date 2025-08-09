@@ -182,6 +182,9 @@ def resend_otp_view(request):
 
 @cache_control(no_cache=True, must_revalidate=True, no_store=True)
 def login_view(request):
+    if request.user.is_authenticated:
+        return redirect('home')
+    
     if request.method == 'POST':
         form = LoginForm(request.POST)
         if form.is_valid():

@@ -575,7 +575,7 @@
                     {% if user.is_authenticated %}
                     <li class="nav-item dropdown user-dropdown">
                         <div class="user-avatar" data-bs-toggle="dropdown">
-                            {{ user.name|default:"U"|upper }}
+                            {{ user.name|first|default:"U"|upper }}
                         </div>
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="#">Profile</a></li>
