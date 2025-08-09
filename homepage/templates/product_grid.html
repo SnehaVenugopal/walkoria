@@ -1,0 +1,54 @@
+{% if products %}
+    {% for product in products %}
+    <div class="col">
+        <div class="card product-card h-100 border-0">
+            <a href="{% url 'product_detail' product.id %}" class="text-decoration-none">
+                {% if product.images.first %}
+                    <img src="{{ product.images.first.image }}" 
+                         class="product-image" 
+                         alt="{{ product.name }}"
+                         loading="lazy">
+                {% else %}
+                    <div class="product-image d-flex align-items-center justify-content-center bg-light">
+                        <i class="fas fa-image text-muted" style="font-size: 3rem;"></i>
+                    </div>
+                {% endif %}
+                
+                <div class="product-info">
+                    <div class="product-brand">{{ product.brand.name|default:"Walkoria" }}</div>
+                    <h5 class="product-name">{{ product.name|truncatechars:25 }}</h5>
+                    
+                    <div class="product-rating">
+                        <!-- Dummy 4-star rating -->
+                        <span class="star">★</span>
+                        <span class="star">★</span>
+                        <span class="star">★</span>
+                        <span class="star">★</span>
+                        <span class="star empty">☆</span>
+                        <span class="rating-count">({{ product.review_count|default:28 }})</span>
+                    </div>
+                    
+                    {% with variant=product.variants.first %}
+                    {% if variant %}
+                    <div class="product-price">
+                        <span class="sale-price">₹{{ variant.sale_price }}</span>
+                        {% if variant.actual_price != variant.sale_price %}
+                            <span class="original-price">₹{{ variant.actual_price }}</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+                </div>
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <div class="col-12">
+        <div class="no-products">
+            <i class="fas fa-search"></i>
+            <h3>No products found</h3>
+            <p>Try adjusting your search or filter criteria</p>
+        </div>
+    </div>
+{% endif %}

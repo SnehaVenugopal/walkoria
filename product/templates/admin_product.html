@@ -1,0 +1,619 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}Product Management | Walkoria{% endblock %}
+{% block page_title %}Product Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Product Management Styles */
+    .product-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+    }
+
+    .search-filter-container {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+
+    .search-input, .filter-select {
+        padding: 10px 15px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-size: 14px;
+        transition: border-color 0.3s ease;
+    }
+
+    .search-input {
+        width: 300px;
+    }
+
+    .filter-select {
+        width: 200px;
+    }
+
+    .search-input:focus, .filter-select:focus {
+        outline: none;
+        border-color: var(--primary-color);
+    }
+
+    .search-btn, .clear-btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .search-btn {
+        background-color: var(--primary-color);
+        color: white;
+    }
+
+    .search-btn:hover {
+        background-color: #e63384;
+    }
+
+    .clear-btn {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    .clear-btn:hover {
+        background-color: #5a6268;
+    }
+
+    .add-product-btn {
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 12px 25px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+    }
+
+    .add-product-btn:hover {
+        background-color: #e63384;
+        transform: translateY(-2px);
+        color: white;
+    }
+
+    .product-table-container {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        overflow-x: auto;
+    }
+
+    .product-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+    }
+
+    .product-table th,
+    .product-table td {
+        padding: 15px;
+        text-align: left;
+        border-bottom: 1px solid #f1f1f1;
+    }
+
+    .product-table th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        color: #2c3e50;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .product-table td {
+        font-size: 14px;
+        color: #495057;
+    }
+
+    .product-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .product-image {
+        width: 60px;
+        height: 60px;
+        object-fit: cover;
+        border-radius: 8px;
+        border: 2px solid #f1f1f1;
+    }
+
+    .product-name {
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 5px;
+    }
+
+    .product-description {
+        color: #6c757d;
+        font-size: 12px;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .price-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .sale-price {
+        font-weight: 600;
+        color: var(--primary-color);
+    }
+
+    .actual-price {
+        font-size: 12px;
+        color: #6c757d;
+        text-decoration: line-through;
+    }
+
+    .stock-badge {
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+
+    .stock-in {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .stock-low {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+
+    .stock-out {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    .edit-btn, .delete-btn {
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        padding: 8px;
+        border-radius: 4px;
+        transition: all 0.3s ease;
+        margin-right: 5px;
+    }
+
+    .edit-btn {
+        color: var(--primary-color);
+    }
+
+    .edit-btn:hover {
+        background-color: rgba(255, 66, 157, 0.1);
+    }
+
+    .delete-btn {
+        color: #dc3545;
+    }
+
+    .delete-btn:hover {
+        background-color: rgba(220, 53, 69, 0.1);
+    }
+
+    /* Pagination Styles */
+    .pagination-container {
+        display: flex;
+        justify-content: center;
+        margin-top: 30px;
+    }
+
+    .pagination {
+        display: flex;
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .page-item {
+        margin: 0 5px;
+    }
+
+    .page-link {
+        display: block;
+        padding: 8px 12px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        color: var(--primary-color);
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+
+    .page-link:hover {
+        background-color: #f8f9fa;
+    }
+
+    .page-item.active .page-link {
+        background-color: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+
+    .page-item.disabled .page-link {
+        color: #6c757d;
+        pointer-events: none;
+        cursor: default;
+    }
+
+    .no-results {
+        text-align: center;
+        padding: 40px;
+        color: #6c757d;
+        font-size: 16px;
+    }
+
+    .variant-info {
+        font-size: 12px;
+        color: #6c757d;
+        margin-top: 5px;
+    }
+
+    .category-brand {
+        font-size: 12px;
+        color: #6c757d;
+    }
+
+    /* Alert Styles */
+    .alert {
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 8px;
+        border-left: 4px solid;
+    }
+
+    .alert-success {
+        background-color: #d4edda;
+        border-left-color: #28a745;
+        color: #155724;
+    }
+
+    .alert-danger {
+        background-color: #f8d7da;
+        border-left-color: #dc3545;
+        color: #721c24;
+    }
+
+    /* NEW: Toggle switch styles (to match Category page look) */
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 48px;
+        height: 26px;
+        vertical-align: middle;
+    }
+    .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-color: #ccc;
+        transition: .2s;
+        border-radius: 34px;
+    }
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 20px;
+        width: 20px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        transition: .2s;
+        border-radius: 50%;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .switch input:checked + .slider {
+        background-color: #28a745; /* green when listed */
+    }
+    .switch input:checked + .slider:before {
+        transform: translateX(22px);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+ {% comment %} Product Header  {% endcomment %}
+<div class="product-header">
+  <h2 style="margin: 0; color: #2c3e50;">Product Management</h2>
+  <a href="{% url 'add_product' %}" class="add-product-btn">
+      <i class="fas fa-plus"></i>
+      Add Product
+  </a>
+</div>
+
+ {% comment %} Search and Filter Form  {% endcomment %}
+<div class="search-filter-container">
+  <form method="GET" action="{% url 'product' %}" class="d-flex align-items-center w-100" style="gap: 15px;">
+      <input type="text" name="search" class="search-input" placeholder="Search products..." value="{{ search_query }}">
+      
+      <select name="category" class="filter-select">
+          <option value="">All Categories</option>
+          {% for category in categories %}
+              <option value="{{ category.id }}" {% if selected_category == category.id|stringformat:"s" %}selected{% endif %}>
+                  {{ category.name }}
+              </option>
+          {% endfor %}
+      </select>
+      
+      <button type="submit" class="search-btn">
+          <i class="fas fa-search"></i> Search
+      </button>
+      
+      {% if search_query or selected_category %}
+      <a href="{% url 'product' %}" class="clear-btn">
+          <i class="fas fa-times"></i> Clear
+      </a>
+      {% endif %}
+  </form>
+</div>
+
+ Product Table 
+<div class="product-table-container">
+  {% if messages %}
+      {% for message in messages %}
+          <div class="alert alert-{{ message.tags }}">
+              {{ message }}
+          </div>
+      {% endfor %}
+  {% endif %}
+
+  <table class="product-table">
+      <thead>
+          <tr>
+              <th>S.No</th>
+              <th>Image</th>
+              <th>Product Details</th>
+              <th>Category/Brand</th>
+              <th>Price</th>
+              <th>Stock</th>
+              <th>Variants</th>
+              <th>Actions</th>
+          </tr>
+      </thead>
+      <tbody>
+          {% for product in products %}
+          <tr>
+              <td>{{ forloop.counter }}</td>
+              <td>
+                  {% if product.images.first %}
+                      <img src="{{ product.images.first.image }}" alt="{{ product.name }}" class="product-image">
+                  {% else %}
+                      <div class="product-image" style="background-color: #f8f9fa; display: flex; align-items: center; justify-content: center;">
+                          <i class="fas fa-image" style="color: #6c757d;"></i>
+                      </div>
+                  {% endif %}
+              </td>
+              <td>
+                  <div class="product-name">{{ product.name }}</div>
+                  <div class="product-description">{{ product.description|truncatechars:50 }}</div>
+              </td>
+              <td>
+                  <div class="category-brand">
+                      <strong>{{ product.category.name }}</strong><br>
+                      {{ product.brand.name }}
+                  </div>
+              </td>
+              <td>
+                  <div class="price-info">
+                      {% if product.min_sale_price %}
+                          <span class="sale-price">₹{{ product.min_sale_price }}</span>
+                          <span class="actual-price">₹{{ product.variants.first.actual_price }}</span>
+                      {% else %}
+                          <span class="sale-price">₹{{ product.variants.first.actual_price }}</span>
+                      {% endif %}
+                  </div>
+              </td>
+              <td>
+                  {% if product.total_quantity > 10 %}
+                      <span class="stock-badge stock-in">In Stock ({{ product.total_quantity }})</span>
+                  {% elif product.total_quantity > 0 %}
+                      <span class="stock-badge stock-low">Low Stock ({{ product.total_quantity }})</span>
+                  {% else %}
+                      <span class="stock-badge stock-out">Out of Stock</span>
+                  {% endif %}
+              </td>
+              <td>
+                  <div class="variant-info">
+                      {{ product.variants.count }} variant{{ product.variants.count|pluralize }}
+                  </div>
+              </td>
+              <td>
+                  <a href="{% url 'edit_product' product.id %}" class="edit-btn" title="Edit Product">
+                      <i class="fas fa-edit"></i>
+                  </a>
+
+                  {# REPLACED delete icon with List/Unlist toggle switch #}
+                  <label class="switch" title="List / Unlist">
+                    <input
+                      type="checkbox"
+                      {% if not product.is_deleted %}checked{% endif %}
+                      data-url="{% url 'toggle_product_status' product.id %}"
+                      data-name="{{ product.name }}"
+                      onchange="toggleProductStatus(this)"
+                      aria-label="Toggle list status for {{ product.name }}"
+                    />
+                    <span class="slider"></span>
+                  </label>
+              </td>
+          </tr>
+          {% empty %}
+          <tr>
+              <td colspan="8" class="no-results">
+                  {% if search_query or selected_category %}
+                      No products found matching your criteria
+                  {% else %}
+                      No products found
+                  {% endif %}
+              </td>
+          </tr>
+          {% endfor %}
+      </tbody>
+  </table>
+
+   {% comment %} Pagination  {% endcomment %}
+  {% if products.has_other_pages %}
+  <div class="pagination-container">
+      <ul class="pagination">
+          {% if products.has_previous %}
+              <li class="page-item">
+                  <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}">First</a>
+              </li>
+              <li class="page-item">
+                  <a class="page-link" href="?page={{ products.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}">Previous</a>
+              </li>
+          {% else %}
+              <li class="page-item disabled">
+                  <span class="page-link">First</span>
+              </li>
+              <li class="page-item disabled">
+                  <span class="page-link">Previous</span>
+              </li>
+          {% endif %}
+
+          {% for num in products.paginator.page_range %}
+              {% if products.number == num %}
+                  <li class="page-item active">
+                      <span class="page-link">{{ num }}</span>
+                  </li>
+              {% elif num > products.number|add:'-3' and num < products.number|add:'3' %}
+                  <li class="page-item">
+                      <a class="page-link" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}">{{ num }}</a>
+                  </li>
+              {% endif %}
+          {% endfor %}
+
+          {% if products.has_next %}
+              <li class="page-item">
+                  <a class="page-link" href="?page={{ products.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}">Next</a>
+              </li>
+              <li class="page-item">
+                  <a class="page-link" href="?page={{ products.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if selected_category %}&category={{ selected_category }}{% endif %}">Last</a>
+              </li>
+          {% else %}
+              <li class="page-item disabled">
+                  <span class="page-link">Next</span>
+              </li>
+              <li class="page-item disabled">
+                  <span class="page-link">Last</span>
+              </li>
+          {% endif %}
+      </ul>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // CSRF helper
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let cookie of cookies) {
+                cookie = cookie.trim();
+                if (cookie.startsWith(name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // NEW: Toggle Product List/Unlist via AJAX
+    function toggleProductStatus(inputEl) {
+        const url = inputEl.getAttribute('data-url');
+        const isListChecked = inputEl.checked; // true => list, false => unlist
+        const csrftoken = getCookie('csrftoken');
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrftoken,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ is_listed: isListChecked })
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(data => {
+                    throw new Error(data.message || 'Something went wrong');
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Always green toast, message comes from backend or fallback
+                showToast(data.message || (isListChecked ? 'Product listed successfully' : 'Product unlisted successfully'), 'success');
+                // If your products_view filters is_deleted=False, unlisted rows will hide on refresh
+                // setTimeout(() => location.reload(), 800);
+            } else {
+                // revert UI if backend failed
+                inputEl.checked = !isListChecked;
+                showToast(data.message || 'Unable to update product status', 'danger');
+            }
+        })
+        .catch(error => {
+            // revert UI on error
+            inputEl.checked = !isListChecked;
+            showToast('Update failed: ' + error.message, 'danger');
+        });
+    }
+
+    // Toast notification
+    function showToast(message, type) {
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type}`;
+        toast.style.position = 'fixed';
+        toast.style.top = '20px';
+        toast.style.right = '20px';
+        toast.style.zIndex = '9999';
+        toast.style.minWidth = '300px';
+        toast.innerHTML = message;
+        
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transition = 'opacity 0.5s ease';
+            setTimeout(() => {
+                document.body.removeChild(toast);
+            }, 500);
+        }, 3000);
+    }
+</script>
+{% endblock %}
