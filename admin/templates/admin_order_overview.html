@@ -267,10 +267,10 @@
                 <div class="info-label">Customer Name</div>
                 <div class="info-value">{{ order.shipping_address.full_name }}</div>
             </div>
-            <div class="info-group">
+            {% comment %} <div class="info-group">
                 <div class="info-label">User ID</div>
                 <div class="info-value">{{ order.user.user_id }}</div>
-            </div>
+            </div> {% endcomment %}
             <div class="info-group">
                 <div class="info-label">Order ID</div>
                 <div class="info-value">{{ order.order_number }}</div>

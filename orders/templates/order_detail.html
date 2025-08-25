@@ -309,7 +309,7 @@
                             {% endif %}
                         </span>
                     </p> {% endcomment %}
-                    <p><strong>Total Amount:</strong> ₹{{ order.total_amount }}</p>
+                    <p><strong>Total Amount:</strong> ₹{{ order.subtotal }}</p>
                     {% for item in order.items.all %}
                         {% if item.status == 'Returned' and item.item_payment_status == 'Refunded' and order.payment_method == 'COD' %}
                             <p><strong>Refunded Amount:</strong> ₹{{ item.price|floatformat:2 }}</p>

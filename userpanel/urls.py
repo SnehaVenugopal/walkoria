@@ -28,4 +28,5 @@ urlpatterns = [
     # Placeholder URLs for future implementation
     path('wallet/', views.wallet, name='wallet'),
     path('refer-earn/', views.refer_earn, name='refer_earn'),
+    
 ]

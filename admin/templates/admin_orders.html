@@ -284,7 +284,7 @@
 <!-- Search and Filter Form -->
 <div class="search-filter-container">
     <form method="GET" action="{% url 'orders' %}" class="d-flex align-items-center w-100" style="gap: 15px;">
-        <input type="text" name="search" class="search-input" placeholder="Search by Order ID, User ID, or Product..." value="{{ search_query }}">
+        <input type="text" name="search" class="search-input" placeholder="Search by Order ID, User name, or Product..." value="{{ search_query }}">
         
         <select name="status" class="filter-select">
             <option value="">All Status</option>

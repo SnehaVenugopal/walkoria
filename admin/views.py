@@ -128,14 +128,24 @@ def customer_status(request):
 @admin_required
 @cache_control(no_cache=True, must_revalidate=True, no_store=True)
 def admin_orders(request):
-    order_items_list = OrderItem.objects.select_related('order__user', 'product_variant__product').order_by('-order__created_at')
-    search_query = request.GET.get('search', '')
+    # name = request.user.name.title()
+    order_items_list = (
+        OrderItem.objects
+        .select_related('order__user', 'product_variant__product')
+        .order_by('-order__created_at')
+    )
+
+    search_query = request.GET.get('search', '').strip()
+    print("Search Query:", search_query)
+
     if search_query:
         order_items_list = order_items_list.filter(
-            Q(order__order_number__istartswith=search_query) |
-            Q(order__user__user_id__istartswith=search_query) |
-            Q(product_variant__product__name__istartswith=search_query)
-        )
+            Q(order__order_number__icontains=search_query) |   # Order ID
+            Q(order__user__name__icontains=search_query) |     # Customer Name
+            Q(order__user__email__icontains=search_query) |    # Email (optional)
+            Q(product_variant__product__name__icontains=search_query)  # Product
+        ).distinct()
+
     status_filter = request.GET.get('status', '')
     if status_filter:
         order_items_list = order_items_list.filter(status=status_filter)

@@ -11,17 +11,18 @@ from product.models import ProductVariant
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.cache import cache_control
-from django.db.models import Prefetch
-from django.db import transaction
+# from django.db.models import Prefetch
+# from django.db import transaction
 from django.contrib import messages
-from django.http import JsonResponse, HttpResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.urls import reverse
+# from django.http import JsonResponse, HttpResponse
+# from django.views.decorators.csrf import csrf_exempt
+# from django.urls import reverse
+import cloudinary.uploader
 from decimal import Decimal
-from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+# from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 import uuid, time
 from django.conf import settings
-from orders.models import Order, OrderItem, ReturnRequest
+# from orders.models import Order, OrderItem, ReturnRequest
 from cart.models import Cart
 from userpanel.models import Address
 # from .invoice_utils import generate_invoice_pdf
@@ -39,7 +40,6 @@ def user_profile(request):
     return render(request, 'profile.html')
 
 
-import cloudinary.uploader
 
 @login_required
 @cache_control(no_cache=True, must_revalidate=True, no_store=True)
@@ -115,57 +115,6 @@ def manage_address(request):
     addresses = Address.objects.filter(user_id=request.user, is_deleted=False).order_by('-default_address', '-created_at')
     return render(request, 'manage_address.html', {'addresses': addresses})
 
-
-# @login_required
-# @cache_control(no_cache=True, must_revalidate=True, no_store=True)
-# def add_address(request):
-#     if request.method == 'POST':
-#         form = AddressForm(request.POST)
-#         if form.is_valid():
-#             address = form.save(commit=False)
-#             address.user_id = request.user
-            
-#             # If this is set as default, remove default from other addresses
-#             if address.default_address:
-#                 Address.objects.filter(user_id=request.user).update(default_address=False)
-            
-#             address.save()
-            
-#             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-#                 return JsonResponse({
-#                     'success': True,
-#                     'message': 'Address added successfully!',
-#                     'address_id': address.id,
-#                     'address_name': address.full_name,
-#                     'is_default': address.default_address
-#                 })
-            
-#             messages.success(request, 'Address added successfully!')
-            
-#             # Check if redirecting from checkout
-#             next_url = request.POST.get('next')
-#             if next_url and next_url == 'checkout':
-#                 return redirect('checkout')
-#             return redirect('manage_address')
-#         else:
-#             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-#                 errors = {}
-#                 for field, field_errors in form.errors.items():
-#                     errors[field] = field_errors[0]  # Get first error for each field
-                
-#                 return JsonResponse({
-#                     'success': False,
-#                     'message': 'Please correct the errors below.',
-#                     'errors': errors
-#                 })
-            
-#             for field, errors in form.errors.items():
-#                 for error in errors:
-#                     messages.error(request, f"{field.replace('_', ' ').title()}: {error}")
-#     else:
-#         form = AddressForm()
-    
-#     return render(request, 'add_address.html', {'form': form})
 
 
 @login_required

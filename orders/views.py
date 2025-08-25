@@ -71,7 +71,7 @@ def checkout(request):
             if payment_method == 'RP':
                 messages.info(request, 'Online payment is currently under maintenance. Please choose Cash on Delivery.')
                 return redirect('checkout')
-            
+            print(subtotal, 'subbbbbbbbbbbbbbbbb')
             # Create order
             order = Order.objects.create(
                 user=request.user,
@@ -242,6 +242,7 @@ def order_detail(request, order_id):
         id=order_id,
         user=request.user
     )
+    print(dir(order), order.subtotal, order.total_amount)
     return render(request, 'order_detail.html', {'order': order})
 
 
@@ -285,17 +286,16 @@ def cancel_product(request, item_id):
         proportion = total_item_price / (order.total_amount + order.discount) if (order.total_amount + order.discount) > 0 else 0
         allocated_discount = order.discount * proportion
         refund_amount = total_item_price - allocated_discount
-
         # After updating subtotal
-        order.subtotal -= order_item.original_price * order_item.quantity
-
+        order.subtotal -= refund_amount
+        
         # Recalculate delivery charge:
         if order.subtotal <= 0:  
-            order.delivery_charge = 0  
+            order.shipping_cost = 0  
             order.total_amount = 0  
         else:
-            order.delivery_charge = 99  # or your dynamic logic
-            order.total_amount = order.subtotal + order.delivery_charge - order.discount
+            order.shipping_cost = 99  # or your dynamic logic
+            order.total_amount = order.subtotal + order.shipping_cost - order.discount
 
         order.save()
 

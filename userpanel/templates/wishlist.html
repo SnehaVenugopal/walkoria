@@ -315,8 +315,12 @@ function removeFromWishlist(productId, productSize) {
 function moveToCart(productId, productSize) {
     // This function would add the item to cart and remove from wishlist
     // Implementation depends on your cart system
-    alert('Add to cart functionality to be implemented');
+    //alert('Add to cart functionality to be implemented');
+
+    
+    window.location.href = "{% url 'view_cart' %}";
 }
+
 
 // Add fade out animation
 const style = document.createElement('style');

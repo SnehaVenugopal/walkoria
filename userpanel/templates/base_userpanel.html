@@ -415,7 +415,7 @@
                         <a class="nav-link" href="{% url 'home' %}">HOME</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#">PRODUCTS</a>
+                        <a class="nav-link" href="{%url 'product_listing'%}">PRODUCTS</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="#">ABOUT US</a>
@@ -424,7 +424,7 @@
                         <a class="nav-link" href="#">CONTACT</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#"><i class="fas fa-shopping-cart cart-icon"></i> <span class="badge bg-danger">0</span></a>
+                        <a class="nav-link" href="{% url 'view_cart' %}"><i class="fas fa-shopping-cart cart-icon"></i> <span class="badge bg-danger">0</span></a>
                     </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
@@ -460,7 +460,7 @@
             <a href="{% url 'profile' %}" class="side-nav-item {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
                 <i class="fas fa-user"></i> My Profile
             </a>
-            <a href="{% url 'my_orders' %}"  class="side-nav-item">
+            <a href="{% url 'my_orders' %}"  class="side-nav-item  {% if request.resolver_match.url_name == 'my_orders' %}active{% endif %}" >
                 <i class="fas fa-box"></i> My Orders
             </a>
             <a href="{% url 'manage_address' %}" class="side-nav-item {% if 'address' in request.resolver_match.url_name %}active{% endif %}">
