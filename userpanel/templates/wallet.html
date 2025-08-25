@@ -1,0 +1,50 @@
+{% extends "base_userpanel.html" %}
+
+{% block title %}My Wallet - Walkoria{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+        <li class="breadcrumb-item active">My Wallet</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="content-card">
+    <h2 class="page-title">My Wallet</h2>
+    
+    <div class="coming-soon">
+        <div class="coming-soon-icon">
+            <i class="fas fa-wallet"></i>
+        </div>
+        <h4>Wallet Feature Coming Soon</h4>
+        <p class="text-muted">We're working on bringing you a seamless wallet experience. Stay tuned!</p>
+    </div>
+</div>
+
+<style>
+.coming-soon {
+    text-align: center;
+    padding: 80px 20px;
+}
+
+.coming-soon-icon {
+    font-size: 5rem;
+    color: #ddd;
+    margin-bottom: 30px;
+}
+
+.coming-soon h4 {
+    color: #666;
+    margin-bottom: 15px;
+}
+
+.coming-soon p {
+    font-size: 1.1rem;
+    max-width: 400px;
+    margin: 0 auto;
+}
+</style>
+{% endblock %}

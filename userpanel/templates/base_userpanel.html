@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}User Panel - Walkoria{% endblock %}</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <style>
+        :root {
+            --primary-color: #ff429d;
+            --secondary-color: #ff89c2;
+            --light-color: #ffd1e6;
+            --dark-color: #99285e;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('https://images.unsplash.com/photo-1560769629-975ec94e6a86?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2000&q=80');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            min-height: 100vh;
+        }
+        
+        /* Fixed Top Navigation */
+        .top-navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1030;
+            background-color: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .navbar-brand {
+            font-weight: bold;
+            color: white !important;
+            font-size: 1.8rem;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
+        }
+        
+        .nav-link {
+            color: white !important;
+            font-weight: 500;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+            margin: 0 10px;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+            text-transform: uppercase;
+        }
+        
+        .nav-link:hover {
+            color: var(--light-color) !important;
+            transform: translateY(-2px);
+        }
+        
+        .search-container {
+            position: relative;
+            width: 100%;
+            max-width: 300px;
+        }
+        
+        .search-input {
+            width: 100%;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 8px 40px 8px 15px;
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+        
+        .search-input::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .search-button {
+            position: absolute;
+            right: 0;
+            top: 0;
+            height: 100%;
+            width: 40px;
+            border-radius: 0 20px 20px 0;
+            background-color: rgba(255, 66, 157, 0.7);
+            color: white;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .cart-icon {
+            color: white;
+            font-size: 1.2rem;
+            margin-right: 5px;
+        }
+        
+        .dropdown-menu {
+            background-color: rgba(0, 0, 0, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .dropdown-item {
+            color: white !important;
+            transition: all 0.3s ease;
+        }
+        
+        .dropdown-item:hover {
+            background-color: rgba(255, 66, 157, 0.2);
+            color: var(--light-color) !important;
+        }
+        
+        /* Fixed Side Navigation */
+        .side-navbar {
+            position: fixed;
+            top: 70px;
+            left: 0;
+            width: 280px;
+            height: calc(100vh - 70px);
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 1020;
+            overflow-y: auto;
+            padding: 20px 0;
+        }
+        
+        .side-navbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .side-navbar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .side-navbar::-webkit-scrollbar-thumb {
+            background: var(--primary-color);
+            border-radius: 3px;
+        }
+        
+        .user-info {
+            text-align: center;
+            padding: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 20px;
+        }
+        
+        .user-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 15px;
+            font-size: 2rem;
+            color: white;
+        }
+        
+        .user-name {
+            color: white;
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+        }
+        
+        .user-email {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+        }
+        
+        .side-nav-item {
+            display: block;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            padding: 15px 25px;
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+        }
+        
+        .side-nav-item:hover {
+            background-color: rgba(255, 66, 157, 0.1);
+            color: white;
+            border-left-color: var(--primary-color);
+            transform: translateX(5px);
+        }
+        
+        .side-nav-item.active {
+            background-color: rgba(255, 66, 157, 0.2);
+            color: white;
+            border-left-color: var(--primary-color);
+            font-weight: 600;
+        }
+        
+        .side-nav-item i {
+            width: 20px;
+            margin-right: 15px;
+            text-align: center;
+        }
+        
+        /* Main Content Area */
+        .main-content {
+            margin-left: 280px;
+            margin-top: 70px;
+            padding: 30px;
+            min-height: calc(100vh - 70px);
+            overflow-y: auto;
+        }
+        
+        .content-card {
+            background-color: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+        
+        .page-title {
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 30px;
+            font-size: 2rem;
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 10px;
+        }
+        
+        .breadcrumb {
+            background: transparent;
+            padding: 0;
+            margin-bottom: 20px;
+        }
+        
+        .breadcrumb-item a {
+            color:rgb(255, 66, 157);
+            text-decoration: none;
+        }
+        
+        .breadcrumb-item.active {
+            color: white;
+        }
+        
+        .breadcrumb-item + .breadcrumb-item::before {
+            content: ">";
+            color: rgb(22, 20, 20);
+        }
+        
+        /* Form Styles */
+        .form-label {
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .form-control {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 12px 15px;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(255, 66, 157, 0.25);
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            border-radius: 8px;
+            padding: 12px 25px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            letter-spacing: 0.5px;
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--dark-color);
+            border-color: var(--dark-color);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(153, 40, 94, 0.4);
+        }
+        
+        .btn-secondary {
+            background-color: #6c757d;
+            border-color: #6c757d;
+            border-radius: 8px;
+            padding: 12px 25px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #5a6268;
+            border-color: #545b62;
+            transform: translateY(-2px);
+        }
+        
+        /* Alert Styles */
+        .alert {
+            border-radius: 8px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            border: none;
+        }
+        
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+        
+        .alert-danger {
+            background-color: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+        
+        .alert-warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border-left: 4px solid #ffc107;
+        }
+        
+        .alert-info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border-left: 4px solid #17a2b8;
+        }
+        
+        /* Error message styles */
+        .error-message {
+            color: #dc3545;
+            font-size: 0.875em;
+            margin-top: 0.25rem;
+        }
+        
+        .is-invalid {
+            border-color: #dc3545;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .side-navbar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+            
+            .side-navbar.show {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+                padding: 20px 15px;
+            }
+            
+            .mobile-menu-btn {
+                display: block;
+                background: none;
+                border: none;
+                color: white;
+                font-size: 1.2rem;
+                padding: 5px;
+            }
+        }
+        
+        @media (min-width: 769px) {
+            .mobile-menu-btn {
+                display: none;
+            }
+        }
+        
+        /* Additional custom styles */
+        {% block additional_styles %}{% endblock %}
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <!-- Fixed Top Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark top-navbar">
+        <div class="container-fluid">
+            <button class="mobile-menu-btn d-lg-none" type="button" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
+            
+            <a class="navbar-brand" href="{% url 'home' %}">Walkoria</a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                {% comment %} <div class="search-container mx-auto">
+                    <input type="search" class="search-input" placeholder="Search for Products, Brands and more...">
+                    <button class="search-button" type="submit"><i class="fas fa-search"></i></button>
+                </div> {% endcomment %}
+                
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'home' %}">HOME</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">PRODUCTS</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">ABOUT US</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">CONTACT</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#"><i class="fas fa-shopping-cart cart-icon"></i> <span class="badge bg-danger">0</span></a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-user"></i> {{ user.name|default:"User" }}
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="fas fa-user me-2"></i>Profile</a></li>
+                            <li><a class="dropdown-item" href="{% url 'wishlist' %}"><i class="fas fa-heart me-2"></i>Wishlist</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="{% url 'logout_account' %}"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Fixed Side Navigation -->
+    <div class="side-navbar" id="sideNavbar">
+        <div class="user-info">
+            <div class="user-avatar">
+                {% if user.profile_image %}
+                    <img src="{{ user.profile_image}}" alt="Profile" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+                {% else %}
+                    <i class="fas fa-user"></i>
+                {% endif %}
+            </div>
+            <div class="user-name">Hi, {% if user.name %}{{ user.name|title }}{% else %}User{% endif %}</div>
+            <div class="user-email">{{ user.email }}</div>
+        </div>
+        
+        <nav class="side-nav">
+            <a href="{% url 'profile' %}" class="side-nav-item {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
+                <i class="fas fa-user"></i> My Profile
+            </a>
+            <a href="{% url 'my_orders' %}"  class="side-nav-item">
+                <i class="fas fa-box"></i> My Orders
+            </a>
+            <a href="{% url 'manage_address' %}" class="side-nav-item {% if 'address' in request.resolver_match.url_name %}active{% endif %}">
+                <i class="fas fa-map-marker-alt"></i> Manage Address
+            </a>
+            <a href="{% url 'change_password' %}" class="side-nav-item {% if request.resolver_match.url_name == 'change_password' %}active{% endif %}">
+                <i class="fas fa-key"></i> Change Password
+            </a>
+            <a href="{% url 'wishlist' %}" class="side-nav-item {% if request.resolver_match.url_name == 'wishlist' %}active{% endif %}">
+                <i class="fas fa-heart"></i> Wishlist
+            </a>
+            <a href="#" class="side-nav-item">
+                <i class="fas fa-wallet"></i> Wallet
+            </a>
+            <a href="#" class="side-nav-item">
+                <i class="fas fa-gift"></i> Refer & Earn
+            </a>
+            <a href="{% url 'logout_account' %}" class="side-nav-item text-danger">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </a>
+        </nav>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="main-content">
+        <!-- Display Messages -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert" style="colo">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <!-- Breadcrumb -->
+        {% block breadcrumb %}{% endblock %}
+
+        <!-- Page Content -->
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Bootstrap JS Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sideNavbar');
+            sidebar.classList.toggle('show');
+        }
+        
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', function(event) {
+            const sidebar = document.getElementById('sideNavbar');
+            const menuBtn = document.querySelector('.mobile-menu-btn');
+            
+            if (window.innerWidth <= 768) {
+                if (!sidebar.contains(event.target) && !menuBtn.contains(event.target)) {
+                    sidebar.classList.remove('show');
+                }
+            }
+        });
+        
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            const sidebar = document.getElementById('sideNavbar');
+            if (window.innerWidth > 768) {
+                sidebar.classList.remove('show');
+            }
+        });
+    </script>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

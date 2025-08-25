@@ -1,0 +1,169 @@
+{% extends 'base_userpanel.html' %}
+
+{% block title %}
+    {% if order_item.status == 'Delivered' %}Return Product{% else %}Cancel Product{% endif %} - Walkoria
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        {% if order_item.status == 'Delivered' %}
+                            Return Product
+                        {% else %}
+                            Cancel Product
+                        {% endif %}
+                    </h5>
+                </div>
+                
+                <div class="card-body">
+                    <!-- Product Information -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            {% if order_item.product_variant.product.images.first %}
+                                <img src="{{ order_item.product_variant.product.images.first.image }}" 
+                                     alt="{{ order_item.product_variant.product.name }}" 
+                                     class="img-fluid rounded">
+                            {% else %}
+                                <div class="bg-light rounded d-flex align-items-center justify-content-center" 
+                                     style="height: 120px;">
+                                    <i class="fas fa-image text-muted fa-2x"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-9">
+                            <h6>{{ order_item.product_variant.product.name }}</h6>
+                            <p class="text-muted mb-1">
+                                Color: {{ order_item.product_variant.color|default:"N/A" }}<br>
+                                Size: {{ order_item.product_variant.size|default:"N/A" }}<br>
+                                Quantity: {{ order_item.quantity }}<br>
+                                Price: ₹{{ order_item.price }}
+                            </p>
+                            <p class="mb-0">
+                                <strong>Order #{{ order_item.order.order_number }}</strong>
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Cancellation/Return Form -->
+                    <form method="post" id="cancelForm">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="cancellation_reason" class="form-label">
+                                {% if order_item.status == 'Delivered' %}
+                                    Return Reason <span class="text-danger">*</span>
+                                {% else %}
+                                    Cancellation Reason <span class="text-danger">*</span>
+                                {% endif %}
+                            </label>
+                            <select name="cancellation_reason" id="cancellation_reason" class="form-select" required>
+                                <option value="">Select a reason</option>
+                                {% for reason, label in cancellation_reasons %}
+                                    <option value="{{ reason }}">{{ label }}</option>
+                                {% endfor %}
+                                <option value="custom">Other (please specify)</option>
+                            </select>
+                            <div id="cancellation_reason_error" class="text-danger mt-1" style="display: none;">
+                                Please select a reason
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3" id="custom_reason_div" style="display: none;">
+                            <label for="custom_reason" class="form-label">
+                                Please specify your reason <span class="text-danger">*</span>
+                            </label>
+                            <textarea name="custom_reason" id="custom_reason" class="form-control" rows="3" 
+                                      placeholder="Please provide details..."></textarea>
+                            <div id="custom_reason_error" class="text-danger mt-1" style="display: none;">
+                                Please provide a reason
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'order_detail' order_item.order.id %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Back
+                            </a>
+                            
+                            {% if order_item.status == 'Delivered' %}
+                                <button type="submit" class="btn btn-warning">
+                                    <i class="fas fa-undo"></i> Submit Return Request
+                                </button>
+                            {% else %}
+                                <button type="submit" class="btn btn-danger">
+                                    <i class="fas fa-times"></i> Cancel Product
+                                </button>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.error-message {
+    color: #dc3545;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+    display: none;
+}
+.is-invalid {
+    border-color: #dc3545 !important;
+}
+.is-invalid:focus {
+    box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25) !important;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const reasonSelect = document.getElementById('cancellation_reason');
+    const customReasonDiv = document.getElementById('custom_reason_div');
+    const customReasonTextarea = document.getElementById('custom_reason');
+    const form = document.getElementById('cancelForm');
+
+    // Show/hide custom reason textarea
+    reasonSelect.addEventListener('change', function() {
+        if (this.value === 'custom') {
+            customReasonDiv.style.display = 'block';
+            customReasonTextarea.required = true;
+        } else {
+            customReasonDiv.style.display = 'none';
+            customReasonTextarea.required = false;
+            customReasonTextarea.value = '';
+        }
+    });
+
+    // Form validation
+    form.addEventListener('submit', function(e) {
+        let isValid = true;
+        
+        // Reset previous errors
+        document.querySelectorAll('.text-danger').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+
+        // Validate reason selection
+        if (!reasonSelect.value) {
+            document.getElementById('cancellation_reason_error').style.display = 'block';
+            reasonSelect.classList.add('is-invalid');
+            isValid = false;
+        }
+
+        // Validate custom reason if selected
+        if (reasonSelect.value === 'custom' && !customReasonTextarea.value.trim()) {
+            document.getElementById('custom_reason_error').style.display = 'block';
+            customReasonTextarea.classList.add('is-invalid');
+            isValid = false;
+        }
+
+        if (!isValid) {
+            e.preventDefault();
+        }
+    });
+});
+</script>
+{% endblock %}

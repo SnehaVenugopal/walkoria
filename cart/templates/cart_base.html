@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Shopping Cart - Walkoria{% endblock %}</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Toastify CSS -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    
+    <style>
+        :root {
+            --primary-color: #ff429d;
+            --secondary-color: #ff89c2;
+            --light-color: #ffd1e6;
+            --dark-color: #99285e;
+            --gradient-primary: linear-gradient(135deg, #ff429d 0%, #ff89c2 100%);
+            --gradient-secondary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+        }
+        
+        /* Fixed navigation bar styles */
+        .navbar {
+            background: white;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            padding: 15px 0;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+        }
+        
+        .navbar-brand {
+            font-weight: bold;
+            color: var(--primary-color) !important;
+            font-size: 2rem;
+            letter-spacing: 1px;
+        }
+        
+        .nav-link {
+            color: #333 !important;
+            font-weight: 500;
+            margin: 0 15px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            letter-spacing: 0.5px;
+        }
+        
+        .nav-link:hover {
+            color: var(--primary-color) !important;
+            transform: translateY(-2px);
+        }
+        
+        .search-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .search-input {
+            width: 100%;
+            border-radius: 25px;
+            border: 2px solid #e9ecef;
+            padding: 12px 50px 12px 20px;
+            background-color: #f8f9fa;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(255, 66, 157, 0.25);
+            background-color: white;
+        }
+        
+        .search-button {
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            height: calc(100% - 10px);
+            width: 45px;
+            border-radius: 20px;
+            background: var(--gradient-primary);
+            color: white;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+        
+        .search-button:hover {
+            transform: translateY(-50%) scale(1.05);
+        }
+        
+        .cart-icon {
+            color: #333;
+            font-size: 1.3rem;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        
+        .cart-icon:hover {
+            color: var(--primary-color);
+            transform: scale(1.1);
+        }
+        
+        .cart-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .user-dropdown {
+            position: relative;
+        }
+        
+        .user-avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background: var(--gradient-primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .user-avatar:hover {
+            transform: scale(1.1);
+        }
+
+        .auth-buttons .btn {
+            border-radius: 25px;
+            padding: 8px 20px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .auth-buttons .btn-login {
+            background: var(--gradient-primary);
+            color: white;
+            border: none;
+        }
+
+        .auth-buttons .btn-signup {
+            background: transparent;
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+            margin-left: 10px;
+        }
+
+        .auth-buttons .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Main content area with top margin for fixed navbar */
+        .main-content {
+            margin-top: 100px;
+            min-height: calc(100vh - 100px);
+            overflow-y: auto;
+        }
+        
+        /* Alert Messages */
+        .alert-container {
+            position: fixed;
+            top: 120px;
+            right: 20px;
+            z-index: 9999;
+            max-width: 400px;
+        }
+        
+        .alert {
+            margin-bottom: 10px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .alert-success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        
+        .alert-error, .alert-danger {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        
+        .alert-warning {
+            background-color: #fff3cd;
+            border-color: #ffeaa7;
+            color: #856404;
+        }
+        
+        .alert-info {
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .search-container {
+                margin: 15px 0;
+            }
+            
+            .navbar {
+                padding: 10px 0;
+            }
+            
+            .main-content {
+                margin-top: 80px;
+            }
+            
+            .alert-container {
+                top: 100px;
+            }
+        }
+        
+        /* Loading Animation */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 50px;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        {% block extra_css %}{% endblock %}
+    </style>
+</head>
+<body>
+    <!-- Fixed Navigation Bar -->
+    <nav class="navbar navbar-expand-lg">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'home' %}">Walkoria</a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'home' %}">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'product_listing' %}">Products</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">About Us</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Contact</a>
+                    </li>
+                </ul>
+                
+                {% comment %} <div class="search-container mx-auto">
+                    <form method="GET" action="{% url 'product_listing' %}">
+                        <input type="search" name="search" class="search-input" placeholder="Search Products, Brands and more..." value="{{ request.GET.search }}">
+                        <button class="search-button" type="submit">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </form>
+                </div> {% endcomment %}
+                
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'view_cart' %}">
+                            <i class="fas fa-shopping-cart cart-icon">
+                                <span class="cart-badge">{{ cart_count|default:0 }}</span>
+                            </i>
+                        </a>
+                    </li>
+                    {% if user.is_authenticated %}
+                    <li class="nav-item dropdown user-dropdown">
+                        <div class="user-avatar" data-bs-toggle="dropdown">
+                            {% if user.profile_image %}
+                                <img class="user-avatar" src="{{ user.profile_image }}" alt="">
+                            {% else %}
+                                {{ user.name|first|default:"U"|upper }}
+                            {% endif %}
+                         </div>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'profile' %}">Profile</a></li>
+                            <li><a class="dropdown-item" href="{% url 'my_orders' %}">My Orders</a></li>
+                            <li><a class="dropdown-item" href="{% url 'wishlist' %}">Wishlist</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form action="{% url 'logout_account' %}" method="post" class="px-2">
+                                    {% csrf_token %}
+                                    <button type="submit" class="dropdown-item text-danger">
+                                        <i class="fas fa-sign-out-alt me-2"></i>Logout
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </li>
+                    {% else %}
+                    <li class="nav-item auth-buttons d-flex">
+                        <a href="{% url 'login_to_account' %}" class="btn btn-login">Login</a>
+                        <a href="{% url 'signup' %}" class="btn btn-signup">Sign Up</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Alert Messages -->
+    <div class="alert-container">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    <i class="fas fa-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' or message.tags == 'danger' %}exclamation-triangle{% elif message.tags == 'warning' %}exclamation-circle{% else %}info-circle{% endif %} me-2"></i>
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    <!-- Scrollable Main Content Area -->
+    <div class="main-content">
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading" id="loadingOverlay">
+        <div class="spinner"></div>
+        <p>Loading...</p>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Toastify JS -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script>
+        // Get CSRF Token
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        
+        // Show/Hide Loading
+        function showLoading() {
+            document.getElementById('loadingOverlay').style.display = 'block';
+        }
+        
+        function hideLoading() {
+            document.getElementById('loadingOverlay').style.display = 'none';
+        }
+        
+        // Show Notification using Toastify
+        function showNotification(message, type) {
+            const colors = {
+                'success': 'linear-gradient(to right, #00b09b, #96c93d)',
+                'error': 'linear-gradient(to right, #ff5f6d, #ffc371)',
+                'warning': 'linear-gradient(to right, #f093fb, #f5576c)',
+                'info': 'linear-gradient(to right, #4facfe, #00f2fe)'
+            };
+            
+            Toastify({
+                text: message,
+                duration: 4000,
+                close: true,
+                gravity: "top",
+                position: "right",
+                style: {
+                    background: colors[type] || colors['info'],
+                    borderRadius: "8px",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)"
+                },
+            }).showToast();
+        }
+        
+        // Auto-hide alerts after 5 seconds
+        document.addEventListener('DOMContentLoaded', function() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                setTimeout(() => {
+                    if (alert.parentNode) {
+                        alert.remove();
+                    }
+                }, 5000);
+            });
+        });
+        
+        {% block extra_js %}{% endblock %}
+    </script>
+</body>
+</html>

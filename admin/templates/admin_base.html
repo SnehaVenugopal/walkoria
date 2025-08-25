@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Admin Dashboard | Walkoria{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    {% block extra_css %}{% endblock %}
+    <style>
+        :root {
+            --primary-color: #ff429d;
+            --sidebar-bg: #2c3e50;
+            --sidebar-hover: #34495e;
+            --main-bg: #f8f9fa;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--main-bg);
+            overflow-x: hidden;
+        }
+        
+        .admin-container {
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        /* Sidebar Styles */
+        .sidebar {
+            width: 250px;
+            background-color: var(--sidebar-bg);
+            color: white;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+        
+        .sidebar-header {
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .sidebar-header h3 {
+            color: white;
+            font-weight: bold;
+            font-size: 1.8rem;
+            margin: 0;
+        }
+        
+        .sidebar-menu {
+            list-style: none;
+            padding: 20px 0;
+        }
+        
+        .sidebar-menu li {
+            margin: 8px 15px;
+        }
+        
+        .sidebar-menu a {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border-radius: 25px;
+            font-weight: 500;
+        }
+        
+        .sidebar-menu a:hover,
+        .sidebar-menu a.active {
+            background-color: white;
+            color: var(--sidebar-bg);
+            transform: translateX(5px);
+        }
+        
+        .sidebar-menu a i {
+            margin-right: 12px;
+            width: 20px;
+            text-align: center;
+        }
+        
+        {% comment %} .logout-section {
+            position: absolute;
+            bottom: 20px;
+            width: calc(100% - 30px);
+            margin: 0 15px;
+        }
+        
+        .logout-section a {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border-radius: 25px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        
+        .logout-section a i {
+            margin-right: 12px;
+            width: 20px;
+            text-align: center;
+        }
+        
+        .logout-section a:hover {
+            background-color: white;
+            color: var(--sidebar-bg);
+            transform: translateX(5px);
+        }
+        
+        .logout-link {
+            color: #e74c3c !important;
+            border: 1px solid #e74c3c;
+        }
+        
+        .logout-link:hover {
+            background-color: #e74c3c !important;
+            color: white !important;
+        } {% endcomment %}
+        
+        /* Main Content */
+        .main-content {
+            margin-left: 250px;
+            flex: 1;
+            background-color: var(--main-bg);
+        }
+        
+        .top-header {
+            background: var(--sidebar-bg);
+            color: white;
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .page-title {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin: 0;
+        }
+        
+        .admin-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .admin-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .content-area {
+            padding: 30px;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+        }
+        
+        /* Updated CSS for the logout section */
+        .logout-section {
+            position: absolute;
+            bottom: 20px;
+            width: calc(100% - 30px);
+            margin: 0 15px;
+        }
+
+        .logout-section a,
+        .logout-section .logout-link {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border-radius: 25px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            width: 100%;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: inherit;
+            font-family: inherit;
+        }
+
+        .logout-section a i,
+        .logout-section .logout-link i {
+            margin-right: 12px;
+            width: 20px;
+            text-align: center;
+        }
+
+        .logout-section a:hover,
+        .logout-section .logout-link:hover {
+            background-color: white;
+            color: var(--sidebar-bg);
+            transform: translateX(5px);
+        }
+
+        .logout-form {
+            margin: 0;
+            padding: 0;
+        }
+
+        .logout-link {
+            color: #e74c3c !important;
+            border: 1px solid #e74c3c !important;
+        }
+
+        .logout-link:hover {
+            background-color: #e74c3c !important;
+            color: white !important;
+            transform: translateX(5px) !important;
+        }
+    
+    
+        
+        {% block extra_styles %}{% endblock %}
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" 
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+<body>
+    <div class="admin-container">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h3>Walkoria</h3>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="{% url 'admin_dashboard' %}" class="{% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}" onclick="changePageTitle('Dashboard')"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+                <li><a href="{% url 'customers' %}" class="{% if request.resolver_match.url_name == 'customers' %}active{% endif %}" onclick="changePageTitle('Customers')"><i class="fas fa-users"></i> Customers</a></li>
+                <li><a href="{% url 'category' %}"class="{% if request.resolver_match.url_name == 'category' %}active{% endif %}" onclick="changePageTitle('Category Management')"><i class="fas fa-box"></i> Category</a></li>
+                <li><a href="{% url 'product' %}" class="{% if request.resolver_match.url_name == 'product' %}active{% endif %}" onclick="changePageTitle('product')"><i class="fas fa-shopping-cart"></i> Products</a></li>
+                <li><a href="{% url 'orders' %}" class="{% if request.resolver_match.url_name == 'orders' %}active{% endif %}" onclick="changePageTitle('Order Management')"><i class="fas fa-clipboard-list"></i> Orders</a></li>
+                <li><a href="#" class="{% if request.resolver_match.url_name == 'admin_coupon' %}active{% endif %}" onclick="changePageTitle('Coupon Management')"><i class="fas fa-ticket-alt"></i> Coupon </a></li>
+                <li><a href="#" class="{% if request.resolver_match.url_name == 'admin_sales_report' %}active{% endif %}" onclick="changePageTitle('Sales Report')"><i class="fas fa-chart-line"></i> Sales Report</a></li>
+                <li><a href="{% url 'brand' %}" class="{% if request.resolver_match.url_name == 'brand' %}active{% endif %}" onclick="changePageTitle('Brand')"><i class="fas fa-tags"></i> Brand</a></li>
+               
+            </ul>
+ </ul>
+</ul>
+ <!-- Updated Logout Section -->
+        <div class="logout-section">
+            <a href="#"><i class="fas fa-cog"></i> Settings</a>
+            <form action="{% url 'logout_account' %}" method="post" class="logout-form">
+                {% csrf_token %}
+                <button type="submit" class="logout-link">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </form>
+        </div>
+
+
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Top Header -->
+            <div class="top-header">
+                <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+                <div class="admin-info">
+                    <span>Welcome, {{ request.user.username|title }}</span>
+                    <div class="admin-avatar">{{ request.user.username.0|upper }}</div>
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="content-area">
+                {% block content %}
+                {% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Function to change page title
+        function changePageTitle(title) {
+            document.querySelector('.page-title').textContent = title;
+            
+            // Remove active class from all menu items
+            document.querySelectorAll('.sidebar-menu a').forEach(link => {
+                link.classList.remove('active');
+            });
+            
+            // Add active class to clicked menu item
+            if(event && event.target) {
+                event.target.classList.add('active');
+            }
+        }
+        
+    </script>
+    {% block extra_scripts %}{% endblock %}
+    
+</body>
+</html>

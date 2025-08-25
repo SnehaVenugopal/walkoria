@@ -1,0 +1,979 @@
+{% extends "base_userpanel.html" %}
+{% load static %}
+{% load status_filters %}
+
+{% block title %}My Orders - Walkoria{% endblock %}
+
+{% block additional_styles %}
+<style>
+    :root {
+        --primary-color: #ff429d;
+        --secondary-color: #ff89c2;
+        --light-color: #ffd1e6;
+        --dark-color: #99285e;
+        --gradient-primary: linear-gradient(135deg, #ff429d 0%, #ff89c2 100%);
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+        --info-color: #17a2b8;
+    }
+
+    /* Simplified page styling to match clean address page design */
+    body {
+        background-color: #f8f9fa;
+    }
+
+    .container {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        margin-top: 2rem;
+        margin-bottom: 2rem;
+        padding: 2rem;
+    }
+
+    /* Clean page header matching address page */
+    .page-header {
+        background: transparent;
+        padding: 0 0 2rem 0;
+        margin-bottom: 2rem;
+        border-bottom: 1px solid #e9ecef;
+        border-radius: 0;
+        box-shadow: none;
+        border: none;
+    }
+
+    .page-header h1 {
+        color: #333;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        font-size: 1.75rem;
+    }
+
+    .page-header p {
+        color: #6c757d;
+        margin-bottom: 0;
+        font-size: 1rem;
+    }
+
+    /* Simplified search container */
+    .search-container {
+        position: relative;
+        margin-bottom: 2rem;
+        max-width: 600px;
+    }
+
+    .search-input {
+        width: 100%;
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+        padding: 12px 50px 12px 16px;
+        background-color: white;
+        transition: all 0.3s ease;
+        font-size: 1rem;
+        color: #495057;
+    }
+
+    .search-input::placeholder {
+        color: #6c757d;
+        opacity: 1;
+        font-weight: 400;
+    }
+
+    .search-input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.2rem rgba(255, 66, 157, 0.25);
+    }
+
+    .search-input:focus::placeholder {
+        color: #adb5bd;
+    }
+
+    .search-button {
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        height: calc(100% - 16px);
+        width: 40px;
+        border-radius: 6px;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+    }
+
+    .search-button:hover {
+        background: var(--dark-color);
+    }
+
+    /* Clean order cards matching address page style */
+    .order-card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e9ecef;
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+
+    .order-card:hover {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .order-card-header {
+        background: #f8f9fa;
+        color: #333;
+        padding: 1.5rem;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .order-card-body {
+        padding: 1.5rem;
+        background: white;
+    }
+
+    .order-number {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--primary-color);
+        margin-bottom: 0.5rem;
+    }
+
+    .order-date {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+
+    /* Simplified status badges */
+    .status-badge {
+        padding: 0.4rem 1rem;
+        border-radius: 20px;
+        font-weight: 600;
+        text-transform: capitalize;
+        font-size: 0.85rem;
+        display: inline-block;
+        border: 2px solid transparent;
+    }
+
+    .status-pending { 
+        background: #fff3cd; 
+        color: #856404; 
+        border-color: #ffeaa7;
+    }
+    .status-processing { 
+        background: #d1ecf1; 
+        color: #0c5460; 
+        border-color: #74b9ff;
+    }
+    .status-shipped { 
+        background: #d4edda; 
+        color: #155724; 
+        border-color: #00b894;
+    }
+    .status-delivered { 
+        background: #d4edda; 
+        color: #155724; 
+        border-color: #00b894;
+    }
+    .status-cancelled { 
+        background: #f8d7da; 
+        color: #721c24; 
+        border-color: #e17055;
+    }
+    .status-returned { 
+        background: #e2e3e5; 
+        color: #383d41; 
+        border-color: #636e72;
+    }
+
+    .order-items-preview {
+        display: flex;
+        gap: 0.5rem;
+        margin: 1rem 0;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .item-preview {
+        width: 50px;
+        height: 50px;
+        border-radius: 6px;
+        object-fit: cover;
+        border: 1px solid #e9ecef;
+        transition: all 0.3s ease;
+    }
+
+    .item-preview:hover {
+        transform: scale(1.05);
+        border-color: var(--primary-color);
+    }
+
+    .items-count {
+        background: #f8f9fa;
+        color: #6c757d;
+        padding: 0.25rem 0.5rem;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        border: 1px solid #e9ecef;
+    }
+
+    .order-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+    }
+
+    /* Clean button styles matching address page */
+    .btn-custom {
+        border-radius: 6px;
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+        font-size: 0.875rem;
+        transition: all 0.3s ease;
+        border: 1px solid transparent;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+    }
+
+    .btn-view {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+
+    .btn-view:hover {
+        background: var(--dark-color);
+        border-color: var(--dark-color);
+        color: white;
+    }
+
+    .btn-cancel, .btn-return, .btn-invoice {
+        background: #6c757d;
+        color: white;
+        border-color: #6c757d;
+    }
+
+    .btn-cancel:hover, .btn-return:hover, .btn-invoice:hover {
+        background: #5a6268;
+        border-color: #5a6268;
+        color: white;
+    }
+
+    /* Clean filter tabs */
+    .filter-tabs {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+        overflow: hidden;
+        border: 1px solid #e9ecef;
+    }
+
+    .nav-tabs {
+        border: none;
+        padding: 1rem;
+        margin-bottom: 0;
+        background: #f8f9fa;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .nav-tabs .nav-link {
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        margin: 0;
+        padding: 0.75rem 1.5rem;
+        color: #495057;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        background: white;
+        display: flex;
+        align-items: center;
+        min-width: 120px;
+        justify-content: center;
+    }
+
+    .nav-tabs .nav-link.active {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(255, 66, 157, 0.3);
+    }
+
+    .nav-tabs .nav-link:hover:not(.active) {
+        background: #f8f9fa;
+        color: var(--primary-color);
+        border-color: var(--primary-color);
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .breadcrumb {
+        background: transparent;
+        padding: 0;
+        margin-bottom: 2rem;
+    }
+
+    .breadcrumb-item a {
+        color: var(--primary-color);
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .breadcrumb-item a:hover {
+        text-decoration: underline;
+    }
+
+    .breadcrumb-item.active {
+        color: #6c757d;
+    }
+
+    .no-orders {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: #6c757d;
+    }
+
+    .no-orders i {
+        font-size: 4rem;
+        color: var(--primary-color);
+        margin-bottom: 1rem;
+    }
+
+    /* Simplified pagination styling */
+    .pagination .page-link {
+        border-color: #dee2e6;
+        color: #6c757d;
+        border-radius: 6px;
+        margin: 0 2px;
+    }
+
+    .pagination .page-item.active .page-link {
+        background: var(--primary-color);
+        border-color: var(--primary-color);
+    }
+
+    .pagination .page-link:hover {
+        background: #f8f9fa;
+        border-color: var(--primary-color);
+        color: var(--primary-color);
+    }
+
+    /* Responsive improvements */
+    @media (max-width: 768px) {
+        .container {
+            margin: 1rem;
+            padding: 1rem;
+        }
+        
+        .page-header {
+            padding: 0 0 1rem 0;
+        }
+        
+        .order-card-header, .order-card-body {
+            padding: 1rem;
+        }
+        
+        .order-actions {
+            justify-content: flex-start;
+        }
+        
+        .btn-custom {
+            flex: 0 0 auto;
+            min-width: 100px;
+            justify-content: center;
+        }
+        
+        .nav-tabs .nav-link {
+            padding: 0.5rem 1rem;
+            margin: 0.1rem;
+        }
+    }
+
+    /* Enhanced Start Shopping button styling */
+    .btn-start-shopping {
+        background: var(--gradient-primary);
+        color: rgba(245, 30, 134, 1);;
+        border: none;
+        border-radius: 25px;
+        padding: 1rem 2rem;
+        font-weight: 600;
+        font-size: 1.1rem;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(255, 66, 157, 0.3);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .btn-start-shopping:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(255, 66, 157, 0.4);
+        color:rgba(255, 66, 157, 0.4);
+        text-decoration: none;
+    }
+
+    .btn-start-shopping:active {
+        transform: translateY(0);
+    }
+
+    .btn-start-shopping i {
+        font-size: 1.2rem;
+        padding-top:1rem
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+            <li class="breadcrumb-item active">My Orders</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-12">
+            <!-- Clean page header design -->
+            <div class="page-header">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h1 class="mb-2">
+                            <i class="fas fa-box me-3"></i>My Orders
+                        </h1>
+                        <p class="mb-0">Track and manage your orders</p>
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <!-- Fixed order count to use pagination object instead of missing total_orders variable -->
+                        <div class="h4 mb-0 text-muted">{{ orders.paginator.count }} Order{{ orders.paginator.count|pluralize }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="search-container">
+                <form method="GET" action="{% url 'my_orders' %}">
+                    <input type="text" 
+                           class="search-input" 
+                           name="search" 
+                           value="{{ request.GET.search }}"
+                           placeholder="Search by order number, product name, or status...">
+                    <button type="submit" class="search-button">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Filter Tabs -->
+            <div class="filter-tabs">
+                <ul class="nav nav-tabs" id="orderTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <a class="nav-link {% if not request.GET.status %}active{% endif %}" 
+                           href="{% url 'my_orders' %}{% if request.GET.search %}?search={{ request.GET.search }}{% endif %}">
+                            <i class="fas fa-list me-2"></i>All Orders
+                        </a>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <a class="nav-link {% if request.GET.status == 'pending' %}active{% endif %}" 
+                           href="{% url 'my_orders' %}?status=pending{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                            <i class="fas fa-clock me-2"></i>Pending
+                        </a>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <a class="nav-link {% if request.GET.status == 'delivered' %}active{% endif %}" 
+                           href="{% url 'my_orders' %}?status=delivered{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                            <i class="fas fa-check-circle me-2"></i>Delivered
+                        </a>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <a class="nav-link {% if request.GET.status == 'cancelled' %}active{% endif %}" 
+                           href="{% url 'my_orders' %}?status=cancelled{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                            <i class="fas fa-times-circle me-2"></i>Cancelled
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Orders List -->
+            {% if orders.object_list %}
+                {% for order in orders %}
+                    <div class="order-card">
+                        <!-- Clean card header without gradient -->
+                        <div class="order-card-header">
+                            <div class="row align-items-center">
+                                <div class="col-md-6">
+                                    <div class="order-number">Order #{{ order.order_number }}</div>
+                                    <div class="order-date">
+                                        <i class="fas fa-calendar-alt me-2"></i>
+                                        {{ order.created_at|date:"F d, Y" }}
+                                    </div>
+                                </div>
+
+
+                                {% comment %} price details {% endcomment %}
+
+
+
+                                {% comment %} <div class="col-md-6 text-md-end">
+                                    <div class="mb-2">
+                                        <span class="status-badge status-{{ order.get_overall_status|lower }}">
+                                            {{ order.get_overall_status|default:"Processing" }}
+                                        </span>
+                                    </div>
+                                    <div class="h5 mb-0">₹{{ order.total_amount }}</div>
+                                </div> {% endcomment %}
+                            </div>
+                        </div>
+                        
+                        <div class="order-card-body">
+                            <!-- Order Items Preview -->
+                            <div class="order-items-preview">
+                                {% if status_filter and order.filtered_items %}
+                                    {% for item in order.filtered_items|slice:":4" %}
+                                        <!-- Fixed product variant image access to handle both variant and product images -->
+                                        {% if item.product_variant.images.first %}
+                                            <img src="{{ item.product_variant.images.first.image }}" 
+                                                 alt="{{ item.product_variant.product.name }} - {{ item.product_variant.size }}" 
+                                                 class="item-preview"
+                                                 title="{{ item.product_variant.product.name }} - Size: {{ item.product_variant.size }}">
+                                        {% elif item.product_variant.product.images.first %}
+                                            <img src="{{ item.product_variant.product.images.first.image}}" 
+                                                 alt="{{ item.product_variant.product.name }} - {{ item.product_variant.size }}" 
+                                                 class="item-preview"
+                                                 title="{{ item.product_variant.product.name }} - Size: {{ item.product_variant.size }}">
+                                        {% else %}
+                                            <!-- Added fallback placeholder image when no product images are available -->
+                                            <div class="item-preview d-flex align-items-center justify-content-center bg-light text-muted" 
+                                                 style="font-size: 0.8rem; font-weight: 500;"
+                                                 title="{{ item.product_variant.product.name }} - Size: {{ item.product_variant.size }}">
+                                                <i class="fas fa-image"></i>
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% if order.filtered_items|length > 4 %}
+                                        <div class="items-count d-flex align-items-center">
+                                            +{{ order.filtered_items|length|add:"-4" }} more
+                                        </div>
+                                    {% endif %}
+                                {% else %}
+                                    {% for item in order.items.all|slice:":4" %}
+                                        <!-- Fixed product variant image access to handle both variant and product images -->
+                                        {% if item.product_variant.images.first %}
+                                            <img src="{{ item.product_variant.images.first.image }}" 
+                                                 alt="{{ item.product_variant.product.name }} - {{ item.product_variant.size }}" 
+                                                 class="item-preview"
+                                                 title="{{ item.product_variant.product.name }} - Size: {{ item.product_variant.size }}">
+                                        {% elif item.product_variant.product.images.first %}
+                                            <img src="{{ item.product_variant.product.images.first.image }}" 
+                                                 alt="{{ item.product_variant.product.name }} - {{ item.product_variant.size }}" 
+                                                 class="item-preview"
+                                                 title="{{ item.product_variant.product.name }} - Size: {{ item.product_variant.size }}">
+                                        {% else %}
+                                            <!-- Added fallback placeholder image when no product images are available -->
+                                            <div class="item-preview d-flex align-items-center justify-content-center bg-light text-muted" 
+                                                 style="font-size: 0.8rem; font-weight: 500;"
+                                                 title="{{ item.product_variant.product.name }} - Size: {{ item.product_variant.size }}">
+                                                <i class="fas fa-image"></i>
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% if order.items.count > 4 %}
+                                        <div class="items-count d-flex align-items-center">
+                                            +{{ order.items.count|add:"-4" }} more
+                                        </div>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+
+                            <!-- Order Summary -->
+                            <div class="row align-items-center">
+                                <div class="col-md-8">
+                                    <p class="mb-1">
+                                        {% if status_filter and order.filtered_items %}
+                                            <strong>{{ order.filtered_items|length }} item{{ order.filtered_items|length|pluralize }}</strong>
+                                        {% else %}
+                                            <strong>{{ order.items.count }} item{{ order.items.count|pluralize }}</strong>
+                                        {% endif %}
+                                        {% if order.shipping_address %}
+                                            • Shipping to {{ order.shipping_address.city }}, {{ order.shipping_address.state }}
+                                        {% endif %}
+                                    </p>
+                                    <p class="mb-0 text-muted">
+                                        <i class="fas fa-credit-card me-1"></i>
+                                        {{ order.get_payment_method_display }}
+                                        {% if order.payment_status %}
+                                            <span class="badge bg-success ms-2">Paid</span>
+                                        {% else %}
+                                            <span class="badge bg-warning ms-2">Pending</span>
+                                        {% endif %}
+                                    </p>
+                                    
+                                    <!-- Show only product names with individual statuses, no extra divisions -->
+                                    <div class="mt-2">
+                                        {% if status_filter and order.filtered_items %}
+                                            {% for item in order.filtered_items %}
+                                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                                    <small class="text-muted">{{ item.product_variant.product.name }} - Size {{ item.product_variant.size }}</small>
+                                                    {% comment %} <span class="status-badge status-{{ item.status|lower }}" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;">
+                                                        {{ item.get_status_display }}
+                                                    </span> {% endcomment %}
+                                                </div>
+                                            {% endfor %}
+                                        {% else %}
+                                            {% for item in order.items.all %}
+                                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                                    <small class="text-muted">{{ item.product_variant.product.name }} - Size {{ item.product_variant.size }}</small>
+                                                    {% comment %} <span class="status-badge status-{{ item.status|lower }}" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;">
+                                                        {{ item.get_status_display }}
+                                                    </span> {% endcomment %}
+                                                </div>
+                                            {% endfor %}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <!-- Moved invoice buttons to right side with proper conditions -->
+                                    <div class="order-actions">
+                                        <a href="{% url 'order_detail' order.id %}" class="btn btn-custom btn-view">
+                                            <i class="fas fa-eye"></i> View Details
+                                        </a>
+                                        
+                                        <!-- Invoice buttons for individual delivered items -->
+                                        {% if status_filter and order.filtered_items %}
+                                            {% for item in order.filtered_items %}
+                                                {% if item.status == 'Delivered' and order.payment_status %}
+                                                    <a href="{% url 'download_invoice' item.id %}" 
+                                                       class="btn btn-sm btn-outline-primary mb-1"
+                                                       style="border-radius: 15px; font-size: 0.75rem;">
+                                                        <i class="fas fa-file-invoice me-1"></i>Invoice - {{ item.product_variant.product.name|truncatechars:15 }}
+                                                    </a>
+                                                {% elif item.status == 'Delivered' and not order.payment_status %}
+                                                    <button class="btn btn-sm btn-outline-secondary mb-1" disabled
+                                                            style="border-radius: 15px; font-size: 0.75rem;">
+                                                        <i class="fas fa-file-invoice me-1"></i>Invoice Pending Payment
+                                                    </button>
+                                                {% endif %}
+                                            {% endfor %}
+                                        {% else %}
+                                            {% for item in order.items.all %}
+                                                {% if item.status == 'Delivered' and order.payment_status %}
+                                                    <a href="{% url 'download_invoice' item.id %}" 
+                                                       class="btn btn-sm btn-outline-primary mb-1"
+                                                       style="border-radius: 15px; font-size: 0.75rem;">
+                                                        <i class="fas fa-file-invoice me-1"></i>Invoice - {{ item.product_variant.product.name|truncatechars:15 }}
+                                                    </a>
+                                                {% elif item.status == 'Delivered' and not order.payment_status %}
+                                                    <button class="btn btn-sm btn-outline-secondary mb-1" disabled
+                                                            style="border-radius: 15px; font-size: 0.75rem;">
+                                                        <i class="fas fa-file-invoice me-1"></i>Invoice Pending Payment
+                                                    </button>
+                                                {% endif %}
+                                            {% endfor %}
+                                        {% endif %}
+                                        
+                                        {% if order.get_overall_status == 'Delivered' %}
+                                            <button class="btn btn-custom btn-return" 
+                                                    onclick="returnOrder({{ order.id }})">
+                                                <i class="fas fa-undo"></i> Return
+                                            </button>
+                                        {% endif %}
+                                        {% if order.get_overall_status in 'Pending,Processing' %}
+                                            <button class="btn btn-custom btn-cancel" 
+                                                    onclick="cancelOrder({{ order.id }})">
+                                                <i class="fas fa-times"></i> Cancel
+                                            </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+
+                <!-- Pagination -->
+                {% if is_paginated %}
+                    <nav aria-label="Orders pagination" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
+                                        <i class="fas fa-angle-double-left"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
+                                        <i class="fas fa-angle-left"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">{{ num }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
+                                        <i class="fas fa-angle-right"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
+                                        <i class="fas fa-angle-double-right"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+            {% else %}
+                <div class="order-card">
+                    <div class="no-orders">
+                        <i class="fas fa-box-open"></i>
+                        <h4>No Orders Found</h4>
+                        <p class="mb-4">
+                            {% if request.GET.search %}
+                                No orders match your search criteria.
+                            {% else %}
+                                You haven't placed any orders yet.
+                            {% endif %}
+                        </p>
+                        <!-- Enhanced Start Shopping button with better styling -->
+                        <a href="{% url 'home' %}" class="btn-start-shopping">
+                            <i class="fas fa-shopping-bag"></i>Start Shopping
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Cancel Order Modal -->
+<div class="modal fade" id="cancelOrderModal" tabindex="-1" aria-labelledby="cancelOrderModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" style="border-radius: 15px; border: none;">
+            <div class="modal-header" style="background: var(--gradient-primary); color: white; border: none;">
+                <h5 class="modal-title" id="cancelOrderModalLabel">
+                    <i class="fas fa-times-circle me-2"></i>Cancel Order
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p>Are you sure you want to cancel this entire order? This action cannot be undone.</p>
+                <form id="cancelOrderForm">
+                    <input type="hidden" id="cancelOrderId" name="orderId">
+                    <div class="mb-3">
+                        <label for="cancelReason" class="form-label">Reason for cancellation (optional)</label>
+                        <select class="form-select" id="cancelReason" name="reason" style="border-radius: 10px;">
+                            <option value="">Select a reason</option>
+                            <option value="changed_mind">Changed my mind</option>
+                            <option value="found_better_price">Found better price elsewhere</option>
+                            <option value="ordered_by_mistake">Ordered by mistake</option>
+                            <option value="delivery_too_long">Delivery taking too long</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="customReasonDiv" style="display: none;">
+                        <label for="customReason" class="form-label">Please specify</label>
+                        <textarea class="form-control" id="customReason" name="customReason" rows="3" 
+                                  style="border-radius: 10px;" placeholder="Please provide more details..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-0 p-4">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" 
+                        style="border-radius: 25px;">Keep Order</button>
+                <button type="button" class="btn btn-danger" id="confirmCancelOrder"
+                        style="border-radius: 25px;">
+                    <i class="fas fa-times me-2"></i>Cancel Order
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Return Order Modal -->
+<div class="modal fade" id="returnOrderModal" tabindex="-1" aria-labelledby="returnOrderModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content" style="border-radius: 15px; border: none;">
+            <div class="modal-header" style="background: var(--gradient-primary); color: white; border: none;">
+                <h5 class="modal-title" id="returnOrderModalLabel">
+                    <i class="fas fa-undo me-2"></i>Return Order
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p>Please provide a reason for returning this order. This information helps us improve our service.</p>
+                <form id="returnOrderForm">
+                    <input type="hidden" id="returnOrderId" name="orderId">
+                    <div class="mb-3">
+                        <label for="returnReason" class="form-label">Reason for return <span class="text-danger">*</span></label>
+                        <select class="form-select" id="returnReason" name="reason" required style="border-radius: 10px;">
+                            <option value="">Select a reason</option>
+                            <option value="defective_product">Product is defective/damaged</option>
+                            <option value="wrong_size">Wrong size received</option>
+                            <option value="wrong_product">Wrong product received</option>
+                            <option value="not_as_described">Product not as described</option>
+                            <option value="quality_issues">Quality issues</option>
+                            <option value="changed_mind">Changed my mind</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="customReturnReasonDiv" style="display: none;">
+                        <label for="customReturnReason" class="form-label">Please specify <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="customReturnReason" name="customReturnReason" rows="3" 
+                                  style="border-radius: 10px;" placeholder="Please provide detailed reason for return..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="returnComments" class="form-label">Additional comments (optional)</label>
+                        <textarea class="form-control" id="returnComments" name="comments" rows="2" 
+                                  style="border-radius: 10px;" placeholder="Any additional information..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-0 p-4">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" 
+                        style="border-radius: 25px;">Cancel</button>
+                <button type="button" class="btn btn-warning" id="confirmReturnOrder"
+                        style="border-radius: 25px;">
+                    <i class="fas fa-undo me-2"></i>Submit Return Request
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const cancelOrderModal = new bootstrap.Modal(document.getElementById('cancelOrderModal'));
+    const returnOrderModal = new bootstrap.Modal(document.getElementById('returnOrderModal'));
+    const cancelReasonSelect = document.getElementById('cancelReason');
+    const customReasonDiv = document.getElementById('customReasonDiv');
+    const confirmCancelBtn = document.getElementById('confirmCancelOrder');
+    
+    const returnReasonSelect = document.getElementById('returnReason');
+    const customReturnReasonDiv = document.getElementById('customReturnReasonDiv');
+    const confirmReturnBtn = document.getElementById('confirmReturnOrder');
+
+    cancelReasonSelect.addEventListener('change', function() {
+        if (this.value === 'other') {
+            customReasonDiv.style.display = 'block';
+        } else {
+            customReasonDiv.style.display = 'none';
+        }
+    });
+
+    returnReasonSelect.addEventListener('change', function() {
+        if (this.value === 'other') {
+            customReturnReasonDiv.style.display = 'block';
+            document.getElementById('customReturnReason').required = true;
+        } else {
+            customReturnReasonDiv.style.display = 'none';
+            document.getElementById('customReturnReason').required = false;
+        }
+    });
+
+    window.cancelOrder = function(orderId) {
+        document.getElementById('cancelOrderId').value = orderId;
+        cancelOrderModal.show();
+    }
+
+    window.returnOrder = function(orderId) {
+        document.getElementById('returnOrderId').value = orderId;
+        returnOrderModal.show();
+    }
+
+    confirmCancelBtn.addEventListener('click', function() {
+        const orderId = document.getElementById('cancelOrderId').value;
+        const reason = cancelReasonSelect.value;
+        const customReason = document.getElementById('customReason').value;
+
+        confirmCancelBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Cancelling...';
+        confirmCancelBtn.disabled = true;
+
+        setTimeout(() => {
+            Swal.fire({
+                icon: 'success',
+                title: 'Order Cancelled',
+                text: 'Your order has been cancelled successfully.',
+                confirmButtonColor: '#ff429d'
+            }).then(() => {
+                location.reload();
+            });
+        }, 1500);
+    });
+
+    confirmReturnBtn.addEventListener('click', function() {
+        const orderId = document.getElementById('returnOrderId').value;
+        const reason = returnReasonSelect.value;
+        const customReason = document.getElementById('customReturnReason').value;
+        const comments = document.getElementById('returnComments').value;
+
+        if (!reason) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Missing Information',
+                text: 'Please select a reason for return.',
+                confirmButtonColor: '#ff429d'
+            });
+            return;
+        }
+
+        if (reason === 'other' && !customReason.trim()) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Missing Information',
+                text: 'Please provide detailed reason for return.',
+                confirmButtonColor: '#ff429d'
+            });
+            return;
+        }
+
+        confirmReturnBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
+        confirmReturnBtn.disabled = true;
+
+        setTimeout(() => {
+            Swal.fire({
+                icon: 'success',
+                title: 'Return Request Submitted',
+                text: 'Your return request has been submitted successfully. We will process it within 24-48 hours.',
+                confirmButtonColor: '#ff429d'
+            }).then(() => {
+                location.reload();
+            });
+        }, 1500);
+    });
+});
+</script>
+{% endblock %}

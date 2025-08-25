@@ -1,0 +1,419 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}Customers | Walkoria{% endblock %}
+
+{% block page_title %}Customers{% endblock %}
+
+{% block extra_styles %}
+/* Customer Management Styles */
+.customers-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.search-container {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.search-input {
+    padding: 10px 15px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    width: 300px;
+    font-size: 14px;
+}
+
+.search-btn, .clear-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.search-btn {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.search-btn:hover {
+    background-color: #e63384;
+}
+
+.clear-btn {
+    background-color: #6c757d;
+    color: white;
+}
+
+.clear-btn:hover {
+    background-color: #5a6268;
+}
+
+.customers-table-container {
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    overflow-x: auto;
+}
+
+.customers-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+}
+
+.customers-table th,
+.customers-table td {
+    padding: 15px;
+    text-align: left;
+    border-bottom: 1px solid #f1f1f1;
+}
+
+.customers-table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.customers-table td {
+    font-size: 14px;
+    color: #495057;
+}
+
+.customers-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.status-toggle {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+}
+
+.status-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 24px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .toggle-slider {
+    background-color: #28a745;
+}
+
+input:checked + .toggle-slider:before {
+    transform: translateX(26px);
+}
+
+.edit-btn {
+    background: none;
+    border: none;
+    color: var(--primary-color);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.edit-btn:hover {
+    background-color: rgba(255, 66, 157, 0.1);
+}
+
+.pagination-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 20px;
+}
+
+.pagination {
+    display: flex;
+    gap: 5px;
+}
+
+.pagination a,
+.pagination span {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    text-decoration: none;
+    color: #495057;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.pagination a:hover {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.pagination .current {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.pagination-info {
+    color: #6c757d;
+    font-size: 14px;
+}
+
+/* Confirmation Modal */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+}
+
+.modal-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    text-align: center;
+    min-width: 400px;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.confirm-btn, .cancel-btn {
+    padding: 10px 25px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.confirm-btn {
+    background-color: #dc3545;
+    color: white;
+}
+
+.cancel-btn {
+    background-color: #6c757d;
+    color: white;
+}
+{% endblock %}
+
+{% block content %}
+<!-- Add CSRF token for AJAX requests -->
+{% csrf_token %}
+
+<!-- Customers Header -->
+<div class="customers-header">
+    <h2 style="margin: 0; color: #2c3e50;">Customer Management</h2>
+    <div class="search-container">
+        <form method="GET" style="display: flex; gap: 10px;">
+            <input type="text" name="search" class="search-input" placeholder="Search customers..." value="{{ request.GET.search }}">
+            <button type="submit" class="search-btn">
+                <i class="fas fa-search"></i> Search
+            </button>
+            {% if request.GET.search %}
+            <a href="{% url 'customers' %}" class="clear-btn" style="text-decoration: none; display: flex; align-items: center;">
+                <i class="fas fa-times"></i> Clear
+            </a>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<!-- Customers Table -->
+<div class="customers-table-container">
+    <table class="customers-table">
+        <thead>
+            <tr>
+                <th>S.No</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Mobile</th>
+                <th>Status</th>
+                {% comment %} <th>Update</th> {% endcomment %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ forloop.counter0|add:users.start_index }}</td>
+                <td>{{ user.name|title|default:"-" }}</td>
+                <td>{{ user.email }}</td>
+                <td>{{ user.mobile_no|default:"-" }}</td>
+                <td>
+                    <label class="status-toggle">
+                        <input type="checkbox" {% if user.status == 'Blocked' %}checked{% endif %}
+                               onchange="confirmStatusChange('{{ user.email }}', this.checked, '{{ user.name|title }}',event)">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </td>
+                {% comment %} <td>
+                    <button class="edit-btn" onclick="editCustomer('{{ user.email }}')">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                </td> {% endcomment %}
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 40px; color: #6c757d;">
+                    {% if request.GET.search %}
+                        No customers found for "{{ request.GET.search }}"
+                    {% else %}
+                        No customers found
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Pagination -->
+    {% if users.has_other_pages %}
+    <div class="pagination-container">
+        <div class="pagination-info">
+            Showing {{ users.start_index }} to {{ users.end_index }} of {{ users.paginator.count }} customers
+        </div>
+        <div class="pagination">
+            {% if users.has_previous %}
+                <a href="?page=1{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">&laquo; First</a>
+                <a href="?page={{ users.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">Previous</a>
+            {% endif %}
+
+            {% for num in users.paginator.page_range %}
+                {% if users.number == num %}
+                    <span class="current">{{ num }}</span>
+                {% elif num > users.number|add:'-3' and num < users.number|add:'3' %}
+                    <a href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">{{ num }}</a>
+                {% endif %}
+            {% endfor %}
+
+            {% if users.has_next %}
+                <a href="?page={{ users.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">Next</a>
+                <a href="?page={{ users.paginator.num_pages }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">Last &raquo;</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Confirmation Modal -->
+<div id="confirmModal" class="modal-overlay">
+    <div class="modal-content">
+        <h3 style="margin-bottom: 15px; color: #2c3e50;">Confirm Action</h3>
+        <p id="confirmMessage"></p>
+        <div class="modal-buttons">
+            <button class="confirm-btn" onclick="executeStatusChange()">Confirm</button>
+            <button class="cancel-btn" onclick="closeModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+let pendingStatusChange = null;
+
+function confirmStatusChange(userEmail, newStatus, userName, event) {
+    const action = newStatus ? 'block' : 'activate';
+    const message = `Are you sure you want to ${action} ${userName}?`;
+
+    document.getElementById('confirmMessage').textContent = message;
+    document.getElementById('confirmModal').style.display = 'block';
+
+    pendingStatusChange = {
+        userEmail: userEmail,
+        newStatus: newStatus,
+        element: event.target
+    };
+}
+function executeStatusChange() {
+    if (pendingStatusChange) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `{% url 'customer_status'  %}`;
+
+        // CSRF token
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+
+        // Add user email
+        const emailInput = document.createElement('input');
+        emailInput.type = 'hidden';
+        emailInput.name = 'email';
+        emailInput.value = pendingStatusChange.userEmail;
+        form.appendChild(emailInput);
+
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+
+function closeModal() {
+    if (pendingStatusChange) {
+        // Revert the toggle if modal is closed without confirmation
+        pendingStatusChange.element.checked = !pendingStatusChange.newStatus;
+    }
+    document.getElementById('confirmModal').style.display = 'none';
+    pendingStatusChange = null;
+}
+
+function editCustomer(userEmail) {
+    // Redirect to edit customer page - adjust URL as needed
+    window.location.href = `/admin/customers/${userEmail}/edit/`;
+}
+
+// Close modal when clicking outside
+document.getElementById('confirmModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeModal();
+    }
+});
+{% endblock %}

@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Walkoria - Premium Footwear{% endblock %}</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <style>
+        :root {
+            --primary-color: #ff429d;
+            --secondary-color: #ff89c2;
+            --light-color: #ffd1e6;
+            --dark-color: #99285e;
+            --gradient-primary: linear-gradient(135deg, #ff429d 0%, #ff89c2 100%);
+            --gradient-secondary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #ff429d,rgb(95, 232, 250));
+            min-height: 100vh;
+        }
+        
+        /* Navigation Styles */
+        .navbar {
+            background: white;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            padding: 15px 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        
+        .navbar-brand {
+            font-weight: bold;
+            color: var(--primary-color) !important;
+            font-size: 2rem;
+            letter-spacing: 1px;
+        }
+        
+        .nav-link {
+            color: #333 !important;
+            font-weight: 500;
+            margin: 0 15px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            letter-spacing: 0.5px;
+        }
+        
+        .nav-link:hover {
+            color: var(--primary-color) !important;
+            transform: translateY(-2px);
+        }
+        
+        .search-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .search-input {
+            width: 100%;
+            border-radius: 25px;
+            border: 2px solid #e9ecef;
+            padding: 12px 50px 12px 20px;
+            background-color: #f8f9fa;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(255, 66, 157, 0.25);
+            background-color: white;
+        }
+        
+        .search-button {
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            height: calc(100% - 10px);
+            width: 45px;
+            border-radius: 20px;
+            background: var(--gradient-primary);
+            color: white;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+        
+        .search-button:hover {
+            transform: translateY(-50%) scale(1.05);
+        }
+        
+        .cart-icon {
+            color: #333;
+            font-size: 1.3rem;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        
+        .cart-icon:hover {
+            color: var(--primary-color);
+            transform: scale(1.1);
+        }
+        
+        .cart-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .user-dropdown {
+            position: relative;
+        }
+        
+        .user-avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background: var(--gradient-primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .user-avatar:hover {
+            transform: scale(1.1);
+        }
+
+        .auth-buttons .btn {
+            border-radius: 25px;
+            padding: 8px 20px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .auth-buttons .btn-login {
+            background: var(--gradient-primary);
+            color: white;
+            border: none;
+        }
+
+        .auth-buttons .btn-signup {
+            background: transparent;
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+            margin-left: 10px;
+        }
+
+        .auth-buttons .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Newsletter Section */
+        .newsletter-section {
+            background: var(--gradient-secondary);
+            padding: 80px 0;
+            color: white;
+            position: relative;
+        }
+        
+        .newsletter-icon {
+            font-size: 4rem;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 30px;
+        }
+        
+        .newsletter-title {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+        }
+        
+        .newsletter-subtitle {
+            font-size: 1.1rem;
+            margin-bottom: 40px;
+            opacity: 0.9;
+        }
+        
+        .newsletter-form {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        .newsletter-input {
+            border: none;
+            border-radius: 25px;
+            padding: 15px 25px;
+            font-size: 1rem;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+        }
+        
+        .newsletter-input:focus {
+            outline: none;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
+        }
+        
+        .newsletter-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            padding: 15px 30px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+        }
+        
+        .newsletter-btn:hover {
+            background: var(--dark-color);
+            transform: translateY(-2px);
+        }
+        
+        /* Features Section */
+        .features-section {
+            padding: 80px 0;
+            background: white;
+        }
+        
+        .feature-card {
+            text-align: center;
+            padding: 40px 20px;
+            border-radius: 15px;
+            transition: all 0.3s ease;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            height: 100%;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+        }
+        
+        .feature-icon {
+            font-size: 3rem;
+            color: var(--primary-color);
+            margin-bottom: 25px;
+            display: block;
+        }
+        
+        .feature-title {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .feature-description {
+            color: #666;
+            font-size: 1rem;
+            line-height: 1.6;
+        }
+        
+        /* Footer */
+        .footer {
+            background: #2c3e50;
+            color: white;
+            padding: 60px 0 20px;
+        }
+        
+        .footer-title {
+            font-weight: 600;
+            margin-bottom: 25px;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .footer-link {
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            display: block;
+            margin-bottom: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        .footer-link:hover {
+            color: var(--light-color);
+            transform: translateX(5px);
+        }
+        
+        .social-icon {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 1.5rem;
+            margin-right: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .social-icon:hover {
+            color: var(--light-color);
+            transform: translateY(-3px);
+        }
+        
+        .contact-info {
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 12px;
+        }
+        
+        .contact-icon {
+            color: var(--light-color);
+            margin-right: 10px;
+        }
+        
+        .payment-icons {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .payment-icon {
+            background: white;
+            border-radius: 8px;
+            padding: 10px 15px;
+            margin: 0 10px 10px 0;
+            display: inline-block;
+            transition: all 0.3s ease;
+        }
+        
+        .payment-icon:hover {
+            transform: translateY(-3px);
+        }
+        
+        .payment-icon i {
+            color: #333;
+            font-size: 1.5rem;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .newsletter-title {
+                font-size: 2rem;
+            }
+            
+            .search-container {
+                margin: 15px 0;
+            }
+            
+            .navbar {
+                padding: 10px 0;
+            }
+        }
+        
+        /* Loading Animation */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 50px;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Additional styles for product cards */
+        .product-card {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            height: 100%;
+        }
+        
+        .product-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 66, 157, 0.1), transparent);
+            transition: all 0.5s ease;
+        }
+        
+        .product-card:hover::before {
+            left: 100%;
+        }
+        
+        .product-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+        
+        .product-image {
+            text-align: center;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        .product-image img {
+            max-width: 100%;
+            height: 200px;
+            object-fit: contain;
+            transition: all 0.3s ease;
+        }
+        
+        .product-card:hover .product-image img {
+            transform: scale(1.05);
+        }
+        
+        .product-brand {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .product-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+        
+        .product-rating {
+            margin-bottom: 15px;
+        }
+        
+        .star {
+            color: #ffc107;
+            font-size: 0.9rem;
+        }
+        
+        .star.empty {
+            color: #e9ecef;
+        }
+        
+        .product-price {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        .price-currency {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .buy-btn {
+            width: 100%;
+            background: var(--gradient-primary);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .buy-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: all 0.5s ease;
+        }
+        
+        .buy-btn:hover::before {
+            left: 100%;
+        }
+        
+        .buy-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(255, 66, 157, 0.4);
+        }
+
+        /* Additional styles */
+        {% block style %}{% endblock %}
+    </style>
+    {% block link %}{% endblock %}
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'home' %}">Walkoria</a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'home' %}">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'product_listing' %}">Products</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">About Us</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Contact</a>
+                    </li>
+                </ul>
+                
+                {% comment %} <div class="search-container mx-auto">
+                    <form method="GET" action="{% url 'product_listing' %}">
+                        <input type="search" name="search" class="search-input" placeholder="Search Products, Brands and more...">
+                        <button class="search-button" type="submit">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </form>
+                </div> {% endcomment %}
+                
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'view_cart' %}">
+                            <i class="fas fa-shopping-cart cart-icon">
+                                <span class="cart-badge">{{ cart_count|default:0 }}</span>
+                                
+                            </i>
+                        </a>
+                    </li>
+                    {% if user.is_authenticated %}
+                    <li class="nav-item dropdown user-dropdown">
+                          <div class="user-avatar" data-bs-toggle="dropdown">
+                            {% if user.profile_image %}
+                                <img class="user-avatar" src="{{ user.profile_image }}" alt="">
+                            {% else %}
+                                {{ user.name|first|default:"U"|upper }}
+                            {% endif %}
+                         </div>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'profile' %}">Profile</a></li>
+                            <li><a class="dropdown-item" href="#">My Orders</a></li>
+                            <li><a class="dropdown-item" href="#">Wishlist</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form action="{% url 'logout_account' %}" method="post" class="px-2">
+                                    {% csrf_token %}
+                                    <button type="submit" class="dropdown-item text-danger">
+                                        <i class="fas fa-sign-out-alt me-2"></i>Logout
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </li>
+                    {% else %}
+                    <li class="nav-item auth-buttons d-flex">
+                        <a href="{% url 'login' %}" class="btn btn-login">Login</a>
+                        <a href="{% url 'signup' %}" class="btn btn-signup">Sign Up</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    {% block content %}{% endblock %}
+
+    <!-- Newsletter Section -->
+    <section class="newsletter-section">
+        <div class="container text-center">
+            <i class="fas fa-envelope newsletter-icon"></i>
+            <h2 class="newsletter-title">SIGN UP FOR NEWSLETTERS</h2>
+            <p class="newsletter-subtitle">Be the First to Know, Sign up for newsletter today</p>
+            <form class="newsletter-form" method="POST" action="#">
+                {% csrf_token %}
+                <div class="input-group">
+                    <input type="email" name="email" class="form-control newsletter-input" placeholder="ENTER YOUR EMAIL" required>
+                    <button class="btn newsletter-btn" type="submit">SUBSCRIBE</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features-section">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="feature-card">
+                        <i class="fas fa-rocket feature-icon"></i>
+                        <h4 class="feature-title">EXPRESS SHIPPING</h4>
+                        <p class="feature-description">Shipping in 24 Hours</p>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="feature-card">
+                        <i class="fas fa-truck feature-icon"></i>
+                        <h4 class="feature-title">SHIPPING TRACKING</h4>
+                        <p class="feature-description">Track your package anywhere</p>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="feature-card">
+                        <i class="fas fa-shield-alt feature-icon"></i>
+                        <h4 class="feature-title">BUY SAFELY</h4>
+                        <p class="feature-description">Buy safely, any question is here to help!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <h5 class="footer-title">CUSTOMER SERVICE</h5>
+                    <a href="#" class="footer-link">Contact us</a>
+                    <a href="#" class="footer-link">Shipping & Returns</a>
+                    <a href="#" class="footer-link">Terms & Conditions</a>
+                    <a href="#" class="footer-link">Delivery</a>
+                </div>
+                
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <h5 class="footer-title">INFORMATION</h5>
+                    <a href="#" class="footer-link">About</a>
+                    <a href="#" class="footer-link">Payments</a>
+                    <a href="#" class="footer-link">Size guide</a>
+                    <a href="#" class="footer-link">Administrator</a>
+                </div>
+                
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <h5 class="footer-title">FOLLOW US</h5>
+                    <div>
+                        <a href="#" class="social-icon"><i class="fab fa-instagram"></i></a>
+                        <a href="#" class="social-icon"><i class="fab fa-facebook"></i></a>
+                        <a href="#" class="social-icon"><i class="fab fa-linkedin"></i></a>
+                        <a href="#" class="social-icon"><i class="fab fa-twitter"></i></a>
+                    </div>
+                </div>
+                
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <h5 class="footer-title">CONTACT US</h5>
+                    <p class="contact-info">
+                        <i class="fas fa-phone contact-icon"></i> +1 555-123-4567
+                    </p>
+                    <p class="contact-info">
+                        <i class="fas fa-envelope contact-icon"></i> info@walkoria.com
+                    </p>
+                    <p class="contact-info">
+                        <i class="fas fa-map-marker-alt contact-icon"></i> 123 Fashion Street, Style City
+                    </p>
+                </div>
+            </div>
+            
+            <div class="payment-icons">
+                <div class="payment-icon">
+                    <i class="fab fa-cc-visa"></i>
+                </div>
+                <div class="payment-icon">
+                    <i class="fab fa-cc-mastercard"></i>
+                </div>
+                <div class="payment-icon">
+                    <i class="fab fa-cc-paypal"></i>
+                </div>
+                <div class="payment-icon">
+                    <i class="fab fa-cc-amex"></i>
+                </div>
+            </div>
+            
+            <div class="text-center mt-4 pt-4" style="border-top: 1px solid rgba(255,255,255,0.1);">
+                <p>&copy; 2024 Walkoria. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Loading Overlay -->
+    <div class="loading" id="loadingOverlay">
+        <div class="spinner"></div>
+        <p>Loading...</p>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script>
+        // Get CSRF Token
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        
+        // Show/Hide Loading
+        function showLoading() {
+            document.getElementById('loadingOverlay').style.display = 'block';
+        }
+        
+        function hideLoading() {
+            document.getElementById('loadingOverlay').style.display = 'none';
+        }
+        
+        // Show Notification
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type} position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+        
+        // Smooth Scrolling for Anchor Links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+        
+        // Lazy Loading for Images
+        if ('IntersectionObserver' in window) {
+            const imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.dataset.src;
+                        img.classList.remove('lazy');
+                        imageObserver.unobserve(img);
+                    }
+                });
+            });
+            
+            document.querySelectorAll('img[data-src]').forEach(img => {
+                imageObserver.observe(img);
+            });
+        }
+    </script>
+    
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

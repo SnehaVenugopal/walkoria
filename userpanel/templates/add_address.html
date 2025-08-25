@@ -1,0 +1,151 @@
+{% extends "base_userpanel.html" %}
+
+{% block title %}Add New Address - Walkoria{% endblock %}
+
+{% block breadcrumb %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'manage_address' %}">Manage Addresses</a></li>
+        <li class="breadcrumb-item active">Add New Address</li>
+    </ol>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="content-card">
+    <h2 class="page-title">Add New Address</h2>
+    
+    <form method="POST" novalidate>
+        {% csrf_token %}
+        
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label for="id_full_name" class="form-label">Full Name</label>
+                <input type="text" class="form-control {% if form.full_name.errors %}is-invalid{% endif %}" 
+                       id="id_full_name" name="full_name" value="{{ form.full_name.value|default:'' }}" required>
+                {% if form.full_name.errors %}
+                    <div class="error-message">{{ form.full_name.errors.0 }}</div>
+                {% endif %}
+            </div>
+            <div class="col-md-6">
+                <label for="id_mobile_no" class="form-label">Mobile Number</label>
+                <input type="tel" class="form-control {% if form.mobile_no.errors %}is-invalid{% endif %}" 
+                       id="id_mobile_no" name="mobile_no" value="{{ form.mobile_no.value|default:'' }}" 
+                       required pattern="[6-9]\d{9}" placeholder="10-digit mobile number">
+                {% if form.mobile_no.errors %}
+                    <div class="error-message">{{ form.mobile_no.errors.0 }}</div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label for="id_pin_code" class="form-label">PIN Code</label>
+                <input type="text" class="form-control {% if form.pin_code.errors %}is-invalid{% endif %}" 
+                       id="id_pin_code" name="pin_code" value="{{ form.pin_code.value|default:'' }}" 
+                       required pattern="\d{6}" placeholder="6-digit PIN code">
+                {% if form.pin_code.errors %}
+                    <div class="error-message">{{ form.pin_code.errors.0 }}</div>
+                {% endif %}
+            </div>
+            <div class="col-md-6">
+                <label for="id_state" class="form-label">State</label>
+                <select class="form-select {% if form.state.errors %}is-invalid{% endif %}" id="id_state" name="state" required>
+                    <option value="">Select State</option>
+                    {% for state_code, state_name in form.state.field.choices %}
+                        {% if state_code %}
+                            <option value="{{ state_code }}" {% if form.state.value == state_code %}selected{% endif %}>
+                                {{ state_name }}
+                            </option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+                {% if form.state.errors %}
+                    <div class="error-message">{{ form.state.errors.0 }}</div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="mb-3">
+            <label for="id_address" class="form-label">Address (House No, Building, Street, Area)</label>
+            <textarea class="form-control {% if form.address.errors %}is-invalid{% endif %}" 
+                      id="id_address" name="address" rows="3" required 
+                      placeholder="Enter your complete address">{{ form.address.value|default:'' }}</textarea>
+            {% if form.address.errors %}
+                <div class="error-message">{{ form.address.errors.0 }}</div>
+            {% endif %}
+        </div>
+        
+        <div class="mb-3">
+            <label for="id_street" class="form-label">Street/Road Name</label>
+            <input type="text" class="form-control {% if form.street.errors %}is-invalid{% endif %}" 
+                   id="id_street" name="street" value="{{ form.street.value|default:'' }}" 
+                   required placeholder="Street or road name">
+            {% if form.street.errors %}
+                <div class="error-message">{{ form.street.errors.0 }}</div>
+            {% endif %}
+        </div>
+        
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label for="id_landmark" class="form-label">Landmark (Optional)</label>
+                <input type="text" class="form-control {% if form.landmark.errors %}is-invalid{% endif %}" 
+                       id="id_landmark" name="landmark" value="{{ form.landmark.value|default:'' }}" 
+                       placeholder="Nearby landmark">
+                {% if form.landmark.errors %}
+                    <div class="error-message">{{ form.landmark.errors.0 }}</div>
+                {% endif %}
+            </div>
+            <div class="col-md-6">
+                <label for="id_city" class="form-label">City/Town</label>
+                <input type="text" class="form-control {% if form.city.errors %}is-invalid{% endif %}" 
+                       id="id_city" name="city" value="{{ form.city.value|default:'' }}" 
+                       required placeholder="City or town name">
+                {% if form.city.errors %}
+                    <div class="error-message">{{ form.city.errors.0 }}</div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="mb-4">
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="id_default_address" 
+                       name="default_address" {% if form.default_address.value %}checked{% endif %}>
+                <label class="form-check-label" for="id_default_address">
+                    Make this my default address
+                </label>
+            </div>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary me-2">
+                <i class="fas fa-save"></i> Save Address
+            </button>
+            <a href="{% url 'manage_address' %}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Cancel
+            </a>
+        </div>
+    </form>
+</div>
+
+<style>
+.form-actions {
+    border-top: 1px solid #eee;
+    padding-top: 20px;
+    margin-top: 30px;
+}
+
+.form-check {
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.form-check-label {
+    font-weight: 500;
+    color: #495057;
+}
+</style>
+{% endblock %}

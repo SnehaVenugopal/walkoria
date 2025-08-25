@@ -1,0 +1,509 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}Order Management | Walkoria{% endblock %}
+{% block page_title %}Order Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Order Management Styles - matching product.html */
+    .order-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+    }
+
+    .search-filter-container {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+
+    .search-input, .filter-select {
+        padding: 10px 15px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-size: 14px;
+        transition: border-color 0.3s ease;
+    }
+
+    .search-input {
+        width: 300px;
+    }
+
+    .filter-select {
+        width: 200px;
+    }
+
+    .search-input:focus, .filter-select:focus {
+        outline: none;
+        border-color: var(--primary-color);
+    }
+
+    .search-btn, .clear-btn, .return-requests-btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .search-btn {
+        background-color: var(--primary-color);
+        color: white;
+    }
+
+    .search-btn:hover {
+        background-color: #e63384;
+    }
+
+    .clear-btn {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    .clear-btn:hover {
+        background-color: #5a6268;
+        color: white;
+    }
+
+    .return-requests-btn {
+        background-color: #17a2b8;
+        color: white;
+    }
+
+    .return-requests-btn:hover {
+        background-color: #138496;
+        color: white;
+    }
+
+    .order-table-container {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        overflow-x: auto;
+    }
+
+    .order-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+    }
+
+    .order-table th,
+    .order-table td {
+        padding: 15px;
+        text-align: left;
+        border-bottom: 1px solid #f1f1f1;
+    }
+
+    .order-table th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        color: #2c3e50;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .order-table td {
+        font-size: 14px;
+        color: #495057;
+    }
+
+    .order-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .status-badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+        text-transform: uppercase;
+    }
+
+    .status-pending {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+
+    .status-delivered {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .status-cancelled {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    .status-shipped {
+        background-color: #d1ecf1;
+        color: #0c5460;
+    }
+
+    .view-btn {
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .view-btn:hover {
+        background-color: #e63384;
+        color: white;
+        transform: translateY(-1px);
+    }
+
+    /* Pagination Styles */
+    .pagination-container {
+        display: flex;
+        justify-content: center;
+        margin-top: 30px;
+    }
+
+    .pagination {
+        display: flex;
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .page-item {
+        margin: 0 5px;
+    }
+
+    .page-link {
+        display: block;
+        padding: 8px 12px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        color: var(--primary-color);
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+
+    .page-link:hover {
+        background-color: #f8f9fa;
+    }
+
+    .page-item.active .page-link {
+        background-color: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+
+    .page-item.disabled .page-link {
+        color: #6c757d;
+        pointer-events: none;
+        cursor: default;
+    }
+
+    .no-results {
+        text-align: center;
+        padding: 40px;
+        color: #6c757d;
+        font-size: 16px;
+    }
+
+    /* Alert Styles */
+    .alert {
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 8px;
+        border-left: 4px solid;
+    }
+
+    .alert-success {
+        background-color: #d4edda;
+        border-left-color: #28a745;
+        color: #155724;
+    }
+
+    .alert-danger {
+        background-color: #f8d7da;
+        border-left-color: #dc3545;
+        color: #721c24;
+    }
+
+    /* Modal Styles */
+    .modal-content {
+        border-radius: 15px;
+        border: none;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    .modal-header {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        border-radius: 15px 15px 0 0;
+    }
+
+    .btn-group .btn {
+        margin-right: 5px;
+    }
+
+    .btn-success {
+        background-color: #28a745;
+        border-color: #28a745;
+    }
+
+    .btn-danger {
+        background-color: #dc3545;
+        border-color: #dc3545;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Order Header with title and return requests button -->
+<div class="order-header">
+    <h2 style="margin: 0; color: #2c3e50;">Order Management</h2>
+    <button type="button" class="return-requests-btn" data-bs-toggle="modal" data-bs-target="#returnRequestsModal">
+        <i class="fas fa-undo"></i>
+        View Return Requests
+    </button>
+</div>
+
+<!-- Search and Filter Form -->
+<div class="search-filter-container">
+    <form method="GET" action="{% url 'orders' %}" class="d-flex align-items-center w-100" style="gap: 15px;">
+        <input type="text" name="search" class="search-input" placeholder="Search by Order ID, User ID, or Product..." value="{{ search_query }}">
+        
+        <select name="status" class="filter-select">
+            <option value="">All Status</option>
+            {% for status in status_choices %}
+                <option value="{{ status.0 }}" {% if status.0 == status_filter %}selected{% endif %}>
+                    {{ status.1 }}
+                </option>
+            {% endfor %}
+        </select>
+        
+        <button type="submit" class="search-btn">
+            <i class="fas fa-search"></i> Search
+        </button>
+        
+        {% if search_query or status_filter %}
+        <a href="{% url 'orders' %}" class="clear-btn">
+            <i class="fas fa-times"></i> Clear
+        </a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Order Table -->
+<div class="order-table-container">
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <table class="order-table">
+        <thead>
+            <tr>
+                <th>S.No</th>
+                <th>Order ID</th>
+                <th>Customer Name</th>
+                <th>Amount</th>
+                <th>Payment</th>
+                <th>Status</th>
+                <th>Date</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in order_items %}
+            <tr>
+                <td>{{ forloop.counter0|add:order_items.start_index }}</td>
+                <td><strong>{{ item.order.order_number }}</strong></td>
+                <td>{{ item.order.shipping_address.full_name }}</td>
+                <td><strong>₹{{ item.price }}</strong></td>
+                <td>{{ item.order.get_payment_method_display }}</td>
+                <td>
+                    <span class="status-badge {% if item.status == 'delivered' %}status-delivered
+                                          {% elif item.status == 'pending' %}status-pending
+                                          {% elif item.status == 'cancelled' %}status-cancelled
+                                          {% elif item.status == 'shipped' %}status-shipped
+                                          {% else %}status-pending{% endif %}">
+                        {{ item.get_status_display }}
+                    </span>
+                </td>
+                <td>{{ item.order.created_at|date:"M d, Y" }}</td>
+                <td>
+                    <a href="{% url 'admin_order_overview' item.order.id %}" class="view-btn">
+                        <i class="fas fa-eye"></i> View Order
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="8" class="no-results">
+                    {% if search_query or status_filter %}
+                        No orders found matching your criteria
+                    {% else %}
+                        No orders found
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Pagination -->
+    {% if order_items.has_other_pages %}
+    <div class="pagination-container">
+        <ul class="pagination">
+            {% if order_items.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">First</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ order_items.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">Previous</a>
+                </li>
+            {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">First</span>
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link">Previous</span>
+                </li>
+            {% endif %}
+
+            {% for num in order_items.paginator.page_range %}
+                {% if order_items.number == num %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                    </li>
+                {% elif num > order_items.number|add:'-3' and num < order_items.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">{{ num }}</a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if order_items.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ order_items.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">Next</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ order_items.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">Last</a>
+                </li>
+            {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">Next</span>
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link">Last</span>
+                </li>
+            {% endif %}
+        </ul>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Return Requests Modal -->
+<div class="modal fade" id="returnRequestsModal" tabindex="-1" aria-labelledby="returnRequestsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="returnRequestsModalLabel">
+                    <i class="fas fa-undo me-2"></i>Return Requests
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>S.No</th>
+                                <th>Order ID</th>
+                                <th>Customer Name</th>
+                                <th>Product</th>
+                                <th>Amount</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in return_requests %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td>{{ item.order.order_number }}</td>
+                                <td>{{ order.user.first_name }} {{ order.user.last_name }}</td>
+                                <td>{{ item.product_variant.product.name }}</td>
+                                <td>₹{{ item.price }}</td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <form method="post" action="{% url 'handle_return_request' item.id 'approve' %}" class="d-inline">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-success btn-sm">
+                                                <i class="fas fa-check"></i> Approve
+                                            </button>
+                                        </form>
+                                        <form method="post" action="{% url 'handle_return_request' item.id 'reject' %}" class="d-inline">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-danger btn-sm">
+                                                <i class="fas fa-times"></i> Reject
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4">No return requests found</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Toast notification function
+    function showToast(message, type) {
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type}`;
+        toast.style.position = 'fixed';
+        toast.style.top = '20px';
+        toast.style.right = '20px';
+        toast.style.zIndex = '9999';
+        toast.style.minWidth = '300px';
+        toast.innerHTML = message;
+        
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transition = 'opacity 0.5s ease';
+            setTimeout(() => {
+                document.body.removeChild(toast);
+            }, 500);
+        }, 3000);
+    }
+</script>
+{% endblock %}

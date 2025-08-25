@@ -1,0 +1,323 @@
+
+{% extends 'user_base.html' %}
+
+{% block title %}OTP Verification - Walkoria{% endblock %}
+
+{% block background_image %}https://images.unsplash.com/photo-1543163521-1bf539c55dd2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2000&q=80{% endblock %}
+
+{% block additional_styles %}
+.otp-input {
+    width: 50px;
+    height: 50px;
+    text-align: center;
+    font-size: 24px;
+    margin: 5px;
+    background-color: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.otp-input:focus {
+    background-color: rgba(255, 255, 255, 0.25);
+    border-color: var(--secondary-color);
+    box-shadow: 0 0 0 0.2rem rgba(255, 66, 157, 0.25);
+    outline: none;
+}
+
+.timer-container {
+    margin-top: 20px;
+    text-align: center;
+    color: white;
+}
+
+.timer {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--light-color);
+}
+
+.resend-link {
+    color: rgba(255, 255, 255, 0.5);
+    text-decoration: none;
+    pointer-events: none;
+    transition: all 0.3s ease;
+}
+
+.resend-link.active {
+    color: var(--light-color);
+    pointer-events: auto;
+}
+
+.resend-link.active:hover {
+    color: white;
+    text-decoration: underline;
+}
+
+.verify-btn {
+    background-color: #b08d57;
+    border-color: #b08d57;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 1px;
+    width: 100%;
+    padding: 12px;
+}
+
+.verify-btn:hover {
+    background-color: #8a6d43;
+    border-color: #8a6d43;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(176, 141, 87, 0.4);
+}
+
+.otp-subtitle {
+    color: rgba(255, 255, 255, 0.8);
+    text-align: center;
+    margin-bottom: 25px;
+}
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="glass-form">
+            <h2 class="page-title">Verify Your Account</h2>
+            <p class="otp-subtitle">Please enter the 6-digit code sent to your email</p>
+
+            {% if messages %}
+            <div id="otp-alerts" class="mt-3">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show"
+                    role="alert"
+                    style="font-size: 0.9rem;
+                            color: {% if 'error' in message.tags %}red{% elif 'success' in message.tags %}green{% else %}black{% endif %};">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- OTP form -->
+            <form method="POST" action="">
+                {% csrf_token %}
+                <div class="d-flex justify-content-center mb-4">
+                    {% for i in "123456" %}
+                        <input type="text" name="otp{{ forloop.counter }}" maxlength="1" class="otp-input" required>
+                    {% endfor %}
+                </div>
+                <button type="submit" class="btn verify-btn">Verify</button>
+            </form>
+
+            <div class="timer-container">
+                <p>Resend code in <span class="timer" id="countdown">01:00</span></p>
+                <p><a href="#" id="resendLink" class="resend-link">Resend Code</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Auto-focus to next input box
+    const inputs = document.querySelectorAll('.otp-input');
+    inputs.forEach((input, i) => {
+        input.addEventListener('input', () => {
+            if (input.value.length === 1 && i < inputs.length - 1) {
+                inputs[i + 1].focus();
+            }
+        });
+
+        // Handle backspace key
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace' && input.value === '' && i > 0) {
+                inputs[i - 1].focus();
+            }
+        });
+    });
+
+    // Set focus to first input on page load
+    document.addEventListener('DOMContentLoaded', () => {
+        inputs[0].focus();
+        startCountdown();
+    });
+
+    // Countdown timer
+    {% comment %} function startCountdown() {
+        let timeLeft = 60; // 1 minute in seconds
+        const countdownEl = document.getElementById('countdown');
+        const resendLink = document.getElementById('resendLink');
+        
+        const countdownInterval = setInterval(() => {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            
+            // Format the time as MM:SS
+            countdownEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            if (timeLeft <= 0) {
+                clearInterval(countdownInterval);
+                countdownEl.textContent = '00:00';
+                resendLink.classList.add('active');
+            }
+            
+            timeLeft--;
+        }, 1000);
+    } {% endcomment %}
+
+function startCountdown() {
+    const countdownEl = document.getElementById('countdown');
+    const resendLink = document.getElementById('resendLink');
+    
+    // Get remaining time from backend (in seconds)
+    let timeLeft = {{ remaining_seconds }};
+    
+    // If OTP is already expired, show 00:00 and enable resend
+    if (timeLeft <= 0) {
+        countdownEl.textContent = '00:00';
+        resendLink.classList.add('active');
+        return;
+    }
+    
+    const countdownInterval = setInterval(() => {
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        
+        // Format the time as MM:SS
+        countdownEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        
+        if (timeLeft <= 0) {
+            clearInterval(countdownInterval);
+            countdownEl.textContent = '00:00';
+            resendLink.classList.add('active');
+        }
+        
+        timeLeft--;
+    }, 1000);
+}
+
+    // Resend OTP functionality
+  // Resend OTP functionality
+{% comment %} document.getElementById('resendLink').addEventListener('click', function(e) {
+    if (!this.classList.contains('active')) {
+        e.preventDefault();
+        return;
+    }
+
+    e.preventDefault();
+    const resendLink = this;
+
+    // Disable the link and restart the timer
+    resendLink.classList.remove('active');
+    startCountdown();
+
+    // Send AJAX request to resend OTP
+    fetch("{% url 'resend' %}", {
+        method: "POST",
+        headers: {
+            "X-CSRFToken": "{{ csrf_token }}",
+            "X-Requested-With": "XMLHttpRequest"
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Show a notification that the OTP has been resent
+        const alertsContainer = document.getElementById('otp-alerts') || document.createElement('div');
+        alertsContainer.id = 'otp-alerts';
+        alertsContainer.className = 'mt-3';
+
+        const alert = document.createElement('div');
+        alert.className = data.success 
+            ? 'alert alert-info alert-dismissible fade show' 
+            : 'alert alert-danger alert-dismissible fade show';
+        alert.style.fontSize = '0.9rem';
+        alert.innerHTML = `
+            ${data.message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+
+        alertsContainer.innerHTML = ''; // clear old alert if any
+        alertsContainer.appendChild(alert);
+
+        const form = document.querySelector('form');
+        if (!document.getElementById('otp-alerts')) {
+            form.parentNode.insertBefore(alertsContainer, form);
+        }
+
+        // Clear the input fields
+        inputs.forEach(input => {
+            input.value = '';
+        });
+        inputs[0].focus();
+    })
+    .catch(error => {
+        console.error("Error:", error);
+    }); {% endcomment %}
+//});
+// Resend OTP functionality
+document.getElementById('resendLink').addEventListener('click', function(e) {
+    if (!this.classList.contains('active')) {
+        e.preventDefault();
+        return;
+    }
+
+    e.preventDefault();
+    const resendLink = this;
+
+    // Disable the link temporarily
+    resendLink.classList.remove('active');
+
+    // Send AJAX request to resend OTP
+    fetch("{% url 'resend' %}", {
+        method: "POST",
+        headers: {
+            "X-CSRFToken": "{{ csrf_token }}",
+            "X-Requested-With": "XMLHttpRequest"
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Redirect to refresh the page with new OTP timing
+            window.location.reload();
+        } else {
+            // Show error message
+            const alertsContainer = document.getElementById('otp-alerts') || document.createElement('div');
+            alertsContainer.id = 'otp-alerts';
+            alertsContainer.className = 'mt-3';
+
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-danger alert-dismissible fade show';
+            alert.style.fontSize = '0.9rem';
+            alert.innerHTML = `
+                ${data.message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+
+            alertsContainer.innerHTML = '';
+            alertsContainer.appendChild(alert);
+
+            const form = document.querySelector('form');
+            if (!document.getElementById('otp-alerts')) {
+                form.parentNode.insertBefore(alertsContainer, form);
+            }
+            
+            // Re-enable resend link if there was an error
+            resendLink.classList.add('active');
+        }
+    })
+    .catch(error => {
+        console.error("Error:", error);
+        // Re-enable resend link on error
+        resendLink.classList.add('active');
+    });
+});             
+
+
+</script>
+{% endblock %}
+
+
