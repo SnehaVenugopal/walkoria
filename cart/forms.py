@@ -59,9 +59,9 @@ class UpdateCartItemForm(forms.Form):
             raise ValidationError("Maximum quantity limit is 5 per product")
             
         if self.cart_item:
-            if quantity > self.cart_item.quantity:
-                raise ValidationError(f"Only {self.cart_item.quantity} items available in stock")
-        
+            if quantity > self.cart_item.variant.quantity:
+                raise ValidationError(f"Only {self.cart_item.variant.quantity} items available in stock")
+                
         return quantity
 
 class CouponForm(forms.Form):

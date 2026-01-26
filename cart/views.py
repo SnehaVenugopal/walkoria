@@ -68,7 +68,10 @@ def view_cart(request):
     # Check if any cart item quantity exceeds available stock or product is blocked
     cart_exceeds_stock = False
     blocked_items = []
-    
+    # Add remaining stock info to each cart item
+    for item in cart_items:
+        item.remaining_stock = item.variant.quantity - item.quantity
+        
     for item in cart_items:
         # Check if product or category is blocked/unlisted
         if not item.product.is_listed or item.product.is_deleted:
@@ -195,7 +198,8 @@ def update_cart_item(request, item_id):
                 'item_final_price': float(item_final_price),
                 'items_count': cart.items.count(),
                 'is_free_delivery': total_after_discounts > 4999,
-                'max_stock': cart_item.variant.quantity
+                'max_stock': cart_item.variant.quantity,
+                'remaining_stock': cart_item.variant.quantity - quantity
             })
             
         except CartItem.DoesNotExist:
