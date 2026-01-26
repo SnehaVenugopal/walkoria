@@ -9,5 +9,6 @@ urlpatterns = [
     path('available-coupons/', views.available_coupons, name='available_coupons'),
     path('apply-coupon/<str:coupon_code>/', views.apply_coupon, name='apply_coupon'),
     path('remove-coupon/', views.remove_coupon, name='remove_coupon'),
+    
 ]
 

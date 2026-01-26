@@ -1,0 +1,157 @@
+{% extends 'admin_base.html' %}
+
+{% block page_title %}Add Offer{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header"><h4 class="m-0">Add New Offer</h4></div>
+  <div class="card-body">
+    <form id="offerForm" method="post" action="{% url 'add_offer' %}">
+      {% csrf_token %}
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label for="name" class="form-label">Offer Name</label>
+          <input type="text" class="form-control" id="name" name="name">
+          <small class="text-muted">Alphabets only</small>
+        </div>
+
+        <div class="col-md-6">
+          <label for="offer_type" class="form-label">Offer Type</label>
+          <select class="form-select" id="offer_type" name="offer_type">
+            <option value="">Select type</option>
+            <option value="Product">Product</option>
+            <option value="Category">Category</option>
+          </select>
+        </div>
+
+        <div class="col-12">
+          <label for="description" class="form-label">Description</label>
+          <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+        </div>
+
+         Product Search 
+        <div id="productSection" class="col-12 d-none">
+          <label for="productSearch" class="form-label">Search Product</label>
+          <input type="text" class="form-control" id="productSearch" placeholder="Start typing...">
+          <input type="hidden" id="product" name="product">
+          <div id="productResults" class="list-group mt-2"></div>
+        </div>
+
+         Category Search 
+        <div id="categorySection" class="col-12 d-none">
+          <label for="categorySearch" class="form-label">Search Category</label>
+          <input type="text" class="form-control" id="categorySearch" placeholder="Start typing...">
+          <input type="hidden" id="category" name="category">
+          <div id="categoryResults" class="list-group mt-2"></div>
+        </div>
+
+        <div class="col-md-4">
+          <label for="discount_percentage" class="form-label">Discount %</label>
+          <input type="number" class="form-control" id="discount_percentage" name="discount_percentage" min="1" max="90">
+          <small class="text-muted">1 to 90</small>
+        </div>
+
+        <div class="col-md-4">
+          <label for="start_date" class="form-label">Start Date</label>
+          <input type="date" class="form-control" id="start_date" name="start_date">
+        </div>
+
+        <div class="col-md-4">
+          <label for="end_date" class="form-label">End Date</label>
+          <input type="date" class="form-control" id="end_date" name="end_date">
+        </div>
+      </div>
+
+      <div class="d-flex gap-2 mt-4">
+        <button type="submit" class="btn btn-primary">Save Offer</button>
+        <a href="{% url 'offer_management' %}" class="btn btn-outline-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/toastify-js@1.12.0/src/toastify.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('offerForm');
+    const typeSel = document.getElementById('offer_type');
+    const productSec = document.getElementById('productSection');
+    const categorySec = document.getElementById('categorySection');
+    const productSearch = document.getElementById('productSearch');
+    const categorySearch = document.getElementById('categorySearch');
+    const productResults = document.getElementById('productResults');
+    const categoryResults = document.getElementById('categoryResults');
+
+    function showToast(text, ok=true){Toastify({text, duration:2500, gravity:"top", position:"center", style:{background: ok?"#28a745":"#dc3545"}}).showToast();}
+
+    typeSel.addEventListener('change', () => {
+      productSec.classList.toggle('d-none', typeSel.value !== 'Product');
+      categorySec.classList.toggle('d-none', typeSel.value !== 'Category');
+      if (typeSel.value !== 'Product') { document.getElementById('product').value = ''; productSearch.value=''; productResults.innerHTML=''; }
+      if (typeSel.value !== 'Category') { document.getElementById('category').value = ''; categorySearch.value=''; categoryResults.innerHTML=''; }
+    });
+
+    let t1; productSearch.addEventListener('input', () => {
+      clearTimeout(t1);
+      const q = productSearch.value.trim();
+      t1 = setTimeout(() => {
+        if (!q) { productResults.innerHTML=''; return; }
+        fetch(`/wallet/search-items/?q=${encodeURIComponent(q)}&type=product`)
+          .then(r=>r.json()).then(data=>{
+            productResults.innerHTML='';
+            (data.results||[]).forEach(item=>{
+              const a=document.createElement('a'); a.href="#"; a.className="list-group-item list-group-item-action"; a.textContent=item.name;
+              a.onclick=(e)=>{e.preventDefault(); document.getElementById('product').value=item.id; productSearch.value=item.name; productResults.innerHTML='';};
+              productResults.appendChild(a);
+            });
+            if (!data.results?.length){ const d=document.createElement('div'); d.className="list-group-item"; d.textContent="No products found"; productResults.appendChild(d); }
+          });
+      }, 300);
+    });
+
+    let t2; categorySearch.addEventListener('input', () => {
+      clearTimeout(t2);
+      const q = categorySearch.value.trim();
+      t2 = setTimeout(() => {
+        if (!q) { categoryResults.innerHTML=''; return; }
+        fetch(`/wallet/search-items/?q=${encodeURIComponent(q)}&type=category`)
+          .then(r=>r.json()).then(data=>{
+            categoryResults.innerHTML='';
+            (data.results||[]).forEach(item=>{
+              const a=document.createElement('a'); a.href="#"; a.className="list-group-item list-group-item-action"; a.textContent=item.name;
+              a.onclick=(e)=>{e.preventDefault(); document.getElementById('category').value=item.id; categorySearch.value=item.name; categoryResults.innerHTML='';};
+              categoryResults.appendChild(a);
+            });
+            if (!data.results?.length){ const d=document.createElement('div'); d.className="list-group-item"; d.textContent="No categories found"; categoryResults.appendChild(d); }
+          });
+      }, 300);
+    });
+
+    form.addEventListener('submit', (e) => {
+      // Basic validations to match your backend clean() constraints
+      const name = document.getElementById('name').value.trim();
+      const desc = document.getElementById('description').value.trim();
+      const disc = Number(document.getElementById('discount_percentage').value);
+      const sd = document.getElementById('start_date').value;
+      const ed = document.getElementById('end_date').value;
+
+      if (!name || !/^[A-Za-z ]+$/.test(name)) { e.preventDefault(); return showToast('Enter a valid alphabetic offer name', false); }
+      if (!desc) { e.preventDefault(); return showToast('Enter a description', false); }
+      if (!typeSel.value) { e.preventDefault(); return showToast('Select offer type', false); }
+      if (typeSel.value==='Product' && !document.getElementById('product').value) { e.preventDefault(); return showToast('Select a product', false); }
+      if (typeSel.value==='Category' && !document.getElementById('category').value) { e.preventDefault(); return showToast('Select a category', false); }
+      if (!disc || disc<1 || disc>90) { e.preventDefault(); return showToast('Discount must be 1-90', false); }
+      if (!sd || !ed) { e.preventDefault(); return showToast('Select start and end dates', false); }
+      if (new Date(sd) >= new Date(ed)) { e.preventDefault(); return showToast('End date must be after start date', false); }
+    });
+
+    // Date min constraints
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('start_date').min = today;
+    document.getElementById('end_date').min = today;
+  });
+</script>
+{% endblock %}

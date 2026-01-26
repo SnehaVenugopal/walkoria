@@ -353,6 +353,22 @@
             border-color: #dc3545;
         }
         
+        .cart-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        
         /* Responsive Design */
         @media (max-width: 768px) {
             .side-navbar {
@@ -424,7 +440,12 @@
                         <a class="nav-link" href="#">CONTACT</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'view_cart' %}"><i class="fas fa-shopping-cart cart-icon"></i> <span class="badge bg-danger">0</span></a>
+                        <a class="nav-link" href="{% url 'view_cart' %}">
+                            <i class="fas fa-shopping-cart cart-icon">
+                                <span class="cart-badge">{{ cart_count|default:0 }}</span>
+                                
+                            </i>
+                        </a>
                     </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">

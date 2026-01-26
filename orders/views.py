@@ -16,6 +16,7 @@ from cart.models import Cart
 from userpanel.models import Address
 from .invoice_utils import generate_invoice_pdf
 from django.db.models import Q
+from coupon.models import Coupon, UserCoupon
 
 
 
@@ -29,7 +30,21 @@ def checkout(request):
         return redirect('view_cart')
 
     addresses = Address.objects.filter(user_id=request.user, is_deleted=False).order_by('-default_address', '-created_at')
-    total_amount = cart.total_price
+    coupon = request.session.get('coupon', {})
+    coupon_id = coupon.get('coupon_id')
+    discount_amount = Decimal(coupon.get('discount_amount', 0))
+    coupon_code = None
+    if coupon:
+        
+        coupon_code = Coupon.objects.get(id=coupon_id)
+        total_price_after_coupon_discount = cart.total_price - discount_amount if discount_amount > 0 else cart.total_price
+        total_amount = cart.total_price - discount_amount
+    else:
+        total_price_after_coupon_discount = cart.total_price
+    
+    
+        total_amount = cart.total_price
+    
     
     if request.method == 'POST':
         address_id = request.POST.get('address_id')
@@ -76,6 +91,8 @@ def checkout(request):
             order = Order.objects.create(
                 user=request.user,
                 order_number=uuid.uuid4().hex[:12].upper(),
+                coupon=coupon_code,
+                discount=discount_amount,
                 payment_method=payment_method,
                 payment_status=False if payment_method == 'COD' else True,
                 subtotal=subtotal,
@@ -97,9 +114,22 @@ def checkout(request):
                 # Reduce stock
                 item.variant.quantity -= item.quantity
                 item.variant.save()
+                
+                
+            if coupon_code:
+                    UserCoupon.objects.create(
+                        user=request.user,
+                        coupon=coupon_code,
+                        order=order,
+                    )   
             
             # Clear cart
             cart.delete()
+            
+            if 'coupon' in request.session:
+                    del request.session['coupon']
+                    request.session.modified = True
+
             
             messages.success(request, f"Order placed successfully. Your order number is {order.order_number}")
             return redirect('order_success', order_id=order.id)
@@ -113,6 +143,9 @@ def checkout(request):
         'total_amount': total_amount,
         'total_discount': total_discount,
         'payment_methods': Order.PAYMENT_METHOD_CHOICES,
+        'coupon_code': coupon_code,
+        'discount_amount': discount_amount,
+        'total_price_after_coupon_discount': total_price_after_coupon_discount,
     }
     
    

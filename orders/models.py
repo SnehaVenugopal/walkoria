@@ -3,7 +3,7 @@ from django.utils import timezone
 from users.models import CustomUser
 from userpanel.models import Address
 from product.models import ProductVariant
-# from coupon.models import Coupon
+from coupon.models import Coupon
 
 
 class Order(models.Model):
@@ -14,7 +14,7 @@ class Order(models.Model):
     ]
 
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='orders')
-    # coupon = models.ForeignKey(Coupon, on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')
+    coupon = models.ForeignKey(Coupon, on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')
     order_number = models.CharField(max_length=20, unique=True)
     discount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     subtotal = models.DecimalField(max_digits=10, decimal_places=2)

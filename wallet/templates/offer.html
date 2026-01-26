@@ -1,0 +1,116 @@
+{% extends 'admin_base.html' %}
+
+{% block page_title %}Offer Management{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+<style>
+  .card { border: none; border-radius: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.06); }
+  .table thead th { background: #f3f4f6; font-weight: 600; }
+  .badge { font-weight: 600; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="m-0">Offer Management</h2>
+  <a href="{% url 'add_offer' %}" class="btn btn-primary"><i class="fas fa-plus me-2"></i>Add Offer</a>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Item</th>
+            <th>Discount</th>
+            <th>Start</th>
+            <th>End</th>
+            <th>Status</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for offer in offers %}
+          <tr>
+            <td>{{ offer.name }}</td>
+            <td>{{ offer.offer_type }}</td>
+            <td>
+              {% if offer.offer_type == 'Product' %}
+                {{ offer.product.name }}
+              {% else %}
+                {{ offer.category.name }}
+              {% endif %}
+            </td>
+            <td>{{ offer.discount_percentage }}%</td>
+            <td>{{ offer.start_date|date:"M d, Y H:i" }}</td>
+            <td>{{ offer.end_date|date:"M d, Y H:i" }}</td>
+            <td>
+              {% if offer.is_valid %}
+                <span class="badge bg-success">Active</span>
+              {% else %}
+                <span class="badge bg-secondary">Inactive</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <a href="{% url 'edit_offer' offer.id %}" class="btn btn-sm btn-outline-primary me-2"><i class="fas fa-pen"></i></a>
+              <button type="button" class="btn btn-sm btn-outline-danger js-delete-offer" data-offer-id="{{ offer.id }}">
+                <i class="fas fa-trash"></i>
+              </button>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="8" class="text-center text-muted">No offers found</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+  }
+
+  document.querySelectorAll('.js-delete-offer').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.offerId;
+      Swal.fire({
+        title: 'Delete offer?',
+        text: 'This action cannot be undone.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Delete',
+        confirmButtonColor: '#d33'
+      }).then(result => {
+        if (!result.isConfirmed) return;
+
+        fetch("{% url 'delete_offer' 0 %}".replace('0', id), {
+          method: 'POST',
+          headers: { 'X-CSRFToken': getCookie('csrftoken') }
+        })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            Swal.fire('Deleted', 'Offer removed successfully.', 'success').then(() => location.reload());
+          } else {
+            Swal.fire('Error', data.message || 'Failed to delete offer', 'error');
+          }
+        })
+        .catch(() => Swal.fire('Error', 'Network error', 'error'));
+      });
+    });
+  });
+</script>
+{% endblock %}

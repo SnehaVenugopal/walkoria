@@ -411,6 +411,75 @@
         text-decoration: none !important; /* Ensure no underline */
     }
     
+          /* Coupon Modal Styles */
+        .coupon-card {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            transition: background 0.3s ease;
+        }
+
+        .coupon-card:last-child {
+            border-bottom: none;
+        }
+
+        .coupon-card:hover {
+            background: #f8f9fa;
+        }
+
+        .coupon-code-tag {
+            display: inline-block;
+            background: var(--gradient-primary);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 1rem;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .coupon-description {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+
+        .coupon-details {
+            font-size: 0.85rem;
+            color: #888;
+        }
+
+        .coupon-details span {
+            margin-right: 15px;
+        }
+
+        .copy-coupon-btn {
+            background: transparent;
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .copy-coupon-btn:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .no-coupons {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+
+        .no-coupons i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            color: #ddd;
+        }
     @media (max-width: 768px) {
         .cart-content {
             flex-direction: column;
@@ -432,7 +501,9 @@
         .cart-title {
             font-size: 2rem;
         }
+          
     }
+
 </style>
 {% endblock %}
 
@@ -714,22 +785,73 @@ function applyCoupon(couponCode) {
 }
 
 function viewAvailableCoupons() {
+    showLoading();
+    
     fetch('/cart/available-coupons/')
     .then(response => response.json())
     .then(data => {
+        hideLoading();
+        const couponsList = document.getElementById('coupons-list');
+        
         if (data.coupons && data.coupons.length > 0) {
-            let couponList = 'Available Coupons:\n\n';
+            let html = '';
             data.coupons.forEach(coupon => {
-                couponList += `${coupon.code}: ${coupon.description}\n`;
+                html += `
+                    <div class="coupon-card">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="coupon-code-tag">${coupon.code}</div>
+                                <p class="coupon-description">${coupon.description || 'No description available'}</p>
+                                <div class="coupon-details">
+                                    ${coupon.discount_type === 'percent' 
+                                        ? `<span><i class="fas fa-percent me-1"></i>${coupon.discount_value}% Off</span>`
+                                        : `<span><i class="fas fa-rupee-sign me-1"></i>₹${coupon.discount_value} Off</span>`
+                                    }
+                                    ${coupon.min_cart_value 
+                                        ? `<span><i class="fas fa-shopping-cart me-1"></i>Min: ₹${coupon.min_cart_value}</span>`
+                                        : ''
+                                    }
+                                    ${coupon.max_discount 
+                                        ? `<span><i class="fas fa-arrow-down me-1"></i>Max: ₹${coupon.max_discount}</span>`
+                                        : ''
+                                    }
+                                </div>
+                            </div>
+                            <button class="copy-coupon-btn" onclick="applyCouponFromModal('${coupon.code}')">
+                                Apply
+                            </button>
+                        </div>
+                    </div>
+                `;
             });
-            alert(couponList);
+            couponsList.innerHTML = html;
         } else {
-            showNotification('No coupons available', 'info');
+            couponsList.innerHTML = `
+                <div class="no-coupons">
+                    <i class="fas fa-ticket-alt"></i>
+                    <p>No coupons available at the moment</p>
+                </div>
+            `;
         }
+        
+        // Show the modal
+        const modal = new bootstrap.Modal(document.getElementById('couponsModal'));
+        modal.show();
     })
     .catch(error => {
+        hideLoading();
         showNotification('Error fetching coupons', 'error');
     });
+}
+
+function applyCouponFromModal(code) {
+    // Close the modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('couponsModal'));
+    modal.hide();
+    
+    // Set the coupon code in input and apply
+    document.getElementById('coupon-code').value = code;
+    applyCoupon(code);
 }
 
 function updateQuantityButtons(itemId, quantity, maxStock) {
@@ -740,4 +862,24 @@ function updateQuantityButtons(itemId, quantity, maxStock) {
     increaseBtn.disabled = quantity >= 5 || quantity >= maxStock;
 }
 </script>
+
+<!-- Available Coupons Modal -->
+<div class="modal fade" id="couponsModal" tabindex="-1" aria-labelledby="couponsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 15px; overflow: hidden;">
+            <div class="modal-header" style="background: var(--gradient-primary); color: white; border: none;">
+                <h5 class="modal-title" id="couponsModalLabel">
+                    <i class="fas fa-tags me-2"></i>Available Coupons
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" style="max-height: 400px; overflow-y: auto; padding: 0;">
+                <div id="coupons-list">
+                    <!-- Coupons will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

@@ -51,6 +51,8 @@ INSTALLED_APPS = [
     'userpanel',
     'cart',
     'orders',
+    'wallet',
+    'coupon',
     
   
 ]
