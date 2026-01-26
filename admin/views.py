@@ -8,6 +8,10 @@ from django.views.decorators.cache import cache_control
 from django.views.decorators.cache import cache_control
 from admin.forms import CustomAuthenticationForm
 from django.contrib.auth import logout
+from wallet.models import Wallet, WalletTransaction
+from django.utils import timezone
+from datetime import datetime, timedelta
+import json, uuid, time
 from utils.decorators import admin_required
 from django.contrib.auth import logout
 from users.models import CustomUser
@@ -204,16 +208,16 @@ def handle_return_request(request, request_id, action):
             proportional_discount = (allocated_discount / order_item.quantity) * order_item.quantity
             refund_amount = returned_item_price - proportional_discount
 
-            # wallet, _ = Wallet.objects.get_or_create(user=order.user)
-            # wallet.balance += int(refund_amount)
-            # wallet.save()
-            # WalletTransaction.objects.create(
-            #                 wallet=wallet,
-            #                 transaction_type="Cr",
-            #                 amount=refund_amount,
-            #                 status="Completed",
-            #                 transaction_id="TXN-" + str(int(time.time())) + uuid.uuid4().hex[:4].upper(),
-            #             )
+            wallet, _ = Wallet.objects.get_or_create(user=order.user)
+            wallet.balance += int(refund_amount)
+            wallet.save()
+            WalletTransaction.objects.create(
+                            wallet=wallet,
+                            transaction_type="Cr",
+                            amount=refund_amount,
+                            status="Completed",
+                            transaction_id="TXN-" + str(int(time.time())) + uuid.uuid4().hex[:4].upper(),
+                        )
 
             # qty
             product_variant = order_item.product_variant
@@ -280,17 +284,17 @@ def update_order_item(request, item_id):
             order.total_amount -= refund_amount
             order.subtotal -= order_item.original_price
             order.save()
-            # if order.payment_method in ['RP', 'WP'] or (order.payment_method == 'COD' and order_item.status == 'Delivered'):
-            #     wallet, _ = Wallet.objects.get_or_create(user=order.user)
-            #     wallet.balance += refund_amount
-            #     wallet.save()
-            #     WalletTransaction.objects.create(
-            #                     wallet=wallet,
-            #                     transaction_type="Cr",
-            #                     amount=refund_amount,
-            #                     status="Completed",
-            #                     transaction_id="TXN-" + str(int(time.time())) + uuid.uuid4().hex[:4].upper(),
-            #                 )
+            if order.payment_method in ['RP', 'WP'] or (order.payment_method == 'COD' and order_item.status == 'Delivered'):
+                wallet, _ = Wallet.objects.get_or_create(user=order.user)
+                wallet.balance += refund_amount
+                wallet.save()
+                WalletTransaction.objects.create(
+                                wallet=wallet,
+                                transaction_type="Cr",
+                                amount=refund_amount,
+                                status="Completed",
+                                transaction_id="TXN-" + str(int(time.time())) + uuid.uuid4().hex[:4].upper(),
+                            )
         messages.success(request, 'Status updated sucessful')
         return redirect('orders')
 

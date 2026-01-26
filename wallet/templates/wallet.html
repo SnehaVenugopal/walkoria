@@ -1,0 +1,867 @@
+{% extends "base_userpanel.html" %}
+
+{% block title %}My Wallet - Walkoria{% endblock %}
+
+{% block additional_styles %}
+<style>
+    /* Wallet Specific Styles */
+    .wallet-container {
+        max-width: 100%;
+    }
+
+    .wallet-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+        gap: 20px;
+    }
+
+    .wallet-balance-section {
+        flex: 1;
+        min-width: 250px;
+    }
+
+    .wallet-balance-box {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--dark-color) 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(255, 66, 157, 0.3);
+        margin-bottom: 20px;
+    }
+
+    .balance-label {
+        font-size: 0.95rem;
+        opacity: 0.9;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .balance-amount {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 0;
+    }
+
+    .add-money-btn {
+        background-color: white;
+        color: var(--primary-color);
+        border: none;
+        padding: 12px 30px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 1rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .add-money-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Transactions Section */
+    .transactions-section {
+        margin-top: 30px;
+    }
+
+    .section-title {
+        font-size: 1.4rem;
+        color: #333;
+        font-weight: 600;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid var(--primary-color);
+    }
+
+    .transaction-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .transaction-table thead {
+        background-color: #f8f9fa;
+    }
+
+    .transaction-table th {
+        padding: 16px;
+        text-align: left;
+        font-weight: 600;
+        color: #333;
+        font-size: 0.95rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid #eee;
+    }
+
+    .transaction-table td {
+        padding: 16px;
+        border-bottom: 1px solid #eee;
+        color: #666;
+        font-size: 0.95rem;
+    }
+
+    .transaction-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .transaction-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    .transaction-type {
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 0.9rem;
+    }
+
+    .transaction-type.credit {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .transaction-type.debit {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    .transaction-amount {
+        font-weight: 600;
+        font-size: 1rem;
+    }
+
+    .transaction-amount.credit {
+        color: #28a745;
+    }
+
+    .transaction-amount.debit {
+        color: #dc3545;
+    }
+
+    .transaction-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .transaction-status.completed {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .transaction-status.pending {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+
+    .transaction-status.failed {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    .status-icon {
+        font-size: 0.8rem;
+    }
+
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #999;
+    }
+
+    .empty-state-icon {
+        font-size: 3rem;
+        margin-bottom: 20px;
+        color: #ddd;
+    }
+
+    .empty-state-text {
+        font-size: 1.1rem;
+        margin-bottom: 10px;
+    }
+
+    .empty-state-subtext {
+        font-size: 0.95rem;
+        color: #bbb;
+    }
+
+    /* Pagination */
+    .pagination-wrapper {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #eee;
+    }
+
+    .pagination {
+        display: flex;
+        gap: 5px;
+        align-items: center;
+    }
+
+    .pagination a,
+    .pagination span {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 38px;
+        height: 38px;
+        border: 1px solid #ddd;
+        text-decoration: none;
+        color: #666;
+        border-radius: 6px;
+        transition: all 0.3s ease;
+        font-weight: 500;
+    }
+
+    .pagination a:hover {
+        background-color: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+
+    .pagination .current {
+        background-color: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+        cursor: default;
+    }
+
+    .pagination .disabled {
+        color: #ccc;
+        cursor: not-allowed;
+    }
+
+    /* Modal Styles */
+    .modal-header {
+        border-bottom: 1px solid #eee;
+        background-color: #f8f9fa;
+    }
+
+    .modal-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .modal-body {
+        padding: 30px;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 10px;
+        display: block;
+    }
+
+    .form-control {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 12px 15px;
+        font-size: 1rem;
+        width: 100%;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(255, 66, 157, 0.1);
+        outline: none;
+    }
+
+    .form-control.is-invalid {
+        border-color: #dc3545;
+    }
+
+    .form-control.is-valid {
+        border-color: #28a745;
+    }
+
+    .invalid-feedback {
+        color: #dc3545;
+        font-size: 0.875rem;
+        margin-top: 5px;
+        display: block;
+    }
+
+    .otp-timer {
+        color: #999;
+        font-size: 0.9rem;
+        margin-top: 10px;
+    }
+
+    .resend-btn {
+        background: none;
+        border: none;
+        color: var(--primary-color);
+        cursor: pointer;
+        text-decoration: underline;
+        font-weight: 600;
+        padding: 0;
+        margin-top: 10px;
+        transition: all 0.3s ease;
+    }
+
+    .resend-btn:hover:not(:disabled) {
+        color: var(--dark-color);
+    }
+
+    .resend-btn:disabled {
+        color: #ccc;
+        cursor: not-allowed;
+        text-decoration: none;
+    }
+
+    .btn-submit {
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        width: 100%;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .btn-submit:hover {
+        background-color: var(--dark-color);
+        transform: translateY(-2px);
+    }
+
+    .btn-submit:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .btn-close-modal {
+        background-color: #6c757d;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .btn-close-modal:hover {
+        background-color: #5a6268;
+    }
+
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1100;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-overlay.show {
+        display: flex;
+    }
+
+    .modal-dialog {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        max-width: 450px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .modal-content {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    .modal-footer {
+        padding: 20px 30px;
+        border-top: 1px solid #eee;
+        display: flex;
+        gap: 15px;
+        justify-content: flex-end;
+    }
+
+    /* Alert Messages */
+    .alert {
+        padding: 16px 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        border: none;
+        border-left: 4px solid;
+    }
+
+    .alert-success {
+        background-color: #d4edda;
+        color: #155724;
+        border-left-color: #28a745;
+    }
+
+    .alert-danger {
+        background-color: #f8d7da;
+        color: #721c24;
+        border-left-color: #dc3545;
+    }
+
+    .alert-info {
+        background-color: #d1ecf1;
+        color: #0c5460;
+        border-left-color: #17a2b8;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .wallet-header {
+            flex-direction: column;
+        }
+
+        .balance-amount {
+            font-size: 2rem;
+        }
+
+        .transaction-table {
+            font-size: 0.9rem;
+        }
+
+        .transaction-table th,
+        .transaction-table td {
+            padding: 12px 8px;
+        }
+
+        .modal-dialog {
+            width: 95%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'home' %}" style="color: var(--primary-color);">Home</a></li>
+        <li class="breadcrumb-item active">My Wallet</li>
+    </ol>
+</nav>
+
+<div class="wallet-container">
+    <!-- Wallet Balance Section -->
+    <div class="wallet-header">
+        <div class="wallet-balance-section">
+            <div class="wallet-balance-box">
+                <div class="balance-label">Wallet Balance</div>
+                <h2 class="balance-amount">₹{{ wallet.balance|floatformat:2 }}</h2>
+            </div>
+        </div>
+        <button class="add-money-btn" data-toggle="modal" data-target="#addMoneyModal">
+            <i class="fas fa-plus-circle"></i> Add Money
+        </button>
+    </div>
+
+    <!-- Recent Transactions Section -->
+    <div class="content-card">
+        <h3 class="section-title">
+            <i class="fas fa-history me-2"></i>Recent Transactions
+        </h3>
+
+        {% if transactions %}
+        <div class="table-responsive">
+            <table class="transaction-table">
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Amount</th>
+                        <th>Date & Time</th>
+                        <th>Transaction ID</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for transaction in transactions %}
+                    <tr>
+                        <td>
+                            <span class="transaction-type {% if transaction.transaction_type == 'Cr' %}credit{% else %}debit{% endif %}">
+                                <i class="fas {% if transaction.transaction_type == 'Cr' %}fa-arrow-down{% else %}fa-arrow-up{% endif %}"></i>
+                                {{ transaction.get_transaction_type_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="transaction-amount {% if transaction.transaction_type == 'Cr' %}credit{% else %}debit{% endif %}">
+                                {% if transaction.transaction_type == 'Cr' %}+{% else %}-{% endif %}₹{{ transaction.amount|floatformat:2 }}
+                            </span>
+                        </td>
+                        <td>{{ transaction.created_at|date:"M d, Y, g:i A" }}</td>
+                        <td>
+                            <code style="background-color: #f5f5f5; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem;">
+                                {{ transaction.transaction_id }}
+                            </code>
+                        </td>
+                        <td>
+                            <span class="transaction-status {% if transaction.status == 'Completed' %}completed{% elif transaction.status == 'Pending' %}pending{% else %}failed{% endif %}">
+                                <i class="fas {% if transaction.status == 'Completed' %}fa-check-circle{% elif transaction.status == 'Pending' %}fa-clock{% else %}fa-times-circle{% endif %} status-icon"></i>
+                                {{ transaction.status }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if transactions.has_other_pages %}
+        <div class="pagination-wrapper">
+            <div class="pagination">
+                {% if transactions.has_previous %}
+                <a href="?page=1">First</a>
+                <a href="?page={{ transactions.previous_page_number }}">Previous</a>
+                {% else %}
+                <span class="disabled">First</span>
+                <span class="disabled">Previous</span>
+                {% endif %}
+
+                {% for num in transactions.paginator.page_range %}
+                    {% if transactions.number == num %}
+                    <span class="current">{{ num }}</span>
+                    {% elif num > transactions.number|add:'-3' and num < transactions.number|add:'3' %}
+                    <a href="?page={{ num }}">{{ num }}</a>
+                    {% endif %}
+                {% endfor %}
+
+                {% if transactions.has_next %}
+                <a href="?page={{ transactions.next_page_number }}">Next</a>
+                <a href="?page={{ transactions.paginator.num_pages }}">Last</a>
+                {% else %}
+                <span class="disabled">Next</span>
+                <span class="disabled">Last</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <i class="fas fa-inbox"></i>
+            </div>
+            <div class="empty-state-text">No Transactions Yet</div>
+            <div class="empty-state-subtext">Your transaction history will appear here after you add money to your wallet.</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Add Money Modal -->
+<div class="modal-overlay" id="addMoneyModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Money to Wallet</h5>
+                <button type="button" class="btn-close" onclick="closeModal('#addMoneyModal')"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Amount Input Form -->
+                <form id="addMoneyForm" class="form-group">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <label for="amount" class="form-label">Enter Amount (₹)</label>
+                        <input type="number" class="form-control" id="amount" name="amount" placeholder="e.g., 500" min="100" max="20000">
+                        <div class="invalid-feedback" id="amountError"></div>
+                        <small style="color: #999; display: block; margin-top: 8px;">Minimum: ₹100 | Maximum: ₹20,000</small>
+                    </div>
+                    <button type="submit" class="btn-submit" id="proceedButton">Proceed to Pay</button>
+                </form>
+
+                <!-- OTP Verification Form (Initially Hidden) -->
+                <form id="otpForm" class="d-none">
+                    <div class="form-group">
+                        <label for="otp" class="form-label">Enter OTP</label>
+                        <input type="text" class="form-control" id="otp" name="otp" placeholder="Enter 6-digit OTP" maxlength="6">
+                        <div class="invalid-feedback" id="otpError"></div>
+                        <div class="otp-timer">
+                            Resend OTP in <span id="timer">30</span> seconds
+                        </div>
+                        <button type="button" class="resend-btn" id="resendOtp" disabled>
+                            Resend OTP
+                        </button>
+                    </div>
+                    <button type="submit" class="btn-submit" id="verifyButton">Verify OTP</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Modal Management
+    function openModal(modalId) {
+        document.querySelector(modalId).classList.add('show');
+    }
+
+    function closeModal(modalId) {
+        document.querySelector(modalId).classList.remove('show');
+    }
+
+    // Add Money Functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const addMoneyBtn = document.querySelector('.add-money-btn');
+        const addMoneyModal = document.getElementById('addMoneyModal');
+        const addMoneyForm = document.getElementById('addMoneyForm');
+        const otpForm = document.getElementById('otpForm');
+        const amountInput = document.getElementById('amount');
+        const amountError = document.getElementById('amountError');
+        const proceedButton = document.getElementById('proceedButton');
+        const resendOtpBtn = document.getElementById('resendOtp');
+        const timerSpan = document.getElementById('timer');
+        let timerInterval;
+
+        // Open Modal
+        addMoneyBtn.addEventListener('click', function() {
+            openModal('#addMoneyModal');
+        });
+
+        // Close Modal
+        document.querySelector('#addMoneyModal .btn-close').addEventListener('click', function() {
+            closeModal('#addMoneyModal');
+            resetModal();
+        });
+
+        // Close modal on overlay click
+        addMoneyModal.addEventListener('click', function(e) {
+            if (e.target === addMoneyModal) {
+                closeModal('#addMoneyModal');
+                resetModal();
+            }
+        });
+
+        function validateAmount() {
+            const amount = parseFloat(amountInput.value);
+            amountInput.classList.remove('is-invalid', 'is-valid');
+            amountError.textContent = '';
+            
+            if (!amountInput.value) {
+                amountError.textContent = 'Please enter an amount.';
+                amountInput.classList.add('is-invalid');
+                return false;
+            }
+
+            if (isNaN(amount)) {
+                amountError.textContent = 'Please enter a valid amount.';
+                amountInput.classList.add('is-invalid');
+                return false;
+            }
+
+            if (amount < 100) {
+                amountError.textContent = 'Minimum amount is ₹100.';
+                amountInput.classList.add('is-invalid');
+                return false;
+            }
+
+            if (amount > 20000) {
+                amountError.textContent = 'Maximum amount is ₹20,000.';
+                amountInput.classList.add('is-invalid');
+                return false;
+            }
+
+            amountInput.classList.add('is-valid');
+            return true;
+        }
+
+        function startTimer() {
+            let timeLeft = 30;
+            resendOtpBtn.disabled = true;
+            
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerSpan.textContent = timeLeft;
+                
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    resendOtpBtn.disabled = false;
+                    timerSpan.parentElement.style.display = 'none';
+                }
+            }, 1000);
+        }
+
+        function resetModal() {
+            addMoneyForm.classList.remove('d-none');
+            otpForm.classList.add('d-none');
+            amountInput.value = '';
+            document.getElementById('otp').value = '';
+            amountInput.classList.remove('is-invalid', 'is-valid');
+            amountError.textContent = '';
+            proceedButton.disabled = false;
+            proceedButton.textContent = 'Proceed to Pay';
+            if (timerInterval) clearInterval(timerInterval);
+        }
+
+        amountInput.addEventListener('blur', validateAmount);
+
+        addMoneyForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            if (!validateAmount()) return;
+            if (proceedButton.disabled) return;
+
+            const amount = amountInput.value;
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+            proceedButton.disabled = true;
+            proceedButton.textContent = 'Processing...';
+
+            fetch('{% url "add_money" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ amount: amount })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    addMoneyForm.classList.add('d-none');
+                    otpForm.classList.remove('d-none');
+                    startTimer();
+                    showNotification('OTP sent successfully! Check your email.', 'success');
+                    proceedButton.disabled = false;
+                    proceedButton.textContent = 'Proceed to Pay';
+                } else {
+                    throw new Error(data.error || 'Failed to send OTP');
+                }
+            })
+            .catch(error => {
+                showNotification(error.message, 'danger');
+                proceedButton.disabled = false;
+                proceedButton.textContent = 'Proceed to Pay';
+            });
+        });
+
+        otpForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const otpInput = document.getElementById('otp');
+            const otp = otpInput.value.trim();
+            const verifyButton = this.querySelector('button[type="submit"]');
+            
+            if (!otp || otp.length !== 6) {
+                document.getElementById('otpError').textContent = 'Please enter a valid 6-digit OTP';
+                otpInput.classList.add('is-invalid');
+                return;
+            }
+
+            if (verifyButton.disabled) return;
+
+            verifyButton.disabled = true;
+            verifyButton.textContent = 'Verifying...';
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+            fetch('{% url "verify_add_money_otp" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ otp: otp })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    showNotification('Money added successfully!', 'success');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    throw new Error(data.error || 'Failed to verify OTP');
+                }
+            })
+            .catch(error => {
+                showNotification(error.message, 'danger');
+                verifyButton.disabled = false;
+                verifyButton.textContent = 'Verify OTP';
+            });
+        });
+
+        resendOtpBtn.addEventListener('click', function() {
+            if (resendOtpBtn.disabled) return;
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            resendOtpBtn.disabled = true;
+
+            fetch('{% url "resend_add_money_otp" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    showNotification('OTP resent successfully!', 'success');
+                    timerSpan.parentElement.style.display = 'block';
+                    startTimer();
+                    document.getElementById('otp').value = '';
+                } else {
+                    throw new Error(data.error || 'Failed to resend OTP');
+                }
+            })
+            .catch(error => {
+                showNotification(error.message, 'danger');
+                resendOtpBtn.disabled = false;
+            });
+        });
+
+        function showNotification(message, type) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.querySelector('.main-content').insertBefore(alertDiv, document.querySelector('.wallet-container'));
+            setTimeout(() => alertDiv.remove(), 5000);
+        }
+    });
+</script>
+{% endblock %}

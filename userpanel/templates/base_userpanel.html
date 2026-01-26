@@ -493,7 +493,7 @@
             <a href="{% url 'wishlist' %}" class="side-nav-item {% if request.resolver_match.url_name == 'wishlist' %}active{% endif %}">
                 <i class="fas fa-heart"></i> Wishlist
             </a>
-            <a href="#" class="side-nav-item">
+            <a href="{%url 'wallet'%}" class="side-nav-item">
                 <i class="fas fa-wallet"></i> Wallet
             </a>
             <a href="#" class="side-nav-item">

@@ -10,6 +10,7 @@ from django.urls import reverse
 from decimal import Decimal
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 import uuid, time
+import uuid, time, logging, json
 from django.conf import settings
 from .models import Order, OrderItem, ReturnRequest
 from cart.models import Cart
@@ -17,139 +18,179 @@ from userpanel.models import Address
 from .invoice_utils import generate_invoice_pdf
 from django.db.models import Q
 from coupon.models import Coupon, UserCoupon
-
+from wallet.models import Wallet, WalletTransaction
+logger = logging.getLogger(__name__)
 
 
 @login_required
 @cache_control(no_cache=True, must_revalidate=True, no_store=True)
 def checkout(request):
-    """Handle checkout process with address selection and payment method"""
-    cart = Cart.objects.filter(user=request.user).first()
-    if not cart or not cart.items.exists():
-        messages.error(request, 'Your cart is empty.')
+    try:
+        """Handle checkout process with address selection and payment method"""
+        cart = Cart.objects.filter(user=request.user).first()
+        if not cart or not cart.items.exists():
+            messages.error(request, 'Your cart is empty.')
+            return redirect('view_cart')
+
+        addresses = Address.objects.filter(user_id=request.user, is_deleted=False).order_by('-default_address', '-created_at')
+        coupon = request.session.get('coupon', {})
+        coupon_id = coupon.get('coupon_id')
+        discount_amount = Decimal(coupon.get('discount_amount', 0))
+        coupon_code = None
+        if coupon:
+            
+            coupon_code = Coupon.objects.get(id=coupon_id)
+            total_price_after_coupon_discount = cart.total_price - discount_amount if discount_amount > 0 else cart.total_price
+            total_amount = cart.total_price - discount_amount
+        else:
+            total_price_after_coupon_discount = cart.total_price
+        
+        
+            total_amount = cart.total_price
+        
+        
+        if request.method == 'POST':
+            address_id = request.POST.get('address_id')
+            payment_method = request.POST.get('payment_method')
+
+            if not address_id or not payment_method:
+                messages.error(request, "Please select both address and payment method.")
+                return redirect('checkout')
+            
+            try:
+                address = Address.objects.get(id=address_id, user_id=request.user)
+            except Address.DoesNotExist:
+                messages.error(request, "Selected address not found.")
+                return redirect('checkout')
+            
+            with transaction.atomic():
+                # Validate cart items
+                for item in cart.items.all():
+                    if item.variant.is_deleted == True:
+                        messages.error(request, f"{item.variant.product.name} - {item.variant} is unavailable right now")
+                        return redirect('view_cart')
+                    elif item.quantity > item.variant.quantity:
+                        messages.error(request, f"Not enough stock for {item.variant.product.name} - {item.variant}")
+                        return redirect('view_cart')
+                
+                subtotal = sum(item.price * item.quantity for item in cart.items.all())
+                
+                # COD limit check
+                if payment_method == 'COD' and subtotal > 10000:
+                    messages.error(request, 'COD not available on orders above ₹10,000.')
+                    return redirect('checkout')
+                
+                # Wallet payment validation (static for now)
+                if payment_method == 'WP':
+                        user_id = request.user
+                        wallet = Wallet.objects.get(user_id=user_id)
+                        if not wallet.is_active:
+                            messages.error(request, 'Your wallet is inactive. Please contact customer care.')
+                            return redirect('checkout')
+                        if wallet.balance < total_amount:
+                            messages.error(request, 'Insufficient balance in your wallet. Please choose a different payment method.')
+                            return redirect('checkout')
+                
+                # Razorpay validation (static for now)
+                if payment_method == 'RP':
+                    messages.info(request, 'Online payment is currently under maintenance. Please choose Cash on Delivery.')
+                    return redirect('checkout')
+                print(subtotal, 'subbbbbbbbbbbbbbbbb')
+                # Create order
+                order = Order.objects.create(
+                    user=request.user,
+                    order_number=uuid.uuid4().hex[:12].upper(),
+                    coupon=coupon_code,
+                    discount=discount_amount,
+                    payment_method=payment_method,
+                    payment_status=False if payment_method == 'COD' else True,
+                    subtotal=subtotal,
+                    total_amount=total_amount,
+                    shipping_address=address,
+                    shipping_cost=cart.delivery_charge or 0,
+                )
+                
+                # Create order items
+                for item in cart.items.all():
+                    OrderItem.objects.create(
+                        order=order,
+                        product_variant=item.variant,
+                        quantity=item.quantity,
+                        price=item.price,
+                        item_payment_status='Unpaid' if payment_method == 'COD' else 'Paid',
+                        original_price=item.variant.actual_price,
+                    )
+                    # Reduce stock
+                    item.variant.quantity -= item.quantity
+                    item.variant.save()
+                    
+                    
+                if coupon_code:
+                        UserCoupon.objects.create(
+                            user=request.user,
+                            coupon=coupon_code,
+                            order=order,
+                        )   
+                
+                # Clear cart
+                cart.delete()
+                
+                if 'coupon' in request.session:
+                        del request.session['coupon']
+                        request.session.modified = True
+                        
+                if payment_method == 'WP':
+                    with transaction.atomic():
+                        wallet = Wallet.objects.get(user_id=request.user)
+                        wallet.balance -= total_amount
+                        wallet.save()
+                        WalletTransaction.objects.create(
+                                wallet=wallet,
+                                transaction_type="Dr",
+                                amount=total_amount,
+                                status="Completed",
+                                transaction_id="TXN-" + str(int(time.time())) + uuid.uuid4().hex[:4].upper(),
+                            )
+                        order.items.update(item_payment_status='Paid')
+                        order.payment_status = True
+                        order.save()
+
+                
+                messages.success(request, f"Order placed successfully. Your order number is {order.order_number}")
+                return redirect('order_success', order_id=order.id)
+
+        # Calculate total discount for display
+        total_discount = cart.get_total_actual_price() - cart.total_price if hasattr(cart, 'get_total_actual_price') else 0
+        
+        data = {
+            'cart': cart,
+            'addresses': addresses,
+            'total_amount': total_amount,
+            'total_discount': total_discount,
+            'payment_methods': Order.PAYMENT_METHOD_CHOICES,
+            'coupon_code': coupon_code,
+            'discount_amount': discount_amount,
+            'total_price_after_coupon_discount': total_price_after_coupon_discount,
+        }
+        
+    
+        return render(request, 'checkout.html', data)
+    
+    except Wallet.DoesNotExist:
+        logger.error(f"Wallet not found for user: {request.user.user_id}")
+        messages.error(request, 'Wallet not found. Please contact customer support.')
+        return redirect('checkout')
+    except ValueError as e:
+        logger.error(f"ValueError in wallet payment processing: {e}")
+        messages.error(request, f"An error occurred while processing your wallet payment.")
+        return redirect('checkout')
+    except Exception as e:
+        logger.error(f"Error in checkout view: {e}")
+        messages.error(request, "An unexpected error occurred during checkout. Please try again or contact support.")
         return redirect('view_cart')
 
-    addresses = Address.objects.filter(user_id=request.user, is_deleted=False).order_by('-default_address', '-created_at')
-    coupon = request.session.get('coupon', {})
-    coupon_id = coupon.get('coupon_id')
-    discount_amount = Decimal(coupon.get('discount_amount', 0))
-    coupon_code = None
-    if coupon:
-        
-        coupon_code = Coupon.objects.get(id=coupon_id)
-        total_price_after_coupon_discount = cart.total_price - discount_amount if discount_amount > 0 else cart.total_price
-        total_amount = cart.total_price - discount_amount
-    else:
-        total_price_after_coupon_discount = cart.total_price
     
     
-        total_amount = cart.total_price
-    
-    
-    if request.method == 'POST':
-        address_id = request.POST.get('address_id')
-        payment_method = request.POST.get('payment_method')
-
-        if not address_id or not payment_method:
-            messages.error(request, "Please select both address and payment method.")
-            return redirect('checkout')
-        
-        try:
-            address = Address.objects.get(id=address_id, user_id=request.user)
-        except Address.DoesNotExist:
-            messages.error(request, "Selected address not found.")
-            return redirect('checkout')
-        
-        with transaction.atomic():
-            # Validate cart items
-            for item in cart.items.all():
-                if item.variant.is_deleted == True:
-                    messages.error(request, f"{item.variant.product.name} - {item.variant} is unavailable right now")
-                    return redirect('view_cart')
-                elif item.quantity > item.variant.quantity:
-                    messages.error(request, f"Not enough stock for {item.variant.product.name} - {item.variant}")
-                    return redirect('view_cart')
-            
-            subtotal = sum(item.price * item.quantity for item in cart.items.all())
-            
-            # COD limit check
-            if payment_method == 'COD' and subtotal > 10000:
-                messages.error(request, 'COD not available on orders above ₹10,000.')
-                return redirect('checkout')
-            
-            # Wallet payment validation (static for now)
-            if payment_method == 'WP':
-                messages.info(request, 'Wallet payment is currently under maintenance. Please choose another payment method.')
-                return redirect('checkout')
-            
-            # Razorpay validation (static for now)
-            if payment_method == 'RP':
-                messages.info(request, 'Online payment is currently under maintenance. Please choose Cash on Delivery.')
-                return redirect('checkout')
-            print(subtotal, 'subbbbbbbbbbbbbbbbb')
-            # Create order
-            order = Order.objects.create(
-                user=request.user,
-                order_number=uuid.uuid4().hex[:12].upper(),
-                coupon=coupon_code,
-                discount=discount_amount,
-                payment_method=payment_method,
-                payment_status=False if payment_method == 'COD' else True,
-                subtotal=subtotal,
-                total_amount=total_amount,
-                shipping_address=address,
-                shipping_cost=cart.delivery_charge or 0,
-            )
-            
-            # Create order items
-            for item in cart.items.all():
-                OrderItem.objects.create(
-                    order=order,
-                    product_variant=item.variant,
-                    quantity=item.quantity,
-                    price=item.price,
-                    item_payment_status='Unpaid' if payment_method == 'COD' else 'Paid',
-                    original_price=item.variant.actual_price,
-                )
-                # Reduce stock
-                item.variant.quantity -= item.quantity
-                item.variant.save()
-                
-                
-            if coupon_code:
-                    UserCoupon.objects.create(
-                        user=request.user,
-                        coupon=coupon_code,
-                        order=order,
-                    )   
-            
-            # Clear cart
-            cart.delete()
-            
-            if 'coupon' in request.session:
-                    del request.session['coupon']
-                    request.session.modified = True
-
-            
-            messages.success(request, f"Order placed successfully. Your order number is {order.order_number}")
-            return redirect('order_success', order_id=order.id)
-
-    # Calculate total discount for display
-    total_discount = cart.get_total_actual_price() - cart.total_price if hasattr(cart, 'get_total_actual_price') else 0
-    
-    data = {
-        'cart': cart,
-        'addresses': addresses,
-        'total_amount': total_amount,
-        'total_discount': total_discount,
-        'payment_methods': Order.PAYMENT_METHOD_CHOICES,
-        'coupon_code': coupon_code,
-        'discount_amount': discount_amount,
-        'total_price_after_coupon_discount': total_price_after_coupon_discount,
-    }
-    
-   
-    return render(request, 'checkout.html', data)
 
 
 @login_required
@@ -344,8 +385,28 @@ def cancel_product(request, item_id):
             order_item.item_payment_status = 'Processing'
         
         order_item.save()
+        if order.payment_method in ['RP', 'WP']:
+            if order_item.item_payment_status == 'Paid':
+                wallet, _ = Wallet.objects.get_or_create(user=order.user)
+                wallet.balance += refund_amount
+                wallet.save()
+                WalletTransaction.objects.create(
+                                wallet=wallet,
+                                transaction_type="Cr",
+                                amount=refund_amount,
+                                status="Completed",
+                                transaction_id="TXN-" + str(int(time.time())) + uuid.uuid4().hex[:4].upper(),
+                                
+                )
         
         messages.success(request, 'Product has been cancelled successfully.')
+        
+    # payment status
+        if order_item.item_payment_status == 'Paid':
+            order_item.item_payment_status = 'Refunded'
+        else:
+            order_item.item_payment_status = 'Processing'
+        order_item.save()
        
     
     cancellation_reasons = OrderItem.CANCELLATION_REASON_CHOICES

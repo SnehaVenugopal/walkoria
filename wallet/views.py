@@ -209,6 +209,7 @@ def add_money(request):
             
             # Generate OTP and set expiry
             otp = random.randint(100000, 999999)
+            print(f"=== ADD MONEY OTP: {otp} ===")
             otp_expiry = (timezone.now() + timedelta(minutes=5)).isoformat()
             
             request.session['add_money_data'] = {
@@ -221,7 +222,7 @@ def add_money(request):
                 <html>
                     <body style="font-family: Arial, sans-serif; color: #333;">
                         <h2 style="color: #4CAF50;">Add Money to Wallet</h2>
-                        <p>Dear {request.user.first_name.title()},</p>
+                        <p>Dear {request.user.name.title()},</p>
                         <p>Please use the following code to verify your wallet recharge of ₹{amount}. <strong>This code will expire in 5 minutes.</strong></p>
                         <p style="font-size: 24px; font-weight: bold; color: #4CAF50;">{otp}</p>
                         <p>If you didn't request this, please ignore this email.</p>
@@ -301,6 +302,7 @@ def resend_add_money_otp(request):
                 return JsonResponse({'error': 'No pending transaction found'}, status=400)
             
             otp = random.randint(100000, 999999)
+            print(f"=== RESEND OTP: {otp} ===")
             otp_expiry = (timezone.now() + timedelta(minutes=5)).isoformat()
             
             add_money_data['otp'] = otp
@@ -313,7 +315,7 @@ def resend_add_money_otp(request):
                 <html>
                     <body style="font-family: Arial, sans-serif; color: #333;">
                         <h2 style="color: #4CAF50;">Add Money to Wallet</h2>
-                        <p>Dear {request.user.first_name},</p>
+                        <p>Dear {request.user.name},</p>
                         <p>Please use the following code to verify your wallet recharge of ₹{amount}. <strong>This code will expire in 5 minutes.</strong></p>
                         <p style="font-size: 24px; font-weight: bold; color: #4CAF50;">{otp}</p>
                         <p>If you didn't request this, please ignore this email.</p>
