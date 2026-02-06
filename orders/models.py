@@ -11,7 +11,9 @@ class Order(models.Model):
         ('RP', 'Razor Pay'),
         ('WP', 'Wallet Pay'),
         ('COD', 'Cash on Delivery'),
+        ('PP', 'PayPal'), 
     ]
+    
 
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='orders')
     coupon = models.ForeignKey(Coupon, on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')

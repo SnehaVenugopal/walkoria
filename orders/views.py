@@ -10,7 +10,7 @@ from django.urls import reverse
 from decimal import Decimal
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 import uuid, time
-import uuid, time, logging, json
+import uuid, time, logging
 from django.conf import settings
 from .models import Order, OrderItem, ReturnRequest
 from cart.models import Cart
@@ -19,9 +19,15 @@ from .invoice_utils import generate_invoice_pdf
 from django.db.models import Q
 from coupon.models import Coupon, UserCoupon
 from wallet.models import Wallet, WalletTransaction
+import json
+import requests
+import base64
+
+from django.http import JsonResponse
+from django.shortcuts import render, redirect, get_object_or_404
+from .models import Order, OrderItem
+
 logger = logging.getLogger(__name__)
-
-
 @login_required
 @cache_control(no_cache=True, must_revalidate=True, no_store=True)
 def checkout(request):
@@ -90,6 +96,55 @@ def checkout(request):
                         if wallet.balance < total_amount:
                             messages.error(request, 'Insufficient balance in your wallet. Please choose a different payment method.')
                             return redirect('checkout')
+                        
+                # PayPal Validation and Creation
+                if payment_method == 'PP':
+                    # Create the Order object first
+                    order = Order.objects.create(
+                        user=request.user,
+                        order_number=uuid.uuid4().hex[:12].upper(),
+                        coupon=coupon_code,
+                        discount=discount_amount,
+                        payment_method=payment_method,
+                        payment_status=False, # PayPal payment is pending
+                        subtotal=subtotal, # Variable 'subtotal' calculated at line 82
+                        total_amount=total_amount, # Variable 'total_amount' calculated at line 50/55
+                        shipping_address=address,
+                        shipping_cost=cart.delivery_charge or 0,
+                    )
+                    
+                    # Create Order Items and Reduce Stock
+                    for item in cart.items.all():
+                        OrderItem.objects.create(
+                            order=order,
+                            product_variant=item.variant,
+                            quantity=item.quantity,
+                            price=item.price,
+                            item_payment_status='Unpaid',
+                            original_price=item.variant.actual_price,
+                        )
+                        # Reduce stock
+                        item.variant.quantity -= item.quantity
+                        item.variant.save()
+                    
+                    # Handle Coupon Usage
+                    if coupon_code:
+                        UserCoupon.objects.create(
+                            user=request.user,
+                            coupon=coupon_code,
+                            order=order,
+                        )
+                    
+                    # Clear Cart
+                    cart.delete()
+                    if 'coupon' in request.session:
+                        del request.session['coupon']
+                        request.session.modified = True
+                    
+                    # Redirect to the new PayPal checkout page
+                    return redirect('paypal_checkout', order_id=order.id)
+                
+                
                 
                 # Razorpay validation (static for now)
                 if payment_method == 'RP':
@@ -154,6 +209,8 @@ def checkout(request):
                         order.items.update(item_payment_status='Paid')
                         order.payment_status = True
                         order.save()
+                        
+                    
 
                 
                 messages.success(request, f"Order placed successfully. Your order number is {order.order_number}")
@@ -472,3 +529,120 @@ def download_invoice(request, item_id):
     except Exception as e:
         messages.error(request, "Error generating invoice. Please try again.")
         return redirect('order_detail', order_id=order_item.order.id)
+    
+    
+    
+    
+# Helper function to get PayPal Token given credentials in settings
+def get_paypal_access_token():
+    client_id = settings.PAYPAL_CLIENT_ID
+    print(f"this is id {client_id}")
+    secret = settings.PAYPAL_SECRET_KEY
+    print("humma humma")
+    url = f"{settings.PAYPAL_API_BASE_URL}/v1/oauth2/token"
+    
+    auth_response = requests.post(
+        url,
+        auth=(client_id, secret),
+        headers={'Content-Type': 'application/x-www-form-urlencoded'},
+        data={'grant_type': 'client_credentials'}
+    )
+    
+    if auth_response.status_code == 200:
+        return auth_response.json()['access_token']
+    return None
+
+
+@login_required
+def paypal_checkout(request, order_id):
+    order = get_object_or_404(Order, id=order_id, user=request.user)
+    
+    # checking in order model if the payment_status mdodel is Ture which measn order has been placed
+    if order.payment_status:
+        messages.info(request, "This order is already paid.")
+        return redirect('order_detail', order.id)
+    context = {
+        'order': order,
+        'paypal_client_id': settings.PAYPAL_CLIENT_ID
+    }
+    return render(request, 'paypal_checkout.html', context)
+@csrf_exempt
+def create_paypal_payment(request):
+    if request.method == "POST":
+        data = json.loads(request.body)
+        order_id = data.get('order_id')
+        order = get_object_or_404(Order, id=order_id)
+        
+        token = get_paypal_access_token()
+        if not token:
+            return JsonResponse({'error': 'Unable to authenticate with PayPal'}, status=500)
+            
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {token}'
+        }
+        
+        # Ensure exact decimal formatting
+        # PayPal expects string or number, but strings are safer for currency
+        amount_str = f"{order.total_amount:.2f}"
+        
+        payload = {
+            "intent": "CAPTURE",
+            "purchase_units": [{
+                "reference_id": str(order.id),
+                "amount": {
+                    "currency_code": "USD",  # Change to "INR" if your PayPal account supports it, or convert.
+                    "value": amount_str
+                }
+            }]
+        }
+        
+        response = requests.post(
+            f"{settings.PAYPAL_API_BASE_URL}/v2/checkout/orders",
+            headers=headers,
+            json=payload
+        )
+        
+        if response.status_code in [200, 201]:
+            return JsonResponse(response.json())
+        else:
+            return JsonResponse({'error': response.text}, status=400)
+    return JsonResponse({'error': 'Invalid request'}, status=400)
+@csrf_exempt
+def capture_paypal_payment(request):
+    if request.method == "POST":
+        data = json.loads(request.body)
+        paypal_order_id = data.get('orderID')
+        local_order_id = data.get('local_order_id')
+        
+        order = get_object_or_404(Order, id=local_order_id)
+        
+        token = get_paypal_access_token()
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {token}'
+        }
+        
+        response = requests.post(
+            f"{settings.PAYPAL_API_BASE_URL}/v2/checkout/orders/{paypal_order_id}/capture",
+            headers=headers
+        )
+        
+        if response.status_code in [200, 201]:
+            result = response.json()
+            if result['status'] == 'COMPLETED':
+                # Update Order
+                order.payment_status = True
+                order.payment_intent_id = paypal_order_id # Store PayPal Transaction ID here
+                order.save()
+                
+                # Update Items
+                order.items.all().update(item_payment_status='Paid')
+                
+                # Wallet logic (optional, if you have cashback etc)
+                # ...
+                
+                return JsonResponse({'success': True})
+        
+        return JsonResponse({'success': False, 'error': 'Payment not completed'}, status=400)
+    return JsonResponse({'error': 'Invalid request'}, status=400)
