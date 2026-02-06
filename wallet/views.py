@@ -16,6 +16,7 @@ from category.models import Category
 from django.conf import settings
 from utils.decorators import admin_required
 from .models import Wallet, WalletTransaction, Offer
+from django.views.decorators.csrf import csrf_exempt
 
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,104 @@ def wallet_view(request):
             'transactions': [],
         }
     return render(request, 'wallet.html', data)
+
+
+
+@login_required
+def add_money(request):
+    """Create Razorpay order for adding money to wallet"""
+    if request.method == 'POST':
+        try:
+            from .utils import razorpay_client
+            data = json.loads(request.body)
+            amount = int(data.get('amount', 0))
+            
+            if amount < 100:
+                return JsonResponse({'error': 'Amount must be at least ₹100'}, status=400)
+            if amount > 20000:
+                return JsonResponse({'error': 'Amount cannot exceed ₹20,000'}, status=400)
+            
+            # Create Razorpay order
+            razorpay_order = razorpay_client.order.create({
+                'amount': amount * 100,  # Razorpay expects paise
+                'currency': 'INR',
+                'payment_capture': 1
+            })
+            
+            # Store in session for verification
+            request.session['wallet_razorpay_order'] = {
+                'razorpay_order_id': razorpay_order['id'],
+                'amount': amount
+            }
+            
+            return JsonResponse({
+                'razorpay_order_id': razorpay_order['id'],
+                'razorpay_key_id': settings.RAZORPAY_KEY_ID,
+                'amount': amount * 100,
+                'currency': 'INR'
+            })
+        except Exception as e:
+            logger.error(f"Error creating Razorpay order for wallet: {e}")
+            return JsonResponse({'error': 'Failed to create payment order'}, status=500)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+@login_required
+@csrf_exempt
+def verify_wallet_payment(request):
+    """Verify Razorpay payment and add money to wallet"""
+    if request.method == 'POST':
+        try:
+            import razorpay
+            from .utils import razorpay_client
+            
+            data = json.loads(request.body)
+            razorpay_order_id = data.get('razorpay_order_id')
+            razorpay_payment_id = data.get('razorpay_payment_id')
+            razorpay_signature = data.get('razorpay_signature')
+            
+            # Verify from session
+            wallet_order = request.session.get('wallet_razorpay_order')
+            if not wallet_order or wallet_order['razorpay_order_id'] != razorpay_order_id:
+                return JsonResponse({'error': 'Invalid order'}, status=400)
+            
+            # Verify signature
+            params = {
+                'razorpay_order_id': razorpay_order_id,
+                'razorpay_payment_id': razorpay_payment_id,
+                'razorpay_signature': razorpay_signature
+            }
+            
+            try:
+                razorpay_client.utility.verify_payment_signature(params)
+            except razorpay.errors.SignatureVerificationError:
+                return JsonResponse({'error': 'Payment verification failed'}, status=400)
+            
+            # Add money to wallet
+            amount = wallet_order['amount']
+            wallet, _ = Wallet.objects.get_or_create(user=request.user)
+            
+            WalletTransaction.objects.create(
+                wallet=wallet,
+                amount=amount,
+                transaction_type='Cr',
+                status='Completed',
+                transaction_id="TXN-" + str(int(time.time())) + uuid.uuid4().hex[:4].upper()
+            )
+            
+            wallet.balance += amount
+            wallet.save()
+            
+            # Clear session
+            del request.session['wallet_razorpay_order']
+            
+            return JsonResponse({'success': True, 'message': 'Money added successfully'})
+        except Exception as e:
+            logger.error(f"Error verifying wallet payment: {e}")
+            return JsonResponse({'error': 'Payment verification failed'}, status=500)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
+
 
 
 @login_required
@@ -193,149 +292,4 @@ def search_items(request):
     
     return JsonResponse({'results': results})
 
-
-@login_required
-@cache_control(no_cache=True, must_revalidate=True, no_store=True)
-def add_money(request):
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            amount = int(data.get('amount', 0))
-            
-            if amount < 100:
-                return JsonResponse({'error': 'Amount must be at least ₹100'}, status=400)
-            if amount > 20000:
-                return JsonResponse({'error': 'Amount cannot exceed ₹20,000'}, status=400)
-            
-            # Generate OTP and set expiry
-            otp = random.randint(100000, 999999)
-            print(f"=== ADD MONEY OTP: {otp} ===")
-            otp_expiry = (timezone.now() + timedelta(minutes=5)).isoformat()
-            
-            request.session['add_money_data'] = {
-                'amount': amount,
-                'otp': otp,
-                'otp_expiry': otp_expiry
-            }
-            
-            html_message = f"""
-                <html>
-                    <body style="font-family: Arial, sans-serif; color: #333;">
-                        <h2 style="color: #4CAF50;">Add Money to Wallet</h2>
-                        <p>Dear {request.user.name.title()},</p>
-                        <p>Please use the following code to verify your wallet recharge of ₹{amount}. <strong>This code will expire in 5 minutes.</strong></p>
-                        <p style="font-size: 24px; font-weight: bold; color: #4CAF50;">{otp}</p>
-                        <p>If you didn't request this, please ignore this email.</p>
-                        <p>Best regards,<br>StrideKicks</p>
-                    </body>
-                </html>
-                """
-            plain_message = strip_tags(html_message)
-            send_mail(
-                'StrideKicks Wallet Recharge Verification',
-                plain_message,
-                settings.EMAIL_HOST_USER,
-                [request.user.email],
-                fail_silently=False,
-                html_message=html_message,
-            )
-            
-            return JsonResponse({'message': 'OTP sent successfully'})
-        except (ValueError, TypeError, json.JSONDecodeError):
-            logger.error(f"Invalid amount or data format in add_money for user {request.user.id}")
-            return JsonResponse({'error': 'Invalid amount'}, status=400)
-        except Exception as e:
-            logger.error(f"Error in add_money for user {request.user.id}: {e}")
-            return JsonResponse({'error': 'An error occurred while adding money to the wallet.'}, status=500)
-    return JsonResponse({'error': 'Invalid request method'}, status=405)
-
-
-@login_required
-def verify_add_money_otp(request):
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            entered_otp = data.get('otp')
-            
-            add_money_data = request.session.get('add_money_data')
-            if not add_money_data:
-                return JsonResponse({'error': 'No pending transaction found'}, status=400)
-            
-            stored_otp = add_money_data.get('otp')
-            otp_expiry = timezone.datetime.fromisoformat(add_money_data.get('otp_expiry'))
-            
-            if timezone.now() > otp_expiry:
-                del request.session['add_money_data']
-                return JsonResponse({'error': 'OTP has expired.'}, status=400)
-            if str(entered_otp) != str(stored_otp):
-                return JsonResponse({'error': 'Invalid OTP.'}, status=400)
-            
-            # Add money to wallet
-            amount = add_money_data.get('amount')
-            wallet, _ = Wallet.objects.get_or_create(user=request.user)
-            
-            transaction = WalletTransaction.objects.create(
-                wallet=wallet,
-                amount=amount,
-                transaction_type='Cr',
-                status='Completed',
-                transaction_id="TXN-" + str(int(time.time())) + uuid.uuid4().hex[:4].upper()
-            )
-            
-            wallet.balance += amount
-            wallet.save()
-            del request.session['add_money_data']
-            
-            return JsonResponse({'message': 'Money added successfully'})
-        except Exception as e:
-            logger.error(f"Error verifying OTP for add money for user {request.user.id}: {e}")
-            return JsonResponse({'error': 'An error occurred while verifying the OTP.'}, status=500)
-    return JsonResponse({'error': 'Invalid request method'}, status=405)
-
-
-@login_required
-def resend_add_money_otp(request):
-    if request.method == 'POST':
-        try:
-            add_money_data = request.session.get('add_money_data')
-            if not add_money_data:
-                return JsonResponse({'error': 'No pending transaction found'}, status=400)
-            
-            otp = random.randint(100000, 999999)
-            print(f"=== RESEND OTP: {otp} ===")
-            otp_expiry = (timezone.now() + timedelta(minutes=5)).isoformat()
-            
-            add_money_data['otp'] = otp
-            add_money_data['otp_expiry'] = otp_expiry
-            request.session['add_money_data'] = add_money_data
-            
-            # Send new OTP email
-            amount = add_money_data.get('amount')
-            html_message = f"""
-                <html>
-                    <body style="font-family: Arial, sans-serif; color: #333;">
-                        <h2 style="color: #4CAF50;">Add Money to Wallet</h2>
-                        <p>Dear {request.user.name},</p>
-                        <p>Please use the following code to verify your wallet recharge of ₹{amount}. <strong>This code will expire in 5 minutes.</strong></p>
-                        <p style="font-size: 24px; font-weight: bold; color: #4CAF50;">{otp}</p>
-                        <p>If you didn't request this, please ignore this email.</p>
-                        <p>Best regards,<br>StrideKicks</p>
-                    </body>
-                </html>
-                """
-            plain_message = strip_tags(html_message)
-            send_mail(
-                'StrideKicks Wallet Recharge Verification',
-                plain_message,
-                settings.EMAIL_HOST_USER,
-                [request.user.email],
-                fail_silently=False,
-                html_message=html_message,
-            )
-            
-            return JsonResponse({'message': 'OTP resent successfully'})
-        except Exception as e:
-            logger.error(f"Error resending OTP for add money for user {request.user.id}: {e}")
-            return JsonResponse({'error': 'An error occurred while resending the OTP.'}, status=500)
-    return JsonResponse({'error': 'Invalid request method'}, status=405)
 

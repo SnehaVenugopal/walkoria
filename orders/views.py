@@ -22,7 +22,7 @@ from wallet.models import Wallet, WalletTransaction
 import json
 import requests
 import base64
-
+from django.http import HttpResponse
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from .models import Order, OrderItem
@@ -41,7 +41,7 @@ def checkout(request):
         addresses = Address.objects.filter(user_id=request.user, is_deleted=False).order_by('-default_address', '-created_at')
         coupon = request.session.get('coupon', {})
         coupon_id = coupon.get('coupon_id')
-        discount_amount = Decimal(coupon.get('discount_amount', 0))
+        discount_amount = Decimal(str(coupon.get('discount_amount', 0) or 0))
         coupon_code = None
         if coupon:
             
@@ -148,8 +148,9 @@ def checkout(request):
                 
                 # Razorpay validation (static for now)
                 if payment_method == 'RP':
-                    messages.info(request, 'Online payment is currently under maintenance. Please choose Cash on Delivery.')
-                    return redirect('checkout')
+                    # messages.info(request, 'Online payment is currently under maintenance. Please choose Cash on Delivery.')
+                    # return redirect('checkout')
+                    pass
                 print(subtotal, 'subbbbbbbbbbbbbbbbb')
                 # Create order
                 order = Order.objects.create(
@@ -241,10 +242,10 @@ def checkout(request):
         logger.error(f"ValueError in wallet payment processing: {e}")
         messages.error(request, f"An error occurred while processing your wallet payment.")
         return redirect('checkout')
-    except Exception as e:
-        logger.error(f"Error in checkout view: {e}")
-        messages.error(request, "An unexpected error occurred during checkout. Please try again or contact support.")
-        return redirect('view_cart')
+    # except Exception as e:
+    #     logger.error(f"Error in checkout view: {e}")
+    #     messages.error(request, "An unexpected error occurred during checkout. Please try again or contact support.")
+    #     return redirect('view_cart')
 
     
     
@@ -646,3 +647,187 @@ def capture_paypal_payment(request):
         
         return JsonResponse({'success': False, 'error': 'Payment not completed'}, status=400)
     return JsonResponse({'error': 'Invalid request'}, status=400)
+
+
+
+@login_required
+@csrf_exempt
+def create_razorpay_order(request):
+    """Create a Razorpay order and return order details to frontend"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            address_id = data.get('address_id')
+            
+            cart = Cart.objects.filter(user=request.user).first()
+            if not cart or not cart.items.exists():
+                return JsonResponse({'error': 'Cart is empty'}, status=400)
+            
+            try:
+                address = Address.objects.get(id=address_id, user_id=request.user)
+            except Address.DoesNotExist:
+                return JsonResponse({'error': 'Address not found'}, status=400)
+            
+            # Validate cart items
+            for item in cart.items.all():
+                if item.variant.is_deleted:
+                    return JsonResponse({'error': f'{item.variant.product.name} is unavailable'}, status=400)
+                if item.quantity > item.variant.quantity:
+                    return JsonResponse({'error': f'Not enough stock for {item.variant.product.name}'}, status=400)
+            
+            # Get coupon details from session
+            coupon = request.session.get('coupon', {})
+            coupon_id = coupon.get('coupon_id')
+            discount_amount = Decimal(str(coupon.get('discount_amount', 0) or 0))
+            coupon_code = None
+            if coupon_id:
+                coupon_code = Coupon.objects.get(id=coupon_id)
+            
+            subtotal = sum(item.price * item.quantity for item in cart.items.all())
+            total_amount = cart.total_price - discount_amount if discount_amount > 0 else cart.total_price
+            
+            # Import razorpay client
+            from wallet.utils import razorpay_client
+            
+            # Create Razorpay order
+            razorpay_order_data = {
+                'amount': int(total_amount * 100),  # Razorpay expects amount in paise
+                'currency': 'INR',
+                'payment_capture': 1  # Auto capture
+            }
+            
+            razorpay_order = razorpay_client.order.create(razorpay_order_data)
+            
+            with transaction.atomic():
+                # Create the order
+                order = Order.objects.create(
+                    user=request.user,
+                    order_number=uuid.uuid4().hex[:12].upper(),
+                    coupon=coupon_code,
+                    discount=discount_amount,
+                    payment_method='RP',
+                    payment_status=False,
+                    subtotal=subtotal,
+                    total_amount=total_amount,
+                    shipping_address=address,
+                    shipping_cost=cart.delivery_charge or 0,
+                    razorpay_order_id=razorpay_order['id'],
+                )
+                
+                # Create order items and reduce stock
+                for item in cart.items.all():
+                    OrderItem.objects.create(
+                        order=order,
+                        product_variant=item.variant,
+                        quantity=item.quantity,
+                        price=item.price,
+                        item_payment_status='Pending',
+                        original_price=item.variant.actual_price,
+                    )
+                    item.variant.quantity -= item.quantity
+                    item.variant.save()
+                
+                # Handle coupon usage
+                if coupon_code:
+                    UserCoupon.objects.create(
+                        user=request.user,
+                        coupon=coupon_code,
+                        order=order,
+                    )
+                
+                # Clear cart
+                cart.delete()
+                if 'coupon' in request.session:
+                    del request.session['coupon']
+                    request.session.modified = True
+            
+            return JsonResponse({
+                'razorpay_order_id': razorpay_order['id'],
+                'razorpay_key_id': settings.RAZORPAY_KEY_ID,
+                'amount': int(total_amount * 100),
+                'currency': 'INR',
+                'order_id': order.id,
+            })
+            
+        except Exception as e:
+            logger.error(f"Error creating Razorpay order: {e}")
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    return JsonResponse({'error': 'Invalid request'}, status=400)
+
+@csrf_exempt
+def verify_razorpay_payment(request):
+    """Verify Razorpay payment signature and update order status"""
+    if request.method == 'POST':
+        try:
+            import razorpay
+            from wallet.utils import razorpay_client
+            
+            # Get data from POST (Razorpay callback sends form data)
+            razorpay_order_id = request.POST.get('razorpay_order_id')
+            razorpay_payment_id = request.POST.get('razorpay_payment_id')
+            razorpay_signature = request.POST.get('razorpay_signature')
+            
+            # Find the order by razorpay_order_id
+            order = get_object_or_404(Order, razorpay_order_id=razorpay_order_id)
+            
+            # Verify payment signature
+            params = {
+                'razorpay_order_id': razorpay_order_id,
+                'razorpay_payment_id': razorpay_payment_id,
+                'razorpay_signature': razorpay_signature
+            }
+            
+            try:
+                razorpay_client.utility.verify_payment_signature(params)
+            except razorpay.errors.SignatureVerificationError:
+                order.items.update(status='Payment_Failed', item_payment_status='Failed')
+                redirect_url = reverse('order_detail', args=[order.id])
+                return HttpResponse(f'''
+                    <html><body>
+                    <script>
+                        window.opener ? window.opener.location.href = "{redirect_url}" : window.location.href = "{redirect_url}";
+                        window.close();
+                    </script>
+                    <p>Payment failed. Redirecting...</p>
+                    </body></html>
+                ''')
+            
+            # Payment verified successfully
+            with transaction.atomic():
+                order.payment_status = True
+                order.razorpay_payment_id = razorpay_payment_id
+                order.razorpay_signature = razorpay_signature
+                order.save()
+                
+                order.items.update(item_payment_status='Paid')
+            
+            # Return HTML that redirects the main window and closes popup
+            redirect_url = reverse('order_success', args=[order.id])
+            return HttpResponse(f'''
+                <html><body>
+                <script>
+                    if (window.opener) {{
+                        window.opener.location.href = "{redirect_url}";
+                        window.close();
+                    }} else {{
+                        window.location.href = "{redirect_url}";
+                    }}
+                </script>
+                <p>Payment successful! Redirecting...</p>
+                </body></html>
+            ''')
+            
+        except Exception as e:
+            logger.error(f"Error verifying Razorpay payment: {e}")
+            return HttpResponse('''
+                <html><body>
+                <script>
+                    window.opener ? window.opener.location.href = "/orders/my-orders/" : window.location.href = "/orders/my-orders/";
+                    window.close();
+                </script>
+                <p>An error occurred. Redirecting...</p>
+                </body></html>
+            ''')
+    
+    return redirect('checkout')

@@ -179,6 +179,10 @@ PAYPAL_CLIENT_ID = config("PAYPAL_CLIENT_ID", default=None)
 PAYPAL_SECRET_KEY = config("PAYPAL_SECRET_KEY", default=None)
 PAYPAL_MODE = config("PAYPAL_MODE", default="sandbox")
 
+
+RAZORPAY_KEY_ID = config("RAZORPAY_KEY_ID")
+RAZORPAY_KEY_SECRET = config("RAZORPAY_KEY_SECRET")
+
 PAYPAL_API_BASE_URL = (
     "https://api-m.sandbox.paypal.com"
     if PAYPAL_MODE == "sandbox"

@@ -13,5 +13,10 @@ urlpatterns = [
     path('paypal-checkout/<int:order_id>/', views.paypal_checkout, name='paypal_checkout'),
     path('paypal/create/', views.create_paypal_payment, name='create_paypal_payment'),
     path('paypal/capture/', views.capture_paypal_payment, name='capture_paypal_payment'),
+    
+    
+    
+    path('razorpay/create/', views.create_razorpay_order, name='create_razorpay_order'),
+    path('razorpay/verify/', views.verify_razorpay_payment, name='verify_razorpay_payment'),
 ]
 

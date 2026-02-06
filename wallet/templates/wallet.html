@@ -86,6 +86,8 @@
         background: white;
         border-radius: 8px;
         overflow: hidden;
+        table-layout: auto;
+        min-width: 700px;
     }
 
     .transaction-table thead {
@@ -513,28 +515,32 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for transaction in transactions %}
+                    {% for transaction in transactions %}                
                     <tr>
                         <td>
-                            <span class="transaction-type {% if transaction.transaction_type == 'Cr' %}credit{% else %}debit{% endif %}">
-                                <i class="fas {% if transaction.transaction_type == 'Cr' %}fa-arrow-down{% else %}fa-arrow-up{% endif %}"></i>
+                            <span
+                                class="transaction-type {% if transaction.transaction_type == 'Cr' %}credit{% else %}debit{% endif %}">
+                                <i
+                                    class="fas {% if transaction.transaction_type == 'Cr' %}fa-arrow-down{% else %}fa-arrow-up{% endif %}"></i>
                                 {{ transaction.get_transaction_type_display }}
                             </span>
                         </td>
                         <td>
-                            <span class="transaction-amount {% if transaction.transaction_type == 'Cr' %}credit{% else %}debit{% endif %}">
-                                {% if transaction.transaction_type == 'Cr' %}+{% else %}-{% endif %}₹{{ transaction.amount|floatformat:2 }}
+                            <span
+                                class="transaction-amount {% if transaction.transaction_type == 'Cr' %}credit{% else %}debit{% endif %}">
+                                {% if transaction.transaction_type == 'Cr' %}+₹{% else %}-₹{% endif %}{{ transaction.amount|floatformat:2 }}
                             </span>
                         </td>
                         <td>{{ transaction.created_at|date:"M d, Y, g:i A" }}</td>
                         <td>
-                            <code style="background-color: #f5f5f5; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem;">
-                                {{ transaction.transaction_id }}
-                            </code>
+                            <code
+                                style="background-color: #f5f5f5; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem;">{{ transaction.transaction_id }}</code>
                         </td>
                         <td>
-                            <span class="transaction-status {% if transaction.status == 'Completed' %}completed{% elif transaction.status == 'Pending' %}pending{% else %}failed{% endif %}">
-                                <i class="fas {% if transaction.status == 'Completed' %}fa-check-circle{% elif transaction.status == 'Pending' %}fa-clock{% else %}fa-times-circle{% endif %} status-icon"></i>
+                            <span
+                                class="transaction-status {% if transaction.status == 'Completed' %}completed{% elif transaction.status == 'Pending' %}pending{% else %}failed{% endif %}">
+                                <i
+                                    class="fas {% if transaction.status == 'Completed' %}fa-check-circle{% elif transaction.status == 'Pending' %}fa-clock{% else %}fa-times-circle{% endif %} status-icon"></i>
                                 {{ transaction.status }}
                             </span>
                         </td>
@@ -557,20 +563,20 @@
                 {% endif %}
 
                 {% for num in transactions.paginator.page_range %}
-                    {% if transactions.number == num %}
-                    <span class="current">{{ num }}</span>
-                    {% elif num > transactions.number|add:'-3' and num < transactions.number|add:'3' %}
-                    <a href="?page={{ num }}">{{ num }}</a>
+                {% if transactions.number == num %}
+                <span class="current">{{ num }}</span>
+                {% elif num > transactions.number|add:'-3' and num < transactions.number|add:'3' %} <a
+                    href="?page={{ num }}">{{ num }}</a>
                     {% endif %}
-                {% endfor %}
+                    {% endfor %}
 
-                {% if transactions.has_next %}
-                <a href="?page={{ transactions.next_page_number }}">Next</a>
-                <a href="?page={{ transactions.paginator.num_pages }}">Last</a>
-                {% else %}
-                <span class="disabled">Next</span>
-                <span class="disabled">Last</span>
-                {% endif %}
+                    {% if transactions.has_next %}
+                    <a href="?page={{ transactions.next_page_number }}">Next</a>
+                    <a href="?page={{ transactions.paginator.num_pages }}">Last</a>
+                    {% else %}
+                    <span class="disabled">Next</span>
+                    <span class="disabled">Last</span>
+                    {% endif %}
             </div>
         </div>
         {% endif %}
@@ -581,7 +587,8 @@
                 <i class="fas fa-inbox"></i>
             </div>
             <div class="empty-state-text">No Transactions Yet</div>
-            <div class="empty-state-subtext">Your transaction history will appear here after you add money to your wallet.</div>
+            <div class="empty-state-subtext">Your transaction history will appear here after you add money to your
+                wallet.</div>
         </div>
         {% endif %}
     </div>
@@ -601,27 +608,15 @@
                     {% csrf_token %}
                     <div class="form-group">
                         <label for="amount" class="form-label">Enter Amount (₹)</label>
-                        <input type="number" class="form-control" id="amount" name="amount" placeholder="e.g., 500" min="100" max="20000">
+                        <input type="number" class="form-control" id="amount" name="amount" placeholder="e.g., 500"
+                            min="100" max="20000">
                         <div class="invalid-feedback" id="amountError"></div>
-                        <small style="color: #999; display: block; margin-top: 8px;">Minimum: ₹100 | Maximum: ₹20,000</small>
+                        <small style="color: #999; display: block; margin-top: 8px;">Minimum: ₹100 | Maximum:
+                            ₹20,000</small>
                     </div>
-                    <button type="submit" class="btn-submit" id="proceedButton">Proceed to Pay</button>
-                </form>
-
-                <!-- OTP Verification Form (Initially Hidden) -->
-                <form id="otpForm" class="d-none">
-                    <div class="form-group">
-                        <label for="otp" class="form-label">Enter OTP</label>
-                        <input type="text" class="form-control" id="otp" name="otp" placeholder="Enter 6-digit OTP" maxlength="6">
-                        <div class="invalid-feedback" id="otpError"></div>
-                        <div class="otp-timer">
-                            Resend OTP in <span id="timer">30</span> seconds
-                        </div>
-                        <button type="button" class="resend-btn" id="resendOtp" disabled>
-                            Resend OTP
-                        </button>
-                    </div>
-                    <button type="submit" class="btn-submit" id="verifyButton">Verify OTP</button>
+                    <button type="submit" class="btn-submit" id="proceedButton">
+                        <i class="fas fa-lock me-2"></i>Pay with Razorpay
+                    </button>
                 </form>
             </div>
         </div>
@@ -631,6 +626,8 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- Razorpay Script -->
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script>
     // Modal Management
     function openModal(modalId) {
@@ -641,32 +638,28 @@
         document.querySelector(modalId).classList.remove('show');
     }
 
-    // Add Money Functionality
-    document.addEventListener('DOMContentLoaded', function() {
+    // Add Money Functionality with Razorpay
+    document.addEventListener('DOMContentLoaded', function () {
         const addMoneyBtn = document.querySelector('.add-money-btn');
         const addMoneyModal = document.getElementById('addMoneyModal');
         const addMoneyForm = document.getElementById('addMoneyForm');
-        const otpForm = document.getElementById('otpForm');
         const amountInput = document.getElementById('amount');
         const amountError = document.getElementById('amountError');
         const proceedButton = document.getElementById('proceedButton');
-        const resendOtpBtn = document.getElementById('resendOtp');
-        const timerSpan = document.getElementById('timer');
-        let timerInterval;
 
         // Open Modal
-        addMoneyBtn.addEventListener('click', function() {
+        addMoneyBtn.addEventListener('click', function () {
             openModal('#addMoneyModal');
         });
 
         // Close Modal
-        document.querySelector('#addMoneyModal .btn-close').addEventListener('click', function() {
+        document.querySelector('#addMoneyModal .btn-close').addEventListener('click', function () {
             closeModal('#addMoneyModal');
             resetModal();
         });
 
         // Close modal on overlay click
-        addMoneyModal.addEventListener('click', function(e) {
+        addMoneyModal.addEventListener('click', function (e) {
             if (e.target === addMoneyModal) {
                 closeModal('#addMoneyModal');
                 resetModal();
@@ -677,7 +670,7 @@
             const amount = parseFloat(amountInput.value);
             amountInput.classList.remove('is-invalid', 'is-valid');
             amountError.textContent = '';
-            
+
             if (!amountInput.value) {
                 amountError.textContent = 'Please enter an amount.';
                 amountInput.classList.add('is-invalid');
@@ -706,39 +699,20 @@
             return true;
         }
 
-        function startTimer() {
-            let timeLeft = 30;
-            resendOtpBtn.disabled = true;
-            
-            timerInterval = setInterval(() => {
-                timeLeft--;
-                timerSpan.textContent = timeLeft;
-                
-                if (timeLeft <= 0) {
-                    clearInterval(timerInterval);
-                    resendOtpBtn.disabled = false;
-                    timerSpan.parentElement.style.display = 'none';
-                }
-            }, 1000);
-        }
-
         function resetModal() {
-            addMoneyForm.classList.remove('d-none');
-            otpForm.classList.add('d-none');
             amountInput.value = '';
-            document.getElementById('otp').value = '';
             amountInput.classList.remove('is-invalid', 'is-valid');
             amountError.textContent = '';
             proceedButton.disabled = false;
-            proceedButton.textContent = 'Proceed to Pay';
-            if (timerInterval) clearInterval(timerInterval);
+            proceedButton.innerHTML = '<i class="fas fa-lock me-2"></i>Pay with Razorpay';
         }
 
         amountInput.addEventListener('blur', validateAmount);
 
-        addMoneyForm.addEventListener('submit', function(e) {
+        // Form submission - Create Razorpay order and open checkout
+        addMoneyForm.addEventListener('submit', function (e) {
             e.preventDefault();
-            
+
             if (!validateAmount()) return;
             if (proceedButton.disabled) return;
 
@@ -746,8 +720,9 @@
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
             proceedButton.disabled = true;
-            proceedButton.textContent = 'Processing...';
+            proceedButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
 
+            // Step 1: Create Razorpay order
             fetch('{% url "add_money" %}', {
                 method: 'POST',
                 headers: {
@@ -756,101 +731,84 @@
                 },
                 body: JSON.stringify({ amount: amount })
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.message) {
-                    addMoneyForm.classList.add('d-none');
-                    otpForm.classList.remove('d-none');
-                    startTimer();
-                    showNotification('OTP sent successfully! Check your email.', 'success');
-                    proceedButton.disabled = false;
-                    proceedButton.textContent = 'Proceed to Pay';
-                } else {
-                    throw new Error(data.error || 'Failed to send OTP');
-                }
-            })
-            .catch(error => {
-                showNotification(error.message, 'danger');
-                proceedButton.disabled = false;
-                proceedButton.textContent = 'Proceed to Pay';
-            });
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+
+                    // Step 2: Open Razorpay checkout
+                    const options = {
+                        key: data.razorpay_key_id,
+                        amount: data.amount,
+                        currency: data.currency,
+                        name: 'Walkoria',
+                        description: 'Add Money to Wallet',
+                        order_id: data.razorpay_order_id,
+                        callback_url: window.location.origin + '{% url "verify_wallet_payment" %}',
+                        handler: function (response) {
+                            // Step 3: Verify payment on server
+                            verifyPayment(response, csrfToken);
+                        },
+                        prefill: {
+                            name: '{{ request.user.name }}',
+                            email: '{{ request.user.email }}'
+                        },
+                        theme: {
+                            color: '#ff429d'
+                        },
+                        modal: {
+                            ondismiss: function () {
+                                resetModal();
+                                showNotification('Payment cancelled', 'info');
+                            }
+                        }
+                    };
+
+                    const rzp = new Razorpay(options);
+                    rzp.on('payment.failed', function (response) {
+                        showNotification('Payment failed: ' + response.error.description, 'danger');
+                        resetModal();
+                    });
+                    rzp.open();
+                    closeModal('#addMoneyModal');
+                })
+                .catch(error => {
+                    showNotification(error.message, 'danger');
+                    resetModal();
+                });
         });
 
-        otpForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const otpInput = document.getElementById('otp');
-            const otp = otpInput.value.trim();
-            const verifyButton = this.querySelector('button[type="submit"]');
-            
-            if (!otp || otp.length !== 6) {
-                document.getElementById('otpError').textContent = 'Please enter a valid 6-digit OTP';
-                otpInput.classList.add('is-invalid');
-                return;
-            }
-
-            if (verifyButton.disabled) return;
-
-            verifyButton.disabled = true;
-            verifyButton.textContent = 'Verifying...';
-
-            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
-            fetch('{% url "verify_add_money_otp" %}', {
+        // Verify payment with server
+        function verifyPayment(response, csrfToken) {
+            fetch('{% url "verify_wallet_payment" %}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRFToken': csrfToken
                 },
-                body: JSON.stringify({ otp: otp })
+                body: JSON.stringify({
+                    razorpay_order_id: response.razorpay_order_id,
+                    razorpay_payment_id: response.razorpay_payment_id,
+                    razorpay_signature: response.razorpay_signature
+                })
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.message) {
-                    showNotification('Money added successfully!', 'success');
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1500);
-                } else {
-                    throw new Error(data.error || 'Failed to verify OTP');
-                }
-            })
-            .catch(error => {
-                showNotification(error.message, 'danger');
-                verifyButton.disabled = false;
-                verifyButton.textContent = 'Verify OTP';
-            });
-        });
-
-        resendOtpBtn.addEventListener('click', function() {
-            if (resendOtpBtn.disabled) return;
-
-            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-            resendOtpBtn.disabled = true;
-
-            fetch('{% url "resend_add_money_otp" %}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.message) {
-                    showNotification('OTP resent successfully!', 'success');
-                    timerSpan.parentElement.style.display = 'block';
-                    startTimer();
-                    document.getElementById('otp').value = '';
-                } else {
-                    throw new Error(data.error || 'Failed to resend OTP');
-                }
-            })
-            .catch(error => {
-                showNotification(error.message, 'danger');
-                resendOtpBtn.disabled = false;
-            });
-        });
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification('₹' + amountInput.value + ' added to wallet successfully!', 'success');
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    } else {
+                        throw new Error(data.error || 'Payment verification failed');
+                    }
+                })
+                .catch(error => {
+                    showNotification(error.message, 'danger');
+                    resetModal();
+                });
+        }
 
         function showNotification(message, type) {
             const alertDiv = document.createElement('div');
