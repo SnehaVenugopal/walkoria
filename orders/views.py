@@ -70,14 +70,26 @@ def checkout(request):
                 return redirect('checkout')
             
             with transaction.atomic():
-                # Validate cart items
+                # Validate cart items - check for out of stock and unavailable products
+                out_of_stock_items = []
                 for item in cart.items.all():
                     if item.variant.is_deleted == True:
                         messages.error(request, f"{item.variant.product.name} - {item.variant} is unavailable right now")
                         return redirect('view_cart')
+                    elif item.variant.quantity == 0:
+                        out_of_stock_items.append(f"{item.variant.product.name} (Size: {item.variant.size})")
                     elif item.quantity > item.variant.quantity:
-                        messages.error(request, f"Not enough stock for {item.variant.product.name} - {item.variant}")
+                        messages.error(request, f"Not enough stock for {item.variant.product.name} - {item.variant}. Only {item.variant.quantity} available.")
                         return redirect('view_cart')
+                
+                # If there are out of stock items, show error and redirect to cart
+                if out_of_stock_items:
+                    if len(out_of_stock_items) == 1:
+                        messages.error(request, f"{out_of_stock_items[0]} is out of stock. Please remove it from your cart to proceed.")
+                    else:
+                        items_str = ", ".join(out_of_stock_items)
+                        messages.error(request, f"The following items are out of stock: {items_str}. Please remove them from your cart to proceed.")
+                    return redirect('view_cart')
                 
                 subtotal = sum(item.price * item.quantity for item in cart.items.all())
                 
@@ -86,10 +98,11 @@ def checkout(request):
                     messages.error(request, 'COD not available on orders above ₹10,000.')
                     return redirect('checkout')
                 
-                # Wallet payment validation (static for now)
+                # Wallet payment validation
                 if payment_method == 'WP':
-                        user_id = request.user
-                        wallet = Wallet.objects.get(user_id=user_id)
+                        # Get or create wallet for the user
+                        wallet, created = Wallet.objects.get_or_create(user=request.user)
+                        
                         if not wallet.is_active:
                             messages.error(request, 'Your wallet is inactive. Please contact customer care.')
                             return redirect('checkout')
@@ -196,14 +209,17 @@ def checkout(request):
                         request.session.modified = True
                         
                 if payment_method == 'WP':
+
                     with transaction.atomic():
-                        wallet = Wallet.objects.get(user_id=request.user)
-                        wallet.balance -= total_amount
+                        # Get wallet (should exist due to validation above)
+                        wallet, created = Wallet.objects.get_or_create(user=request.user)
+                        wallet.refresh_from_db()
+                        wallet.balance = wallet.balance - Decimal(str(total_amount))
                         wallet.save()
                         WalletTransaction.objects.create(
                                 wallet=wallet,
                                 transaction_type="Dr",
-                                amount=total_amount,
+                                amount=Decimal(str(total_amount)),
                                 status="Completed",
                                 transaction_id="TXN-" + str(int(time.time())) + uuid.uuid4().hex[:4].upper(),
                             )
@@ -211,7 +227,38 @@ def checkout(request):
                         order.payment_status = True
                         order.save()
                         
-                    
+
+                # Check if this is the user's first order and give referral rewards
+                from referral.models import Referral, ReferralOffer
+                from referral.views import give_referral_rewards
+                from django.utils import timezone
+                from django.db.models import Q
+                
+                # Check if this is the first successful order by this user
+                previous_orders = Order.objects.filter(user=request.user, payment_status=True).exclude(id=order.id).count()
+                
+                if previous_orders == 0:  # This is the first successful order
+                    # Check if user was referred
+                    try:
+                        referral = Referral.objects.get(referred_user=request.user, is_used=True)
+                        
+                        # Check if rewards haven't been given yet
+                        if not referral.reward_given_to_referred or not referral.reward_given_to_referrer:
+                            # Get active offer
+                            active_offer = ReferralOffer.objects.filter(
+                                is_active=True,
+                                valid_from__lte=timezone.now()
+                            ).filter(
+                                Q(valid_until__gte=timezone.now()) | Q(valid_until__isnull=True)
+                            ).first()
+                            
+                            if active_offer:
+                                # Give rewards to both users
+                                give_referral_rewards(referral, active_offer)
+                                logger.info(f"Referral rewards given for user {request.user.id} after first purchase")
+                    except Referral.DoesNotExist:
+                        # User wasn't referred, do nothing
+                        pass
 
                 
                 messages.success(request, f"Order placed successfully. Your order number is {order.order_number}")
@@ -257,6 +304,59 @@ def order_success(request, order_id):
     """Display order success page"""
     order = get_object_or_404(Order, id=order_id, user=request.user)
     return render(request, 'order_success.html', {'order': order})
+
+
+@login_required
+@cache_control(no_cache=True, must_revalidate=True, no_store=True)
+def order_failure(request, order_id):
+    """Display order failure page when payment fails"""
+    order = get_object_or_404(Order, id=order_id, user=request.user)
+    return render(request, 'order_failure.html', {'order': order})
+
+
+@login_required
+@cache_control(no_cache=True, must_revalidate=True, no_store=True)
+def retry_payment(request, order_id):
+    """Retry payment for a failed order"""
+    order = get_object_or_404(Order, id=order_id, user=request.user)
+    
+    # Only allow retry if payment is not completed
+    if order.payment_status:
+        messages.info(request, 'This order has already been paid.')
+        return redirect('order_detail', order_id=order.id)
+    
+    # Render a retry payment page that initiates payment
+    from django.conf import settings
+    from wallet.utils import razorpay_client
+    
+    try:
+        # Create a new Razorpay order for retry
+        razorpay_order_data = {
+            'amount': int(order.total_amount * 100),  # Razorpay expects amount in paise
+            'currency': 'INR',
+            'receipt': f'retry_{order.order_number}',
+            'payment_capture': 1
+        }
+        razorpay_order = razorpay_client.order.create(razorpay_order_data)
+        
+        # Update the order with new razorpay_order_id
+        order.razorpay_order_id = razorpay_order['id']
+        order.save()
+        
+        context = {
+            'order': order,
+            'razorpay_order_id': razorpay_order['id'],
+            'razorpay_key_id': settings.RAZORPAY_KEY_ID,
+            'amount': int(order.total_amount * 100),
+            'user_name': request.user.name,
+            'user_email': request.user.email,
+            'user_phone': request.user.phone_number,
+        }
+        return render(request, 'retry_payment.html', context)
+    except Exception as e:
+        logger.error(f"Error creating Razorpay order for retry: {e}")
+        messages.error(request, 'Failed to initiate payment retry. Please try again.')
+        return redirect('order_failure', order_id=order.id)
 
 
 # @login_required
@@ -374,8 +474,11 @@ def order_detail(request, order_id):
         id=order_id,
         user=request.user
     )
-    print(dir(order), order.subtotal, order.total_amount)
-    return render(request, 'order_detail.html', {'order': order})
+    cancellation_reasons = OrderItem.CANCELLATION_REASON_CHOICES
+    return render(request, 'order_detail.html', {
+        'order': order,
+        'cancellation_reasons': cancellation_reasons
+    })
 
 
 @login_required
@@ -431,40 +534,33 @@ def cancel_product(request, item_id):
 
         order.save()
 
-        # Handle refund for paid orders (wallet refund would go here)
-        if order.payment_method in ['RP', 'WP'] and order_item.item_payment_status == 'Paid':
-            # For now, just mark as refunded - actual wallet refund would be implemented here
+        # Handle wallet refund for paid orders
+        # Check if item was paid BEFORE changing status
+        was_paid = order_item.item_payment_status == 'Paid'
+        
+        # Credit wallet for all paid orders (RP, WP, PP, or COD if delivered)
+        if was_paid:
+            from decimal import Decimal
+            wallet, _ = Wallet.objects.get_or_create(user=order.user)
+            wallet.refresh_from_db()
+            refund_decimal = Decimal(str(refund_amount))
+            wallet.balance = wallet.balance + refund_decimal
+            wallet.save()
+            WalletTransaction.objects.create(
+                wallet=wallet,
+                transaction_type="Cr",
+                amount=refund_decimal,
+                status="Completed",
+                transaction_id="RF" + str(int(time.time()))[-6:] + uuid.uuid4().hex[:4].upper(),
+            )
             order_item.item_payment_status = 'Refunded'
-            
         elif order.payment_method == 'COD':
-            
             order_item.item_payment_status = 'Cancelled'
         else:
             order_item.item_payment_status = 'Processing'
         
         order_item.save()
-        if order.payment_method in ['RP', 'WP']:
-            if order_item.item_payment_status == 'Paid':
-                wallet, _ = Wallet.objects.get_or_create(user=order.user)
-                wallet.balance += refund_amount
-                wallet.save()
-                WalletTransaction.objects.create(
-                                wallet=wallet,
-                                transaction_type="Cr",
-                                amount=refund_amount,
-                                status="Completed",
-                                transaction_id="TXN-" + str(int(time.time())) + uuid.uuid4().hex[:4].upper(),
-                                
-                )
-        
         messages.success(request, 'Product has been cancelled successfully.')
-        
-    # payment status
-        if order_item.item_payment_status == 'Paid':
-            order_item.item_payment_status = 'Refunded'
-        else:
-            order_item.item_payment_status = 'Processing'
-        order_item.save()
        
     
     cancellation_reasons = OrderItem.CANCELLATION_REASON_CHOICES
@@ -668,12 +764,23 @@ def create_razorpay_order(request):
             except Address.DoesNotExist:
                 return JsonResponse({'error': 'Address not found'}, status=400)
             
-            # Validate cart items
+            # Validate cart items - check for out of stock and unavailable products
+            out_of_stock_items = []
             for item in cart.items.all():
                 if item.variant.is_deleted:
                     return JsonResponse({'error': f'{item.variant.product.name} is unavailable'}, status=400)
-                if item.quantity > item.variant.quantity:
-                    return JsonResponse({'error': f'Not enough stock for {item.variant.product.name}'}, status=400)
+                if item.variant.quantity == 0:
+                    out_of_stock_items.append(f"{item.variant.product.name} (Size: {item.variant.size})")
+                elif item.quantity > item.variant.quantity:
+                    return JsonResponse({'error': f'Not enough stock for {item.variant.product.name}. Only {item.variant.quantity} available.'}, status=400)
+            
+            # If there are out of stock items, return error
+            if out_of_stock_items:
+                if len(out_of_stock_items) == 1:
+                    return JsonResponse({'error': f'{out_of_stock_items[0]} is out of stock. Please remove it from your cart.'}, status=400)
+                else:
+                    items_str = ", ".join(out_of_stock_items)
+                    return JsonResponse({'error': f'The following items are out of stock: {items_str}. Please remove them from your cart.'}, status=400)
             
             # Get coupon details from session
             coupon = request.session.get('coupon', {})
@@ -768,6 +875,9 @@ def verify_razorpay_payment(request):
             razorpay_payment_id = request.POST.get('razorpay_payment_id')
             razorpay_signature = request.POST.get('razorpay_signature')
             
+            # Log incoming data for debugging
+            logger.info(f"Razorpay verification - order_id: {razorpay_order_id}, payment_id: {razorpay_payment_id}")
+            
             # Find the order by razorpay_order_id
             order = get_object_or_404(Order, razorpay_order_id=razorpay_order_id)
             
@@ -780,18 +890,12 @@ def verify_razorpay_payment(request):
             
             try:
                 razorpay_client.utility.verify_payment_signature(params)
-            except razorpay.errors.SignatureVerificationError:
+                logger.info(f"Signature verified successfully for order {order.order_number}")
+            except razorpay.errors.SignatureVerificationError as sig_error:
+                logger.error(f"Signature verification failed: {sig_error}")
                 order.items.update(status='Payment_Failed', item_payment_status='Failed')
-                redirect_url = reverse('order_detail', args=[order.id])
-                return HttpResponse(f'''
-                    <html><body>
-                    <script>
-                        window.opener ? window.opener.location.href = "{redirect_url}" : window.location.href = "{redirect_url}";
-                        window.close();
-                    </script>
-                    <p>Payment failed. Redirecting...</p>
-                    </body></html>
-                ''')
+                redirect_url = reverse('order_failure', args=[order.id])
+                return redirect(redirect_url)
             
             # Payment verified successfully
             with transaction.atomic():
@@ -802,32 +906,23 @@ def verify_razorpay_payment(request):
                 
                 order.items.update(item_payment_status='Paid')
             
-            # Return HTML that redirects the main window and closes popup
+            logger.info(f"Order {order.order_number} payment verified and updated successfully")
+            
+            # Redirect to success page
             redirect_url = reverse('order_success', args=[order.id])
-            return HttpResponse(f'''
-                <html><body>
-                <script>
-                    if (window.opener) {{
-                        window.opener.location.href = "{redirect_url}";
-                        window.close();
-                    }} else {{
-                        window.location.href = "{redirect_url}";
-                    }}
-                </script>
-                <p>Payment successful! Redirecting...</p>
-                </body></html>
-            ''')
+            return redirect(redirect_url)
             
         except Exception as e:
             logger.error(f"Error verifying Razorpay payment: {e}")
-            return HttpResponse('''
-                <html><body>
-                <script>
-                    window.opener ? window.opener.location.href = "/orders/my-orders/" : window.location.href = "/orders/my-orders/";
-                    window.close();
-                </script>
-                <p>An error occurred. Redirecting...</p>
-                </body></html>
-            ''')
+            # Try to get order_id from POST data
+            razorpay_order_id = request.POST.get('razorpay_order_id')
+            try:
+                if razorpay_order_id:
+                    order = Order.objects.get(razorpay_order_id=razorpay_order_id)
+                    return redirect('order_failure', order_id=order.id)
+                else:
+                    return redirect('my_orders')
+            except Order.DoesNotExist:
+                return redirect('my_orders')
     
     return redirect('checkout')

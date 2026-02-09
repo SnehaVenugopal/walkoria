@@ -24,6 +24,7 @@ urlpatterns = [
     path('wishlist/', views.wishlist, name='wishlist'),
     path('toggle-wishlist/<int:product_id>/<str:product_size>/', views.toggle_wishlist, name='toggle_wishlist'),
     path('is-wishlisted/<int:product_id>/', views.is_wishlisted, name='is_wishlisted'),
+    path('get-variant-id/<int:product_id>/<str:product_size>/', views.get_variant_id, name='get_variant_id'),
     
     # Placeholder URLs for future implementation
     path('wallet/', views.wallet, name='wallet'),

@@ -518,8 +518,17 @@ let currentColor = null;
 
 function checkWishlistStatus() {
     const productId = document.getElementById('wishlistBtn').dataset.productId;
+    const size = currentSize || document.getElementById('sizeSelect').value;
+    const color = currentColor || document.getElementById('colorSelect').value;
     
-    fetch(`/userpanel/is-wishlisted/${productId}/`, {
+    // Build URL with size and color parameters
+    let url = `/userpanel/is-wishlisted/${productId}/`;
+    const params = new URLSearchParams();
+    if (size) params.append('size', size);
+    if (color) params.append('color', color);
+    if (params.toString()) url += '?' + params.toString();
+    
+    fetch(url, {
         method: 'GET',
         headers: {
             'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
@@ -690,6 +699,11 @@ function updateVariantDetails() {
         `;
     }
     updateImages();
+    
+    // Update wishlist button status for the new variant
+    {% if user.is_authenticated %}
+        checkWishlistStatus();
+    {% endif %}
 }
 
 function handleSizeChange() {
@@ -707,6 +721,22 @@ document.getElementById('sizeSelect').addEventListener('change', handleSizeChang
 document.getElementById('colorSelect').addEventListener('change', handleColorChange);
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Read URL parameters for pre-selecting variant
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlSize = urlParams.get('size');
+    const urlColor = urlParams.get('color');
+    
+    // Pre-set size and color from URL if available
+    if (urlSize) {
+        const availableSizes = [...new Set(availableVariants.map(v => v.size))];
+        if (availableSizes.includes(urlSize)) {
+            currentSize = urlSize;
+        }
+    }
+    if (urlColor) {
+        currentColor = decodeURIComponent(urlColor);
+    }
+    
     initializeImages();
     updateSizeOptions();
     updateColorOptions();

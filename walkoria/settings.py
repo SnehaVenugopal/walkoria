@@ -32,7 +32,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
-    
+    'django.contrib.admin',  # Django's built-in admin
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -42,7 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'users',
     'social_django',
-    'admin',
+    'admin',  # Your custom admin app
     'category',
     'brand',
     'product',
@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'orders',
     'wallet',
     'coupon',
+    'referral',
     
   
 ]

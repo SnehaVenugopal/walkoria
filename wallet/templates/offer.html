@@ -1,116 +1,462 @@
 {% extends 'admin_base.html' %}
+{% load static %}
+{% block title %}Offer Management | Walkoria{% endblock %}
 
 {% block page_title %}Offer Management{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
 <style>
-  .card { border: none; border-radius: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.06); }
-  .table thead th { background: #f3f4f6; font-weight: 600; }
-  .badge { font-weight: 600; }
+    /* Offer Management Styles - Matching Category Page */
+    .offer-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+    }
+
+    .search-container {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+
+    .search-input {
+        width: 300px;
+        padding: 10px 15px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-size: 14px;
+        transition: border-color 0.3s ease;
+    }
+
+    .search-input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+    }
+
+    .search-btn, .clear-btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .search-btn {
+        background-color: var(--primary-color);
+        color: white;
+    }
+
+    .search-btn:hover {
+        background-color: #e63384;
+    }
+
+    .clear-btn {
+        background-color: #6c757d;
+        color: white;
+        text-decoration: none;
+    }
+
+    .clear-btn:hover {
+        background-color: #5a6268;
+    }
+
+    .add-offer-btn {
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 12px 25px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+    }
+
+    .add-offer-btn:hover {
+        background-color: #e63384;
+        transform: translateY(-2px);
+        color: white;
+    }
+
+    .offer-table-container {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        overflow-x: auto;
+    }
+
+    .offer-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+    }
+
+    .offer-table th,
+    .offer-table td {
+        padding: 15px;
+        text-align: left;
+        border-bottom: 1px solid #f1f1f1;
+    }
+
+    .offer-table th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        color: #2c3e50;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .offer-table td {
+        font-size: 14px;
+        color: #495057;
+    }
+
+    .offer-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .status-badge.active {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .status-badge.inactive {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    .edit-btn, .delete-btn {
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        padding: 5px;
+        border-radius: 4px;
+        transition: all 0.3s ease;
+        margin-right: 5px;
+    }
+
+    .edit-btn {
+        color: var(--primary-color);
+        text-decoration: none;
+    }
+
+    .edit-btn:hover {
+        background-color: rgba(255, 66, 157, 0.1);
+    }
+
+    .delete-btn {
+        color: #dc3545;
+    }
+
+    .delete-btn:hover {
+        background-color: rgba(220, 53, 69, 0.1);
+    }
+
+    /* Pagination Styles */
+    .pagination-container {
+        display: flex;
+        justify-content: center;
+        margin-top: 30px;
+    }
+
+    .pagination {
+        display: flex;
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .page-item {
+        margin: 0 5px;
+    }
+
+    .page-link {
+        display: block;
+        padding: 8px 12px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        color: var(--primary-color);
+        text-decoration: none;
+        transition: all 0.3s ease;
+    }
+
+    .page-link:hover {
+        background-color: #f8f9fa;
+    }
+
+    .page-item.active .page-link {
+        background-color: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+
+    .page-item.disabled .page-link {
+        color: #6c757d;
+        pointer-events: none;
+        cursor: default;
+    }
+
+    /* Alert Styles */
+    .alert {
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 8px;
+        border-left: 4px solid;
+    }
+
+    .alert-success {
+        background-color: #d4edda;
+        border-left-color: #28a745;
+        color: #155724;
+    }
+
+    .alert-danger {
+        background-color: #f8d7da;
+        border-left-color: #dc3545;
+        color: #721c24;
+    }
+
+    .no-results {
+        text-align: center;
+        padding: 40px;
+        color: #6c757d;
+        font-size: 16px;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <h2 class="m-0">Offer Management</h2>
-  <a href="{% url 'add_offer' %}" class="btn btn-primary"><i class="fas fa-plus me-2"></i>Add Offer</a>
+<!-- Offer Header -->
+<div class="offer-header">
+    <h2 style="margin: 0; color: #2c3e50;">Offer Management</h2>
+    <a href="{% url 'add_offer' %}" class="add-offer-btn">
+        <i class="fas fa-plus"></i>
+        Add Offer
+    </a>
 </div>
 
-<div class="card">
-  <div class="card-body">
-    <div class="table-responsive">
-      <table class="table align-middle">
+<!-- Search Form -->
+<div class="search-container">
+    <form id="searchForm" method="GET" action="{% url 'offer_management' %}" class="d-flex align-items-center w-100" style="gap: 15px;">
+        <input type="text" name="search" class="search-input" placeholder="Search offers..." value="{{ search_query }}">
+        <button type="submit" class="search-btn">
+            <i class="fas fa-search"></i> Search
+        </button>
+        {% if search_query %}
+        <a href="{% url 'offer_management' %}" class="clear-btn">
+            <i class="fas fa-times"></i> Clear
+        </a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Offer Table -->
+<div class="offer-table-container">
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <table class="offer-table">
         <thead>
-          <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Item</th>
-            <th>Discount</th>
-            <th>Start</th>
-            <th>End</th>
-            <th>Status</th>
-            <th class="text-end">Actions</th>
-          </tr>
+            <tr>
+                <th>S.No</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Item</th>
+                <th>Discount</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
         </thead>
         <tbody>
-          {% for offer in offers %}
-          <tr>
-            <td>{{ offer.name }}</td>
-            <td>{{ offer.offer_type }}</td>
-            <td>
-              {% if offer.offer_type == 'Product' %}
-                {{ offer.product.name }}
-              {% else %}
-                {{ offer.category.name }}
-              {% endif %}
-            </td>
-            <td>{{ offer.discount_percentage }}%</td>
-            <td>{{ offer.start_date|date:"M d, Y H:i" }}</td>
-            <td>{{ offer.end_date|date:"M d, Y H:i" }}</td>
-            <td>
-              {% if offer.is_valid %}
-                <span class="badge bg-success">Active</span>
-              {% else %}
-                <span class="badge bg-secondary">Inactive</span>
-              {% endif %}
-            </td>
-            <td class="text-end">
-              <a href="{% url 'edit_offer' offer.id %}" class="btn btn-sm btn-outline-primary me-2"><i class="fas fa-pen"></i></a>
-              <button type="button" class="btn btn-sm btn-outline-danger js-delete-offer" data-offer-id="{{ offer.id }}">
-                <i class="fas fa-trash"></i>
-              </button>
-            </td>
-          </tr>
-          {% empty %}
-          <tr>
-            <td colspan="8" class="text-center text-muted">No offers found</td>
-          </tr>
-          {% endfor %}
+            {% for offer in offers %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ offer.name }}</td>
+                <td>{{ offer.offer_type }}</td>
+                <td>
+                    {% if offer.offer_type == 'Product' %}
+                        {{ offer.product.name }}
+                    {% else %}
+                        {{ offer.category.name }}
+                    {% endif %}
+                </td>
+                <td>{{ offer.discount_percentage }}%</td>
+                <td>{{ offer.start_date|date:"M d, Y" }}</td>
+                <td>{{ offer.end_date|date:"M d, Y" }}</td>
+                <td>
+                    {% if offer.is_valid %}
+                        <span class="status-badge active">Active</span>
+                    {% else %}
+                        <span class="status-badge inactive">Inactive</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{% url 'edit_offer' offer.id %}" class="edit-btn">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <button class="delete-btn" onclick="deleteOffer({{ offer.id }}, '{{ offer.name }}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="9" class="no-results">
+                    {% if search_query %}
+                        No offers found matching "{{ search_query }}"
+                    {% else %}
+                        No offers found
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
         </tbody>
-      </table>
+    </table>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <div class="pagination-container">
+        <ul class="pagination">
+            {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}">First</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">Previous</a>
+                </li>
+            {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">First</span>
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link">Previous</span>
+                </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                    </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}">{{ num }}</a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">Next</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}">Last</a>
+                </li>
+            {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">Next</span>
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link">Last</span>
+                </li>
+            {% endif %}
+        </ul>
     </div>
-  </div>
+    {% endif %}
 </div>
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-  function getCookie(name) {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop().split(';').shift();
-  }
-
-  document.querySelectorAll('.js-delete-offer').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = btn.dataset.offerId;
-      Swal.fire({
-        title: 'Delete offer?',
-        text: 'This action cannot be undone.',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Delete',
-        confirmButtonColor: '#d33'
-      }).then(result => {
-        if (!result.isConfirmed) return;
-
-        fetch("{% url 'delete_offer' 0 %}".replace('0', id), {
-          method: 'POST',
-          headers: { 'X-CSRFToken': getCookie('csrftoken') }
-        })
-        .then(r => r.json())
-        .then(data => {
-          if (data.success) {
-            Swal.fire('Deleted', 'Offer removed successfully.', 'success').then(() => location.reload());
-          } else {
-            Swal.fire('Error', data.message || 'Failed to delete offer', 'error');
-          }
-        })
-        .catch(() => Swal.fire('Error', 'Network error', 'error'));
-      });
+    // Auto-dismiss Django messages after 3 seconds
+    document.addEventListener('DOMContentLoaded', function() {
+        const alerts = document.querySelectorAll('.offer-table-container > .alert');
+        alerts.forEach(alert => {
+            setTimeout(() => {
+                alert.style.opacity = '0';
+                alert.style.transition = 'opacity 0.5s ease';
+                setTimeout(() => {
+                    alert.remove();
+                }, 500);
+            }, 3000);
+        });
     });
-  });
+
+    function deleteOffer(offerId, offerName) {
+        if (confirm(`Are you sure you want to delete "${offerName}"?`)) {
+            fetch(`/wallet/delete-offer/${offerId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Offer deleted successfully', 'success');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1000);
+                } else {
+                    showToast(data.message || 'Error deleting offer', 'danger');
+                }
+            })
+            .catch(error => {
+                showToast('Error deleting offer', 'danger');
+            });
+        }
+    }
+
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+
+    function showToast(message, type) {
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type}`;
+        toast.style.position = 'fixed';
+        toast.style.top = '20px';
+        toast.style.right = '20px';
+        toast.style.zIndex = '9999';
+        toast.style.minWidth = '300px';
+        toast.innerHTML = message;
+        
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transition = 'opacity 0.5s ease';
+            setTimeout(() => {
+                document.body.removeChild(toast);
+            }, 500);
+        }, 3000);
+    }
 </script>
 {% endblock %}
+

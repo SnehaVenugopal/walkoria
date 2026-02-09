@@ -35,6 +35,48 @@ class Order(models.Model):
         self.subtotal = sum(item.price * item.quantity for item in self.items.all())
         self.save()
 
+    def get_overall_status(self):
+        """Determine overall order status based on all items' statuses"""
+        items = self.items.all()
+        if not items:
+            return 'Pending'
+        
+        statuses = [item.status for item in items]
+        
+        # Priority order for determining overall status
+        # If all items have the same status, return that status
+        if len(set(statuses)) == 1:
+            return statuses[0].replace('_', ' ')
+        
+        # If any item is Delivered, show as Delivered (or Partially Delivered)
+        if 'Delivered' in statuses:
+            if all(s in ['Delivered', 'Returned', 'Cancelled'] for s in statuses):
+                return 'Delivered'
+            return 'Partially Delivered'
+        
+        # If any item is Shipped or On_the_Way
+        if 'Shipped' in statuses or 'On_the_Way' in statuses:
+            return 'Shipped'
+        
+        # If any item is Processing
+        if 'Processing' in statuses:
+            return 'Processing'
+        
+        # If all items are Cancelled
+        if all(s == 'Cancelled' for s in statuses):
+            return 'Cancelled'
+        
+        # If all items are Returned
+        if all(s == 'Returned' for s in statuses):
+            return 'Returned'
+        
+        # If any item has Return_Requested
+        if 'Return_Requested' in statuses:
+            return 'Return Requested'
+        
+        # Default to Pending
+        return 'Pending'
+
     def __str__(self):
         return f"Order {self.order_number} by {self.user.name}"
 

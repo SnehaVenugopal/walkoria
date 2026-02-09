@@ -317,7 +317,8 @@ class AddressForm(forms.ModelForm):
         cleaned_data = super().clean()
         
         # Only check address limit for new addresses (not when editing existing ones)
-        if hasattr(self, 'user') and self.user and not self.instance:
+        # Check if instance.pk is None to determine if it's a new address
+        if hasattr(self, 'user') and self.user and not self.instance.pk:
             address_count = Address.objects.filter(
                 user_id=self.user, 
                 is_deleted=False

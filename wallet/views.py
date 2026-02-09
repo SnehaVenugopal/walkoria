@@ -1,21 +1,22 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.views.decorators.cache import cache_control
 from django.db.models import Q
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST
 from django.core.mail import send_mail
 from django.utils.html import strip_tags
 from django.utils import timezone
+from django.urls import reverse
 from datetime import timedelta
 import random, uuid, time, json, logging
 from product.models import Product
 from category.models import Category
 from django.conf import settings
 from utils.decorators import admin_required
-from .models import Wallet, WalletTransaction, Offer
+from .models import Wallet, WalletTransaction, Offer, WalletTopup
 from django.views.decorators.csrf import csrf_exempt
 
 
@@ -74,11 +75,13 @@ def add_money(request):
                 'payment_capture': 1
             })
             
-            # Store in session for verification
-            request.session['wallet_razorpay_order'] = {
-                'razorpay_order_id': razorpay_order['id'],
-                'amount': amount
-            }
+            # Store in database (like orders flow)
+            WalletTopup.objects.create(
+                user=request.user,
+                razorpay_order_id=razorpay_order['id'],
+                amount=amount,
+                status='Pending'
+            )
             
             return JsonResponse({
                 'razorpay_order_id': razorpay_order['id'],
@@ -91,7 +94,7 @@ def add_money(request):
             return JsonResponse({'error': 'Failed to create payment order'}, status=500)
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
-@login_required
+
 @csrf_exempt
 def verify_wallet_payment(request):
     """Verify Razorpay payment and add money to wallet"""
@@ -99,16 +102,32 @@ def verify_wallet_payment(request):
         try:
             import razorpay
             from .utils import razorpay_client
+            from django.db import transaction
             
-            data = json.loads(request.body)
-            razorpay_order_id = data.get('razorpay_order_id')
-            razorpay_payment_id = data.get('razorpay_payment_id')
-            razorpay_signature = data.get('razorpay_signature')
+            # Get data from POST (Razorpay callback sends form data)
+            razorpay_order_id = request.POST.get('razorpay_order_id')
+            razorpay_payment_id = request.POST.get('razorpay_payment_id')
+            razorpay_signature = request.POST.get('razorpay_signature')
             
-            # Verify from session
-            wallet_order = request.session.get('wallet_razorpay_order')
-            if not wallet_order or wallet_order['razorpay_order_id'] != razorpay_order_id:
-                return JsonResponse({'error': 'Invalid order'}, status=400)
+            # Find the topup by razorpay_order_id from database
+            topup = get_object_or_404(WalletTopup, razorpay_order_id=razorpay_order_id)
+            
+            # Already processed
+            if topup.status == 'Completed':
+                redirect_url = reverse('wallet')
+                return HttpResponse(f'''
+                    <html><body>
+                    <script>
+                        if (window.opener) {{
+                            window.opener.location.href = "{redirect_url}";
+                            window.close();
+                        }} else {{
+                            window.location.href = "{redirect_url}";
+                        }}
+                    </script>
+                    <p>Already processed. Redirecting...</p>
+                    </body></html>
+                ''')
             
             # Verify signature
             params = {
@@ -120,31 +139,82 @@ def verify_wallet_payment(request):
             try:
                 razorpay_client.utility.verify_payment_signature(params)
             except razorpay.errors.SignatureVerificationError:
-                return JsonResponse({'error': 'Payment verification failed'}, status=400)
+                topup.status = 'Failed'
+                topup.save()
+                redirect_url = reverse('wallet')
+                return HttpResponse(f'''
+                    <html><body>
+                    <script>
+                        if (window.opener) {{
+                            window.opener.location.href = "{redirect_url}";
+                            window.close();
+                        }} else {{
+                            window.location.href = "{redirect_url}";
+                        }}
+                    </script>
+                    <p>Payment verification failed. Redirecting...</p>
+                    </body></html>
+                ''')
             
-            # Add money to wallet
-            amount = wallet_order['amount']
-            wallet, _ = Wallet.objects.get_or_create(user=request.user)
+            # Payment verified successfully - add money to wallet
+            with transaction.atomic():
+                wallet, _ = Wallet.objects.get_or_create(user=topup.user)
+                
+                WalletTransaction.objects.create(
+                    wallet=wallet,
+                    amount=topup.amount,
+                    transaction_type='Cr',
+                    status='Completed',
+                    transaction_id="TXN-" + str(int(time.time())) + uuid.uuid4().hex[:4].upper()
+                )
+                
+                wallet.balance += topup.amount
+                wallet.save()
+                
+                # Update topup status
+                topup.status = 'Completed'
+                topup.razorpay_payment_id = razorpay_payment_id
+                topup.razorpay_signature = razorpay_signature
+                topup.save()
             
-            WalletTransaction.objects.create(
-                wallet=wallet,
-                amount=amount,
-                transaction_type='Cr',
-                status='Completed',
-                transaction_id="TXN-" + str(int(time.time())) + uuid.uuid4().hex[:4].upper()
-            )
+            # Add success message
+            messages.success(request, f'₹{topup.amount} has been added to your wallet successfully!')
             
-            wallet.balance += amount
-            wallet.save()
+            # Return HTML that redirects to wallet page
+            redirect_url = reverse('wallet')
+            return HttpResponse(f'''
+                <html><body>
+                <script>
+                    if (window.opener) {{
+                        window.opener.location.href = "{redirect_url}";
+                        window.close();
+                    }} else {{
+                        window.location.href = "{redirect_url}";
+                    }}
+                </script>
+                <p>Payment successful! Redirecting...</p>
+                </body></html>
+            ''')
             
-            # Clear session
-            del request.session['wallet_razorpay_order']
-            
-            return JsonResponse({'success': True, 'message': 'Money added successfully'})
         except Exception as e:
             logger.error(f"Error verifying wallet payment: {e}")
-            return JsonResponse({'error': 'Payment verification failed'}, status=500)
-    return JsonResponse({'error': 'Invalid request method'}, status=405)
+            redirect_url = reverse('wallet')
+            return HttpResponse(f'''
+                <html><body>
+                <script>
+                    if (window.opener) {{
+                        window.opener.location.href = "{redirect_url}";
+                        window.close();
+                    }} else {{
+                        window.location.href = "{redirect_url}";
+                    }}
+                </script>
+                <p>An error occurred. Redirecting...</p>
+                </body></html>
+            ''')
+    
+    return redirect('wallet')
+
 
 
 
@@ -162,11 +232,23 @@ def offer_management(request):
             is_active=True
         ).order_by('-created_at')
 
+        # Pagination - 10 items per page
+        page = request.GET.get('page', 1)
+        paginator = Paginator(offers, 10)
+        try:
+            offers = paginator.page(page)
+        except PageNotAnInteger:
+            offers = paginator.page(1)
+        except EmptyPage:
+            offers = paginator.page(paginator.num_pages)
+
         data = {
             'offers': offers,
             'search_query': search_query,
             'offer_types': Offer.OFFER_TYPES,
             'first_name': request.user.name.title(),
+            'is_paginated': paginator.num_pages > 1,
+            'page_obj': offers,
         }
     except Exception as e:
         logger.error(f"Error in offer_management view for user {request.user.id}: {e}")
@@ -176,6 +258,8 @@ def offer_management(request):
             'search_query': '',
             'offer_types': getattr(Offer, "OFFER_TYPES", []),
             'first_name': request.user.name.title(),
+            'is_paginated': False,
+            'page_obj': None,
         }
     return render(request, 'offer.html', data)
 
@@ -193,7 +277,8 @@ def add_offer(request):
         end_date = request.POST.get('end_date')
 
         if Offer.objects.filter(name__iexact=name).exists():
-            return JsonResponse({'success': False, 'message': 'An offer with this name already exists.'})
+            messages.error(request, 'An offer with this name already exists.')
+            return redirect('add_offer')
         
         try:
             offer = Offer(
@@ -209,19 +294,23 @@ def add_offer(request):
             if offer_type == 'Product':
                 product_id = request.POST.get('product')
                 if not product_id:
-                    return JsonResponse({'success': False, 'message': 'Please select a product'})
+                    messages.error(request, 'Please select a product')
+                    return redirect('add_offer')
                 offer.product = get_object_or_404(Product, id=product_id)
             else:  # Category offer
                 category_id = request.POST.get('category')
                 if not category_id:
-                    return JsonResponse({'success': False, 'message': 'Please select a category'})
+                    messages.error(request, 'Please select a category')
+                    return redirect('add_offer')
                 offer.category = get_object_or_404(Category, id=category_id)
             offer.save()
-            return JsonResponse({'success': True, 'message': 'Offer added successfully!'})
+            messages.success(request, 'Offer added successfully!')
+            return redirect('offer_management')
             
         except Exception as e:
             logger.error(f"Error adding offer: {e}")
-            return JsonResponse({'success': False, 'message': 'An error occurred while adding the offer.'})
+            messages.error(request, 'An error occurred while adding the offer.')
+            return redirect('add_offer')
 
     products = Product.objects.filter(is_deleted=False)
     categories = Category.objects.filter(is_deleted=False)
@@ -235,22 +324,38 @@ def add_offer(request):
 
 @login_required
 @admin_required
-@require_POST
+@cache_control(no_cache=True, must_revalidate=True, no_store=True)
 def edit_offer(request, offer_id):
     offer = get_object_or_404(Offer, id=offer_id)
-    data = json.loads(request.body)
-    name = data.get('name')
     
-    if Offer.objects.filter(name=name).exclude(id=offer_id).exists():
-        return JsonResponse({'success': False, 'message': 'An offer with this name already exists.'})
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        
+        if Offer.objects.filter(name__iexact=name).exclude(id=offer_id).exists():
+            messages.error(request, 'An offer with this name already exists.')
+            return redirect('edit_offer', offer_id=offer_id)
+        
+        try:
+            offer.name = name
+            offer.description = request.POST.get('description')
+            offer.discount_percentage = int(request.POST.get('discount_percentage'))
+            offer.start_date = request.POST.get('start_date')
+            offer.end_date = request.POST.get('end_date')
+            offer.save()
+            
+            messages.success(request, 'Offer updated successfully!')
+            return redirect('offer_management')
+            
+        except Exception as e:
+            logger.error(f"Error updating offer: {e}")
+            messages.error(request, 'An error occurred while updating the offer.')
+            return redirect('edit_offer', offer_id=offer_id)
     
-    offer.name = name
-    offer.description = data.get('description')
-    offer.start_date = data.get('start_date')
-    offer.end_date = data.get('end_date')
-    offer.save()
-    
-    return JsonResponse({'success': True, 'message': 'Offer updated successfully.'})
+    context = {
+        'offer': offer,
+        'first_name': request.user.name.title(),
+    }
+    return render(request, 'edit_offer.html', context)
 
 
 @login_required

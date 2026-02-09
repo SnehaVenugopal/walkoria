@@ -32,6 +32,11 @@ urlpatterns = [
     path('reviews/', include('reviews.urls')),
     path('userpanel/', include('userpanel.urls')),
     path('wallet/', include('wallet.urls')),
+    path('refferal/', include('referral.urls')),
+    
+    # Django's built-in admin (for managing referrals, etc.)
+    path('django-admin/', admin.site.urls),
+    
     path('auth/', include('social_django.urls', namespace='social'))
 
 ]

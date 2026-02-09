@@ -259,12 +259,37 @@
     .modal-header {
         border-bottom: 1px solid #eee;
         background-color: #f8f9fa;
+        padding: 15px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
 
     .modal-title {
         font-size: 1.25rem;
         font-weight: 600;
         color: #333;
+        margin: 0;
+    }
+
+    .btn-close {
+        background: transparent;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: #666;
+        padding: 0;
+        line-height: 1;
+        opacity: 0.7;
+        transition: opacity 0.2s ease;
+    }
+
+    .btn-close:hover {
+        opacity: 1;
+    }
+
+    .btn-close::before {
+        content: '×';
     }
 
     .modal-body {
@@ -515,7 +540,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for transaction in transactions %}                
+                    {% for transaction in transactions %}
                     <tr>
                         <td>
                             <span
@@ -528,7 +553,8 @@
                         <td>
                             <span
                                 class="transaction-amount {% if transaction.transaction_type == 'Cr' %}credit{% else %}debit{% endif %}">
-                                {% if transaction.transaction_type == 'Cr' %}+₹{% else %}-₹{% endif %}{{ transaction.amount|floatformat:2 }}
+                                {% if transaction.transaction_type == 'Cr' %}+{% else %}-{% endif %}₹{{transaction.amount|floatformat:2 }}
+                                
                             </span>
                         </td>
                         <td>{{ transaction.created_at|date:"M d, Y, g:i A" }}</td>
@@ -555,11 +581,12 @@
         <div class="pagination-wrapper">
             <div class="pagination">
                 {% if transactions.has_previous %}
-                <a href="?page=1">First</a>
-                <a href="?page={{ transactions.previous_page_number }}">Previous</a>
+                <a href="?page=1" title="First"><i class="fas fa-angle-double-left"></i></a>
+                <a href="?page={{ transactions.previous_page_number }}" title="Previous"><i
+                        class="fas fa-angle-left"></i></a>
                 {% else %}
-                <span class="disabled">First</span>
-                <span class="disabled">Previous</span>
+                <span class="disabled"><i class="fas fa-angle-double-left"></i></span>
+                <span class="disabled"><i class="fas fa-angle-left"></i></span>
                 {% endif %}
 
                 {% for num in transactions.paginator.page_range %}
@@ -571,11 +598,13 @@
                     {% endfor %}
 
                     {% if transactions.has_next %}
-                    <a href="?page={{ transactions.next_page_number }}">Next</a>
-                    <a href="?page={{ transactions.paginator.num_pages }}">Last</a>
+                    <a href="?page={{ transactions.next_page_number }}" title="Next"><i
+                            class="fas fa-angle-right"></i></a>
+                    <a href="?page={{ transactions.paginator.num_pages }}" title="Last"><i
+                            class="fas fa-angle-double-right"></i></a>
                     {% else %}
-                    <span class="disabled">Next</span>
-                    <span class="disabled">Last</span>
+                    <span class="disabled"><i class="fas fa-angle-right"></i></span>
+                    <span class="disabled"><i class="fas fa-angle-double-right"></i></span>
                     {% endif %}
             </div>
         </div>
@@ -737,7 +766,7 @@
                         throw new Error(data.error);
                     }
 
-                    // Step 2: Open Razorpay checkout
+                    // Step 2: Open Razorpay checkout (callback_url handles verification)
                     const options = {
                         key: data.razorpay_key_id,
                         amount: data.amount,
@@ -746,10 +775,6 @@
                         description: 'Add Money to Wallet',
                         order_id: data.razorpay_order_id,
                         callback_url: window.location.origin + '{% url "verify_wallet_payment" %}',
-                        handler: function (response) {
-                            // Step 3: Verify payment on server
-                            verifyPayment(response, csrfToken);
-                        },
                         prefill: {
                             name: '{{ request.user.name }}',
                             email: '{{ request.user.email }}'
@@ -778,37 +803,6 @@
                     resetModal();
                 });
         });
-
-        // Verify payment with server
-        function verifyPayment(response, csrfToken) {
-            fetch('{% url "verify_wallet_payment" %}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken
-                },
-                body: JSON.stringify({
-                    razorpay_order_id: response.razorpay_order_id,
-                    razorpay_payment_id: response.razorpay_payment_id,
-                    razorpay_signature: response.razorpay_signature
-                })
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        showNotification('₹' + amountInput.value + ' added to wallet successfully!', 'success');
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 1500);
-                    } else {
-                        throw new Error(data.error || 'Payment verification failed');
-                    }
-                })
-                .catch(error => {
-                    showNotification(error.message, 'danger');
-                    resetModal();
-                });
-        }
 
         function showNotification(message, type) {
             const alertDiv = document.createElement('div');

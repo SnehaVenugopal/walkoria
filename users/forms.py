@@ -12,6 +12,15 @@ class SignUpForm(forms.Form):
     mobile_no = forms.CharField(max_length=10, required=True)
     password = forms.CharField(widget=forms.PasswordInput, required=True, min_length=8)
     confirm_password = forms.CharField(widget=forms.PasswordInput, required=True)
+    referral_code = forms.CharField(
+        max_length=20, 
+        required=False,  # Optional field
+        widget=forms.TextInput(attrs={
+            'placeholder': 'Enter referral code (Optional)',
+            'class': 'form-control'
+        }),
+        label='Referral Code (Optional)'
+    )
 
     def clean_name(self):
         name = self.cleaned_data.get('name')
@@ -51,6 +60,7 @@ class SignUpForm(forms.Form):
         cleaned_data = super().clean()
         password = cleaned_data.get('password')
         confirm_password = cleaned_data.get('confirm_password')
+        referral_code = cleaned_data.get('referral_code')
     
         # 1. Space checks
         if password and re.search(r"\s", password):
@@ -66,6 +76,15 @@ class SignUpForm(forms.Form):
         # 3. Match check
         if password and confirm_password and password != confirm_password:
             self.add_error('confirm_password', "Passwords do not match.")
+        
+        # 4. Referral code validation (if provided)
+        if referral_code:
+            from referral.models import Referral
+            referral_code = referral_code.strip().upper()
+            try:
+                referral = Referral.objects.get(referral_code=referral_code, is_used=False)
+            except Referral.DoesNotExist:
+                self.add_error('referral_code', "Invalid or already used referral code.")
     
         return cleaned_data
 

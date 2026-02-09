@@ -107,22 +107,37 @@ def customers_view(request):
 @cache_control(no_cache=True, must_revalidate=True, no_store=True)
 def customer_status(request):
     if request.method == 'POST':
-        print(">>> POST received")
-        print(request.POST)  # Check what is received
         try:
             email = request.POST.get('email')
-            print(f">>> Email received: {email}")
             user = get_object_or_404(CustomUser, email=email)
+            
             if user.status == 'Blocked':
                 user.status = 'Active'
-                messages.success(request, f"User {user.name.title()} has been successfully blocked.")
+                action = 'listed'
             else:
                 user.status = 'Blocked'
-                messages.success(request, f"User {user.name.title()} has been successfully unblocked.")
+                action = 'unlisted'
             user.save()
+            
+            # Check if request is AJAX
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.content_type == 'application/x-www-form-urlencoded':
+                from django.http import JsonResponse
+                return JsonResponse({
+                    'success': True,
+                    'message': f"Customer {user.name.title()} {action} successfully.",
+                    'new_status': user.status
+                })
+            
+            messages.success(request, f"Customer {user.name.title()} {action} successfully.")
         except ObjectDoesNotExist:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                from django.http import JsonResponse
+                return JsonResponse({'success': False, 'message': 'User not found.'}, status=404)
             messages.error(request, "User not found.")
         except Exception as e:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                from django.http import JsonResponse
+                return JsonResponse({'success': False, 'message': str(e)}, status=500)
             messages.error(request, f"An unexpected error occurred: {e}")
     return redirect('customers')
 
@@ -209,14 +224,17 @@ def handle_return_request(request, request_id, action):
             refund_amount = returned_item_price - proportional_discount
 
             wallet, _ = Wallet.objects.get_or_create(user=order.user)
-            wallet.balance += int(refund_amount)
+            from decimal import Decimal
+            wallet.refresh_from_db()
+            refund_decimal = Decimal(str(refund_amount))
+            wallet.balance = wallet.balance + refund_decimal
             wallet.save()
             WalletTransaction.objects.create(
                             wallet=wallet,
                             transaction_type="Cr",
-                            amount=refund_amount,
+                            amount=refund_decimal,
                             status="Completed",
-                            transaction_id="TXN-" + str(int(time.time())) + uuid.uuid4().hex[:4].upper(),
+                            transaction_id="RT" + str(int(time.time()))[-6:] + uuid.uuid4().hex[:4].upper(),
                         )
 
             # qty
@@ -284,17 +302,22 @@ def update_order_item(request, item_id):
             order.total_amount -= refund_amount
             order.subtotal -= order_item.original_price
             order.save()
-            if order.payment_method in ['RP', 'WP'] or (order.payment_method == 'COD' and order_item.status == 'Delivered'):
+            if order.payment_method in ['RP', 'WP', 'PP'] or (order.payment_method == 'COD' and order_item.status == 'Delivered'):
+                from decimal import Decimal
                 wallet, _ = Wallet.objects.get_or_create(user=order.user)
-                wallet.balance += refund_amount
+                wallet.refresh_from_db()
+                refund_decimal = Decimal(str(refund_amount))
+                wallet.balance = wallet.balance + refund_decimal
                 wallet.save()
                 WalletTransaction.objects.create(
                                 wallet=wallet,
                                 transaction_type="Cr",
-                                amount=refund_amount,
+                                amount=refund_decimal,
                                 status="Completed",
-                                transaction_id="TXN-" + str(int(time.time())) + uuid.uuid4().hex[:4].upper(),
+                                transaction_id="RT" + str(int(time.time()))[-6:] + uuid.uuid4().hex[:4].upper(),
                             )
+                order_item.item_payment_status = 'Refunded'
+                order_item.save()
         messages.success(request, 'Status updated sucessful')
         return redirect('orders')
 

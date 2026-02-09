@@ -37,10 +37,13 @@ def signup_view(request):
                 messages.error(request, 'Mobile number is already registered.')
                 return render(request, 'signup.html', {'form': form})
 
+            # Store all signup data including referral code
             request.session['temp_signup_data'] = form.cleaned_data
 
             otp = str(random.randint(100000, 999999))
-            print('hfgjh',otp)
+            print('\n' + '='*50)
+            print('📧 SIGNUP OTP:', otp)
+            print('='*50 + '\n')
             request.session['signup_otp'] = otp
             request.session['otp_created_at'] = timezone.now().isoformat()
 
@@ -54,7 +57,15 @@ def signup_view(request):
             # The form will automatically show field-specific errors
             return render(request, 'signup.html', {'form': form})
     else:
-        form = SignUpForm()
+        # Check if referral code is in URL (e.g., ?ref=ABC123)
+        referral_code_from_url = request.GET.get('ref', '')
+        
+        # Pre-fill the form with referral code if present
+        if referral_code_from_url:
+            form = SignUpForm(initial={'referral_code': referral_code_from_url.upper()})
+        else:
+            form = SignUpForm()
+        
         return render(request, 'signup.html', {'form': form})
     
     
@@ -90,12 +101,37 @@ def verify_otp_view(request):
                 password=make_password(temp_data['password']),
                 is_active=True
             )
+            
+            # Apply referral code if provided
+            referral_code = temp_data.get('referral_code', '').strip().upper()
+            if referral_code:
+                try:
+                    from referral.models import Referral
+                    from django.utils import timezone as tz
+                    
+                    referral = Referral.objects.get(referral_code=referral_code, is_used=False)
+                    
+                    # Mark referral as used
+                    referral.referred_user = user
+                    referral.is_used = True
+                    referral.used_at = tz.now()
+                    referral.save()
+                    
+                    messages.success(request, f"Account verified! You'll receive referral rewards after your first purchase.")
+                except Referral.DoesNotExist:
+                    # Referral code invalid, but don't block signup
+                    messages.warning(request, "Account verified! (Referral code was invalid)")
+                except Exception as e:
+                    # Log the error but don't block signup
+                    print(f"Error applying referral: {e}")
+                    messages.success(request, "Account verified successfully!")
+            else:
+                messages.success(request, "Account verified successfully!")
 
             # Clear session
             for key in ['signup_otp', 'temp_signup_data', 'otp_created_at']:
                 request.session.pop(key, None)
 
-            messages.success(request, "Account verified successfully!")
             return redirect('login')
         else:
             messages.error(request, "Invalid OTP.")
@@ -137,7 +173,9 @@ def resend_otp_view(request):
 
         # Generate a new OTP
         new_otp = str(random.randint(100000, 999999))
-        print(new_otp,"ggdghgfrrrrrrrrrr")
+        print('\n' + '='*50)
+        print('🔄 RESEND SIGNUP OTP:', new_otp)
+        print('='*50 + '\n')
         request.session['signup_otp'] = new_otp
         request.session['otp_created_at'] = timezone.now().isoformat()
 
@@ -172,7 +210,7 @@ def resend_otp_view(request):
                 fail_silently=False,
                 html_message=html_message
             )
-            print('hfgjh',new_otp)
+            # OTP already printed above
         except Exception:
             return JsonResponse({'success': False, 'message': 'Failed to send OTP. Please try again later.'}, status=500)
 
@@ -266,7 +304,9 @@ def forgot_password_view(request):
             </body>
         </html>
         """
-        print("gvkhkj",otp)
+        print('\n' + '='*50)
+        print('🔐 FORGOT PASSWORD OTP:', otp)
+        print('='*50 + '\n')
         try:
             send_mail(
                 subject,
@@ -392,7 +432,9 @@ def resend_reset_otp_view(request):
         </body>
     </html>
     """
-    print("hjgvjgjh",otp)
+    print('\n' + '='*50)
+    print('🔄 RESEND PASSWORD RESET OTP:', otp)
+    print('='*50 + '\n')
     try:
         send_mail(
             subject,

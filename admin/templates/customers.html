@@ -240,6 +240,26 @@ input:checked + .toggle-slider:before {
     background-color: #6c757d;
     color: white;
 }
+
+/* Alert/Toast Styles */
+.alert {
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    border-left: 4px solid;
+}
+
+.alert-success {
+    background-color: #d4edda;
+    border-left-color: #28a745;
+    color: #155724;
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    border-left-color: #dc3545;
+    color: #721c24;
+}
 {% endblock %}
 
 {% block content %}
@@ -266,6 +286,14 @@ input:checked + .toggle-slider:before {
 
 <!-- Customers Table -->
 <div class="customers-table-container">
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}" style="padding: 15px; margin-bottom: 20px; border-radius: 8px; {% if message.tags == 'success' %}background-color: #d4edda; border-left: 4px solid #28a745; color: #155724;{% elif message.tags == 'error' %}background-color: #f8d7da; border-left: 4px solid #dc3545; color: #721c24;{% endif %}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
     <table class="customers-table">
         <thead>
             <tr>
@@ -273,7 +301,7 @@ input:checked + .toggle-slider:before {
                 <th>Name</th>
                 <th>Email</th>
                 <th>Mobile</th>
-                <th>Status</th>
+                <th>LIST / UNLIST</th>
                 {% comment %} <th>Update</th> {% endcomment %}
             </tr>
         </thead>
@@ -286,7 +314,7 @@ input:checked + .toggle-slider:before {
                 <td>{{ user.mobile_no|default:"-" }}</td>
                 <td>
                     <label class="status-toggle">
-                        <input type="checkbox" {% if user.status == 'Blocked' %}checked{% endif %}
+                        <input type="checkbox" {% if user.status == 'Active' %}checked{% endif %}
                                onchange="confirmStatusChange('{{ user.email }}', this.checked, '{{ user.name|title }}',event)">
                         <span class="toggle-slider"></span>
                     </label>
@@ -347,7 +375,7 @@ input:checked + .toggle-slider:before {
         <p id="confirmMessage"></p>
         <div class="modal-buttons">
             <button class="confirm-btn" onclick="executeStatusChange()">Confirm</button>
-            <button class="cancel-btn" onclick="closeModal()">Cancel</button>
+            <button class="cancel-btn" onclick="cancelModal()">Cancel</button>
         </div>
     </div>
 </div>
@@ -357,7 +385,7 @@ input:checked + .toggle-slider:before {
 let pendingStatusChange = null;
 
 function confirmStatusChange(userEmail, newStatus, userName, event) {
-    const action = newStatus ? 'block' : 'activate';
+    const action = newStatus ? 'list' : 'unlist';
     const message = `Are you sure you want to ${action} ${userName}?`;
 
     document.getElementById('confirmMessage').textContent = message;
@@ -366,39 +394,57 @@ function confirmStatusChange(userEmail, newStatus, userName, event) {
     pendingStatusChange = {
         userEmail: userEmail,
         newStatus: newStatus,
+        userName: userName,
         element: event.target
     };
 }
+
 function executeStatusChange() {
     if (pendingStatusChange) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = `{% url 'customer_status'  %}`;
-
-        // CSRF token
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-        const csrfInput = document.createElement('input');
-        csrfInput.type = 'hidden';
-        csrfInput.name = 'csrfmiddlewaretoken';
-        csrfInput.value = csrfToken;
-        form.appendChild(csrfInput);
-
-        // Add user email
-        const emailInput = document.createElement('input');
-        emailInput.type = 'hidden';
-        emailInput.name = 'email';
-        emailInput.value = pendingStatusChange.userEmail;
-        form.appendChild(emailInput);
-
-        document.body.appendChild(form);
-        form.submit();
+        
+        fetch(`{% url 'customer_status' %}`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `email=${encodeURIComponent(pendingStatusChange.userEmail)}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show toast notification with message from server
+                showToast(data.message, 'success');
+            } else {
+                // Revert the toggle on error
+                pendingStatusChange.element.checked = !pendingStatusChange.newStatus;
+                showToast(data.message || 'Error updating customer status', 'danger');
+            }
+            closeModal();
+        })
+        .catch(error => {
+            // Revert the toggle on error
+            pendingStatusChange.element.checked = !pendingStatusChange.newStatus;
+            showToast('Error updating customer status', 'danger');
+            closeModal();
+        });
     }
 }
 
-
 function closeModal() {
+    if (pendingStatusChange && document.getElementById('confirmModal').style.display === 'block') {
+        // Only revert if modal is being closed without executing (cancel button)
+        const modalVisible = document.getElementById('confirmModal').style.display === 'block';
+    }
+    document.getElementById('confirmModal').style.display = 'none';
+    pendingStatusChange = null;
+}
+
+function cancelModal() {
     if (pendingStatusChange) {
-        // Revert the toggle if modal is closed without confirmation
+        // Revert the toggle if modal is cancelled
         pendingStatusChange.element.checked = !pendingStatusChange.newStatus;
     }
     document.getElementById('confirmModal').style.display = 'none';
@@ -413,7 +459,51 @@ function editCustomer(userEmail) {
 // Close modal when clicking outside
 document.getElementById('confirmModal').addEventListener('click', function(e) {
     if (e.target === this) {
-        closeModal();
+        cancelModal();
     }
 });
+
+// Show toast notification
+function showToast(message, type) {
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.style.position = 'fixed';
+    toast.style.top = '20px';
+    toast.style.right = '20px';
+    toast.style.zIndex = '9999';
+    toast.style.minWidth = '300px';
+    toast.style.padding = '15px 25px';
+    toast.style.borderRadius = '8px';
+    toast.style.fontSize = '14px';
+    toast.style.fontWeight = '500';
+    toast.style.boxShadow = '0 5px 15px rgba(0,0,0,0.2)';
+    
+    // Set colors based on type
+    if (type === 'success') {
+        toast.style.backgroundColor = '#28a745';
+        toast.style.color = 'white';
+    } else if (type === 'danger' || type === 'error') {
+        toast.style.backgroundColor = '#dc3545';
+        toast.style.color = 'white';
+    } else {
+        toast.style.backgroundColor = '#17a2b8';
+        toast.style.color = 'white';
+    }
+    
+    toast.innerHTML = message;
+    
+    // Add to document
+    document.body.appendChild(toast);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.5s ease';
+        setTimeout(() => {
+            if (toast.parentNode) {
+                document.body.removeChild(toast);
+            }
+        }, 500);
+    }, 3000);
+}
 {% endblock %}

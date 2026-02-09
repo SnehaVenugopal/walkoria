@@ -16,7 +16,7 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="page-title mb-0">My Wishlist</h2>
         {% if wishlist_items %}
-            <span class="badge bg-primary fs-6">{{ wishlist_items|length }} item{{ wishlist_items|length|pluralize }}</span>
+            <span class="badge bg-primary fs-6">{{ wishlist_items.paginator.count }} item{{ wishlist_items.paginator.count|pluralize }}</span>
         {% endif %}
     </div>
     
@@ -25,8 +25,10 @@
             {% for item in wishlist_items %}
                 <div class="wishlist-card" data-product-id="{{ item.variant.product.id }}" data-product-size="{{ item.variant.size }}">
                     <div class="product-image-container">
-                        <a href="{% url 'product_detail' item.variant.product.id %}">
-                            {% if item.variant.product.images.first %}
+                        <a href="{% url 'product_detail' item.variant.product.id %}?size={{ item.variant.size }}&color={{ item.variant.color|urlencode }}">
+                            {% if item.variant.images.first %}
+                                <img src="{{ item.variant.images.first.image }}" alt="{{ item.variant.product.name }}" class="product-image">
+                            {% elif item.variant.product.images.first %}
                                 <img src="{{ item.variant.product.images.first.image }}" alt="{{ item.variant.product.name }}" class="product-image">
                             {% else %}
                                 <img src="/placeholder.svg?height=200&width=200" alt="{{ item.variant.product.name }}" class="product-image">
@@ -40,7 +42,7 @@
                     <div class="product-details">
                         <div class="brand-name">{{ item.variant.product.brand.name|default:"Walkoria" }}</div>
                         <h5 class="product-name">
-                            <a href="{% url 'product_detail' item.variant.product.id %}">{{ item.variant.product.name }}</a>
+                            <a href="{% url 'product_detail' item.variant.product.id %}?size={{ item.variant.size }}&color={{ item.variant.color|urlencode }}">{{ item.variant.product.name }}</a>
                         </h5>
                         
                         <div class="product-specs">
@@ -60,7 +62,7 @@
                         </div>
                         
                         <div class="product-actions">
-                            <a href="{% url 'product_detail' item.variant.product.id %}" class="btn btn-primary btn-sm">
+                            <a href="{% url 'product_detail' item.variant.product.id %}?size={{ item.variant.size }}&color={{ item.variant.color|urlencode }}" class="btn btn-primary btn-sm">
                                 <i class="fas fa-eye me-1"></i> View Product
                             </a>
                             <button class="btn btn-outline-secondary btn-sm" onclick="moveToCart({{ item.variant.product.id }}, '{{ item.variant.size }}')">
@@ -71,6 +73,38 @@
                 </div>
             {% endfor %}
         </div>
+        
+        <!-- Pagination -->
+        {% if wishlist_items.has_other_pages %}
+        <div class="pagination-wrapper">
+            <div class="pagination">
+                {% if wishlist_items.has_previous %}
+                <a href="?page=1" title="First"><i class="fas fa-angle-double-left"></i></a>
+                <a href="?page={{ wishlist_items.previous_page_number }}" title="Previous"><i class="fas fa-angle-left"></i></a>
+                {% else %}
+                <span class="disabled"><i class="fas fa-angle-double-left"></i></span>
+                <span class="disabled"><i class="fas fa-angle-left"></i></span>
+                {% endif %}
+
+                {% for num in wishlist_items.paginator.page_range %}
+                {% if wishlist_items.number == num %}
+                <span class="current">{{ num }}</span>
+                {% elif num > wishlist_items.number|add:'-3' and num < wishlist_items.number|add:'3' %}
+                <a href="?page={{ num }}">{{ num }}</a>
+                {% endif %}
+                {% endfor %}
+
+                {% if wishlist_items.has_next %}
+                <a href="?page={{ wishlist_items.next_page_number }}" title="Next"><i class="fas fa-angle-right"></i></a>
+                <a href="?page={{ wishlist_items.paginator.num_pages }}" title="Last"><i class="fas fa-angle-double-right"></i></a>
+                {% else %}
+                <span class="disabled"><i class="fas fa-angle-right"></i></span>
+                <span class="disabled"><i class="fas fa-angle-double-right"></i></span>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        
     {% else %}
         <div class="empty-wishlist">
             <div class="empty-icon">
@@ -264,6 +298,56 @@
         flex: none;
     }
 }
+
+/* Pagination */
+.pagination-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}
+
+.pagination {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+.pagination a,
+.pagination span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border: 1px solid #ddd;
+    text-decoration: none;
+    color: #666;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    font-weight: 500;
+}
+
+.pagination a:hover {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.pagination .current {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+    cursor: default;
+}
+
+.pagination .disabled {
+    color: #ccc;
+    cursor: not-allowed;
+}
 </style>
 
 <!-- Custom Alert for Wishlist - Same style as Manage Address -->
@@ -384,7 +468,52 @@ document.getElementById('confirmRemoveBtn').addEventListener('click', function()
 });
 
 function moveToCart(productId, productSize) {
-    window.location.href = "{% url 'view_cart' %}";
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    // First, get the variant ID for this product and size
+    fetch(`/userpanel/get-variant-id/${productId}/${productSize}/`, {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.variant_id) {
+            // Now add to cart with the variant ID
+            const formData = new FormData();
+            formData.append('variant', data.variant_id);
+            formData.append('quantity', 1);
+            
+            fetch(`/cart/add/${productId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(cartData => {
+                if (cartData.success) {
+                    // Redirect directly to cart page (Django messages handles the notification)
+                    window.location.href = "{% url 'view_cart' %}";
+                } else {
+                    showCustomAlert('Error: ' + (cartData.message || 'Could not add to cart'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showCustomAlert('Error adding to cart. Please try again.');
+            });
+        } else {
+            showCustomAlert('Error: ' + (data.message || 'Variant not found'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showCustomAlert('Error finding product variant. Please try again.');
+    });
 }
 
 // Add fade out animation

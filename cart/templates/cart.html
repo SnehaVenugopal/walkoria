@@ -153,18 +153,23 @@
     }
     
     .remove-btn {
-        background: none;
-        border: none;
+        background: white;
+        border: 2px solid #dc3545;
         color: #dc3545;
         font-size: 0.9rem;
         cursor: pointer;
         transition: all 0.3s ease;
-        text-decoration: underline;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-weight: 600;
     }
     
     .remove-btn:hover {
-        color: #c82333;
+        background: linear-gradient(135deg, #dc3545 0%, #ff6b7a 50%, #ffffff 100%);
+        color: white;
         transform: scale(1.05);
+        box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
     }
     
     .order-summary {

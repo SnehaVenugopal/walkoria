@@ -131,24 +131,70 @@
         text-transform: uppercase;
     }
 
+    /* Pending - Yellow/Warning */
     .status-pending {
         background-color: #fff3cd;
         color: #856404;
     }
 
+    /* Payment Failed - Dark Red */
+    .status-payment-failed {
+        background-color: #f5c6cb;
+        color: #721c24;
+    }
+
+    /* Processing - Blue */
+    .status-processing {
+        background-color: #cce5ff;
+        color: #004085;
+    }
+
+    /* On Hold - Orange */
+    .status-on-hold {
+        background-color: #ffe5d0;
+        color: #b65a00;
+    }
+
+    /* Shipped - Cyan */
+    .status-shipped {
+        background-color: #d1ecf1;
+        color: #0c5460;
+    }
+
+    /* On the Way - Purple */
+    .status-on-the-way {
+        background-color: #e2d5f1;
+        color: #6f42c1;
+    }
+
+    /* Delivered - Green */
     .status-delivered {
         background-color: #d4edda;
         color: #155724;
     }
 
+    /* Cancelled - Red */
     .status-cancelled {
         background-color: #f8d7da;
         color: #721c24;
     }
 
-    .status-shipped {
-        background-color: #d1ecf1;
-        color: #0c5460;
+    /* Return Requested - Teal */
+    .status-return-requested {
+        background-color: #d1f2eb;
+        color: #0b5345;
+    }
+
+    /* Returned - Gray-Blue */
+    .status-returned {
+        background-color: #d6d8db;
+        color: #383d41;
+    }
+
+    /* Refunded - Dark Gray */
+    .status-refunded {
+        background-color: #e2e3e5;
+        color: #41464b;
     }
 
     .view-btn {
@@ -339,11 +385,19 @@
                 <td><strong>₹{{ item.price }}</strong></td>
                 <td>{{ item.order.get_payment_method_display }}</td>
                 <td>
-                    <span class="status-badge {% if item.status == 'delivered' %}status-delivered
-                                          {% elif item.status == 'pending' %}status-pending
-                                          {% elif item.status == 'cancelled' %}status-cancelled
-                                          {% elif item.status == 'shipped' %}status-shipped
-                                          {% else %}status-pending{% endif %}">
+                    <span class="status-badge 
+                        {% if item.status == 'Delivered' %}status-delivered
+                        {% elif item.status == 'Pending' %}status-pending
+                        {% elif item.status == 'Payment_Failed' %}status-payment-failed
+                        {% elif item.status == 'Processing' %}status-processing
+                        {% elif item.status == 'On_Hold' %}status-on-hold
+                        {% elif item.status == 'Shipped' %}status-shipped
+                        {% elif item.status == 'On_the_Way' %}status-on-the-way
+                        {% elif item.status == 'Cancelled' %}status-cancelled
+                        {% elif item.status == 'Return_Requested' %}status-return-requested
+                        {% elif item.status == 'Returned' %}status-returned
+                        {% elif item.status == 'Refunded' %}status-refunded
+                        {% else %}status-pending{% endif %}">
                         {{ item.get_status_display }}
                     </span>
                 </td>
@@ -484,6 +538,20 @@
 
 {% block extra_scripts %}
 <script>
+    // Auto-dismiss Django messages after 3 seconds
+    document.addEventListener('DOMContentLoaded', function() {
+        const alerts = document.querySelectorAll('.order-table-container > .alert');
+        alerts.forEach(alert => {
+            setTimeout(() => {
+                alert.style.opacity = '0';
+                alert.style.transition = 'opacity 0.5s ease';
+                setTimeout(() => {
+                    alert.remove();
+                }, 500);
+            }, 3000);
+        });
+    });
+
     // Toast notification function
     function showToast(message, type) {
         const toast = document.createElement('div');
@@ -507,3 +575,4 @@
     }
 </script>
 {% endblock %}
+

@@ -19,7 +19,7 @@ from django.contrib import messages
 # from django.urls import reverse
 import cloudinary.uploader
 from decimal import Decimal
-# from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 import uuid, time
 from django.conf import settings
 # from orders.models import Order, OrderItem, ReturnRequest
@@ -134,7 +134,8 @@ def add_address(request):
         return redirect('manage_address')
 
     if request.method == 'POST':
-        form = AddressForm(request.POST)
+        # IMPORTANT: Pass user parameter to the form
+        form = AddressForm(request.POST, user=request.user)
         if form.is_valid():
             address = form.save(commit=False)
             address.user_id = request.user
@@ -177,7 +178,8 @@ def add_address(request):
                 for error in errors:
                     messages.error(request, f"{field.replace('_', ' ').title()}: {error}")
     else:
-        form = AddressForm()
+        # Pass user parameter when creating empty form too
+        form = AddressForm(user=request.user)
     
     context = {
         'form': form,
@@ -248,6 +250,17 @@ def wishlist(request):
     ).select_related('variant__product', 'variant__product__brand').prefetch_related(
             'variant__images',
         ).order_by('-added_at')
+    
+    # Pagination - 6 items per page (3x2 grid)
+    page = request.GET.get('page', 1)
+    paginator = Paginator(wishlist_items, 6)
+    try:
+        wishlist_items = paginator.page(page)
+    except PageNotAnInteger:
+        wishlist_items = paginator.page(1)
+    except EmptyPage:
+        wishlist_items = paginator.page(paginator.num_pages)
+    
     return render(request, 'wishlist.html', {'wishlist_items': wishlist_items})
 
 
@@ -293,11 +306,51 @@ def toggle_wishlist(request, product_id, product_size):
 
 @login_required
 def is_wishlisted(request, product_id):
-    is_in_wishlist = Wishlist.objects.filter(
+    size = request.GET.get('size')
+    color = request.GET.get('color')
+    
+    # Build the query for specific variant
+    query = Wishlist.objects.filter(
         user=request.user, 
         variant__product_id=product_id
-    ).exists()
+    )
+    
+    # Filter by size and color if provided
+    if size:
+        query = query.filter(variant__size=size)
+    if color:
+        query = query.filter(variant__color=color)
+    
+    is_in_wishlist = query.exists()
     return JsonResponse({"is_wishlisted": is_in_wishlist})
+
+
+@login_required
+def get_variant_id(request, product_id, product_size):
+    """Get the variant ID for a product and size combination"""
+    try:
+        variant = ProductVariant.objects.filter(
+            product_id=product_id,
+            size=product_size,
+            is_deleted=False
+        ).first()
+        
+        if variant:
+            return JsonResponse({
+                "success": True, 
+                "variant_id": variant.id,
+                "stock": variant.quantity
+            })
+        else:
+            return JsonResponse({
+                "success": False, 
+                "message": "Variant not found"
+            }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            "success": False, 
+            "message": str(e)
+        }, status=500)
 
 
 # Placeholder views for future implementation
