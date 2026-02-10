@@ -1,0 +1,356 @@
+{% extends 'admin_base.html' %}
+{% load static %}
+{% block title %}Edit Offer | Walkoria{% endblock %}
+
+{% block page_title %}Edit Offer{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Edit Offer Styles - Same as Add Offer */
+    .offer-form-container {
+        background: white;
+        border-radius: 15px;
+        padding: 30px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        max-width: 800px;
+    }
+
+    .form-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #f1f1f1;
+    }
+
+    .form-header h3 {
+        margin: 0;
+        color: #2c3e50;
+        font-size: 1.5rem;
+    }
+
+    .form-group {
+        margin-bottom: 25px;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: #2c3e50;
+    }
+
+    .form-input,
+    .form-select,
+    .form-textarea {
+        width: 100%;
+        padding: 12px 15px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-size: 14px;
+        transition: border-color 0.3s ease;
+    }
+
+    .form-input:focus,
+    .form-select:focus,
+    .form-textarea:focus {
+        outline: none;
+        border-color: var(--primary-color);
+    }
+
+    .form-input:disabled,
+    .form-select:disabled {
+        background-color: #e9ecef;
+        cursor: not-allowed;
+    }
+
+    .form-hint {
+        font-size: 12px;
+        color: #6c757d;
+        margin-top: 5px;
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+    }
+
+    .form-row-3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+    }
+
+    .modal-buttons {
+        display: flex;
+        gap: 15px;
+        justify-content: flex-end;
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #f1f1f1;
+    }
+
+    .save-btn, .cancel-btn {
+        padding: 12px 25px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .save-btn {
+        background-color: var(--primary-color);
+        color: white;
+    }
+
+    .save-btn:hover {
+        background-color: #e63384;
+    }
+
+    .cancel-btn {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    .cancel-btn:hover {
+        background-color: #5a6268;
+        color: white;
+    }
+
+    /* Alert Styles */
+    .alert {
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 8px;
+        border-left: 4px solid;
+    }
+
+    .alert-success {
+        background-color: #d4edda;
+        border-left-color: #28a745;
+        color: #155724;
+    }
+
+    .alert-danger {
+        background-color: #f8d7da;
+        border-left-color: #dc3545;
+        color: #721c24;
+    }
+
+    .error-message {
+        color: #dc3545;
+        font-size: 14px;
+        margin-top: 5px;
+        display: none;
+    }
+
+    .info-badge {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        background-color: #e9ecef;
+        color: #495057;
+    }
+
+    @media (max-width: 768px) {
+        .form-row,
+        .form-row-3 {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="offer-form-container">
+    <div class="form-header">
+        <h3>Edit Offer</h3>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <form id="offerForm" method="post" action="{% url 'edit_offer' offer.id %}">
+        {% csrf_token %}
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="name" class="form-label">Offer Name</label>
+                <input type="text" class="form-input" id="name" name="name" value="{{ offer.name }}" placeholder="Enter offer name">
+                <div class="form-hint">Alphabets and spaces only</div>
+                <div id="nameError" class="error-message"></div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Offer Type</label>
+                <span class="info-badge">{{ offer.offer_type }}</span>
+                <div class="form-hint">Type cannot be changed</div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="description" class="form-label">Description</label>
+            <textarea class="form-textarea" id="description" name="description" rows="3" placeholder="Enter offer description">{{ offer.description }}</textarea>
+            <div id="descError" class="error-message"></div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Applied To</label>
+                <span class="info-badge">
+                    {% if offer.offer_type == 'Product' %}
+                        {{ offer.product.name }}
+                    {% else %}
+                        {{ offer.category.name }}
+                    {% endif %}
+                </span>
+                <div class="form-hint">{{ offer.offer_type }} cannot be changed</div>
+            </div>
+
+            <div class="form-group">
+                <label for="discount_percentage" class="form-label">Discount %</label>
+                <input type="number" class="form-input" id="discount_percentage" name="discount_percentage" min="1" max="90" value="{{ offer.discount_percentage }}" placeholder="1-90">
+                <div class="form-hint">Between 1 and 90</div>
+                <div id="discountError" class="error-message"></div>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="start_date" class="form-label">Start Date</label>
+                <input type="date" class="form-input" id="start_date" name="start_date" value="{{ offer.start_date|date:'Y-m-d' }}">
+                <div id="startError" class="error-message"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="end_date" class="form-label">End Date</label>
+                <input type="date" class="form-input" id="end_date" name="end_date" value="{{ offer.end_date|date:'Y-m-d' }}">
+                <div id="endError" class="error-message"></div>
+            </div>
+        </div>
+
+        <div class="modal-buttons">
+            <a href="{% url 'offer_management' %}" class="cancel-btn">
+                <i class="fas fa-times"></i> Cancel
+            </a>
+            <button type="submit" class="save-btn">
+                <i class="fas fa-save"></i> Update Offer
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('offerForm');
+
+    // Auto-dismiss Django messages after 3 seconds
+    const alerts = document.querySelectorAll('.offer-form-container > .alert');
+    alerts.forEach(alert => {
+        setTimeout(() => {
+            alert.style.opacity = '0';
+            alert.style.transition = 'opacity 0.5s ease';
+            setTimeout(() => {
+                alert.remove();
+            }, 500);
+        }, 3000);
+    });
+
+    // Show toast notification
+    function showToast(message, type) {
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type}`;
+        toast.style.position = 'fixed';
+        toast.style.top = '20px';
+        toast.style.right = '20px';
+        toast.style.zIndex = '9999';
+        toast.style.minWidth = '300px';
+        toast.innerHTML = message;
+        
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transition = 'opacity 0.5s ease';
+            setTimeout(() => {
+                document.body.removeChild(toast);
+            }, 500);
+        }, 3000);
+    }
+
+    // Form validation
+    form.addEventListener('submit', (e) => {
+        const name = document.getElementById('name').value.trim();
+        const desc = document.getElementById('description').value.trim();
+        const disc = Number(document.getElementById('discount_percentage').value);
+        const sd = document.getElementById('start_date').value;
+        const ed = document.getElementById('end_date').value;
+
+        // Clear previous errors
+        document.querySelectorAll('.error-message').forEach(el => {
+            el.style.display = 'none';
+            el.textContent = '';
+        });
+
+        let hasError = false;
+
+        if (!name || !/^[A-Za-z ]+$/.test(name)) {
+            document.getElementById('nameError').textContent = 'Enter a valid alphabetic offer name';
+            document.getElementById('nameError').style.display = 'block';
+            hasError = true;
+        }
+
+        if (!desc) {
+            document.getElementById('descError').textContent = 'Enter a description';
+            document.getElementById('descError').style.display = 'block';
+            hasError = true;
+        }
+
+        if (!disc || disc < 1 || disc > 90) {
+            document.getElementById('discountError').textContent = 'Discount must be between 1 and 90';
+            document.getElementById('discountError').style.display = 'block';
+            hasError = true;
+        }
+
+        if (!sd) {
+            document.getElementById('startError').textContent = 'Select start date';
+            document.getElementById('startError').style.display = 'block';
+            hasError = true;
+        }
+
+        if (!ed) {
+            document.getElementById('endError').textContent = 'Select end date';
+            document.getElementById('endError').style.display = 'block';
+            hasError = true;
+        }
+
+        if (sd && ed && new Date(sd) >= new Date(ed)) {
+            document.getElementById('endError').textContent = 'End date must be after start date';
+            document.getElementById('endError').style.display = 'block';
+            hasError = true;
+        }
+
+        if (hasError) {
+            e.preventDefault();
+            showToast('Please fix the errors in the form', 'danger');
+        }
+    });
+});
+</script>
+{% endblock %}

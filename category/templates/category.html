@@ -568,6 +568,20 @@
 
 {% block extra_scripts %}
 <script>
+    // Auto-dismiss Django messages after 3 seconds
+    document.addEventListener('DOMContentLoaded', function() {
+        const alerts = document.querySelectorAll('.category-table-container > .alert');
+        alerts.forEach(alert => {
+            setTimeout(() => {
+                alert.style.opacity = '0';
+                alert.style.transition = 'opacity 0.5s ease';
+                setTimeout(() => {
+                    alert.remove();
+                }, 500);
+            }, 3000);
+        });
+    });
+
     let isEditMode = false;
 
     function openAddModal() {

@@ -42,6 +42,8 @@
             height: 100vh;
             overflow-y: auto;
             z-index: 1000;
+            display: flex;
+            flex-direction: column;
         }
         
         .sidebar-header {
@@ -60,6 +62,8 @@
         .sidebar-menu {
             list-style: none;
             padding: 20px 0;
+            flex: 1 1 auto;
+            padding-bottom: 16px; /* space above logout */
         }
         
         .sidebar-menu li {
@@ -75,6 +79,7 @@
             transition: all 0.3s ease;
             border-radius: 25px;
             font-weight: 500;
+            white-space: nowrap;
         }
         
         .sidebar-menu a:hover,
@@ -88,48 +93,8 @@
             margin-right: 12px;
             width: 20px;
             text-align: center;
+            flex: 0 0 20px;
         }
-        
-        {% comment %} .logout-section {
-            position: absolute;
-            bottom: 20px;
-            width: calc(100% - 30px);
-            margin: 0 15px;
-        }
-        
-        .logout-section a {
-            display: flex;
-            align-items: center;
-            padding: 12px 20px;
-            color: rgba(255, 255, 255, 0.8);
-            text-decoration: none;
-            transition: all 0.3s ease;
-            border-radius: 25px;
-            font-weight: 500;
-            margin-bottom: 8px;
-        }
-        
-        .logout-section a i {
-            margin-right: 12px;
-            width: 20px;
-            text-align: center;
-        }
-        
-        .logout-section a:hover {
-            background-color: white;
-            color: var(--sidebar-bg);
-            transform: translateX(5px);
-        }
-        
-        .logout-link {
-            color: #e74c3c !important;
-            border: 1px solid #e74c3c;
-        }
-        
-        .logout-link:hover {
-            background-color: #e74c3c !important;
-            color: white !important;
-        } {% endcomment %}
         
         /* Main Content */
         .main-content {
@@ -188,10 +153,9 @@
         
         /* Updated CSS for the logout section */
         .logout-section {
-            position: absolute;
-            bottom: 20px;
-            width: calc(100% - 30px);
-            margin: 0 15px;
+            position: static;
+            width: auto;
+            margin: 0 15px 20px;
         }
 
         .logout-section a,
@@ -211,6 +175,7 @@
             cursor: pointer;
             font-size: inherit;
             font-family: inherit;
+            white-space: nowrap;
         }
 
         .logout-section a i,
@@ -242,8 +207,6 @@
             color: white !important;
             transform: translateX(5px) !important;
         }
-    
-    
         
         {% block extra_styles %}{% endblock %}
     </style>
@@ -260,28 +223,37 @@
             <ul class="sidebar-menu">
                 <li><a href="{% url 'admin_dashboard' %}" class="{% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}" onclick="changePageTitle('Dashboard')"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
                 <li><a href="{% url 'customers' %}" class="{% if request.resolver_match.url_name == 'customers' %}active{% endif %}" onclick="changePageTitle('Customers')"><i class="fas fa-users"></i> Customers</a></li>
-                <li><a href="{% url 'category' %}"class="{% if request.resolver_match.url_name == 'category' %}active{% endif %}" onclick="changePageTitle('Category Management')"><i class="fas fa-box"></i> Category</a></li>
-                <li><a href="{% url 'product' %}" class="{% if request.resolver_match.url_name == 'product' %}active{% endif %}" onclick="changePageTitle('product')"><i class="fas fa-shopping-cart"></i> Products</a></li>
-                <li><a href="{% url 'orders' %}" class="{% if request.resolver_match.url_name == 'orders' %}active{% endif %}" onclick="changePageTitle('Order Management')"><i class="fas fa-clipboard-list"></i> Orders</a></li>
-                <li><a href="#" class="{% if request.resolver_match.url_name == 'admin_coupon' %}active{% endif %}" onclick="changePageTitle('Coupon Management')"><i class="fas fa-ticket-alt"></i> Coupon </a></li>
-                <li><a href="#" class="{% if request.resolver_match.url_name == 'admin_sales_report' %}active{% endif %}" onclick="changePageTitle('Sales Report')"><i class="fas fa-chart-line"></i> Sales Report</a></li>
+                <li><a href="{% url 'category' %}" class="{% if request.resolver_match.url_name == 'category' %}active{% endif %}" onclick="changePageTitle('Category Management')"><i class="fas fa-box"></i> Category</a></li>
+                <li><a href="{% url 'product' %}" class="{% if request.resolver_match.url_name == 'product' %}active{% endif %}" onclick="changePageTitle('Product Management')"><i class="fas fa-shopping-cart"></i> Products</a></li>
+                <li><a href="{% url 'orders' %}" class="{% if request.resolver_match.url_name == 'orders' or request.resolver_match.url_name == 'admin_order_overview' %}active{% endif %}" onclick="changePageTitle('Order Management')"><i class="fas fa-clipboard-list"></i> Orders</a></li>
+                <li>
+                  <a href="{% url 'offer_management' %}"
+                     class="{% if request.resolver_match.url_name == 'offer_management' or request.resolver_match.url_name == 'add_offer' or request.resolver_match.url_name == 'edit_offer' %}active{% endif %}"
+                     onclick="changePageTitle('Offer Management')">
+                     <i class="fas fa-gift"></i> Offer Management
+                  </a>
+                </li>
+                <li><a href="{% url 'coupon' %}" class="{% if request.resolver_match.url_name == 'admin_coupon' %}active{% endif %}" onclick="changePageTitle('Coupon Management')"><i class="fas fa-ticket-alt"></i> Coupon </a></li>
+                <li>
+                  <a href="#"
+                     class="{% if request.resolver_match.url_name == 'banner_management' %}active{% endif %}"
+                     onclick="changePageTitle('Banner Management')">
+                     <i class="fas fa-image"></i> Banner Management
+                  </a>
+                </li>
+                <li><a href="{% url 'sales_report' %}" class="{% if request.resolver_match.url_name == 'sales_report' %}active{% endif %}" onclick="changePageTitle('Sales Report')"><i class="fas fa-chart-line"></i> Sales Report</a></li>
                 <li><a href="{% url 'brand' %}" class="{% if request.resolver_match.url_name == 'brand' %}active{% endif %}" onclick="changePageTitle('Brand')"><i class="fas fa-tags"></i> Brand</a></li>
-               
+                <li><a href="#" onclick="changePageTitle('Settings')"><i class="fas fa-cog"></i> Settings</a></li>
             </ul>
- </ul>
-</ul>
- <!-- Updated Logout Section -->
-        <div class="logout-section">
-            <a href="#"><i class="fas fa-cog"></i> Settings</a>
-            <form action="{% url 'logout_account' %}" method="post" class="logout-form">
-                {% csrf_token %}
-                <button type="submit" class="logout-link">
-                    <i class="fas fa-sign-out-alt"></i> Logout
-                </button>
-            </form>
-        </div>
-
-
+            <!-- Logout Section -->
+            <div class="logout-section">
+                <form action="{% url 'logout_account' %}" method="post" class="logout-form">
+                    {% csrf_token %}
+                    <button type="submit" class="logout-link">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
+                </form>
+            </div>
         </nav>
 
         <!-- Main Content -->

@@ -1,0 +1,422 @@
+{% extends 'admin_base.html' %}
+{% load static %}
+
+{% block title %}Coupon Management | Walkoria{% endblock %}
+
+{% block page_title %}Coupon{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/coupon_management.css' %}">
+{% endblock %}
+
+{% block content %}
+<!-- Coupon Header -->
+<div class="management-header">
+    <h2>Coupon Management</h2>
+    <button class="btn-add" onclick="openAddModal()">
+        <i class="fas fa-plus"></i> Add Coupon
+    </button>
+</div>
+
+<!-- Search Section -->
+<div class="search-section">
+    <form method="GET" class="search-form">
+        <input type="text" name="search" class="search-input" placeholder="Search coupons..." value="{{ request.GET.search }}">
+        <button type="submit" class="btn-search">
+            <i class="fas fa-search"></i> Search
+        </button>
+        {% if request.GET.search %}
+        <a href="{% url 'coupon' %}" class="btn-clear">
+            <i class="fas fa-times"></i> Clear
+        </a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Coupon Table -->
+<div class="table-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>S.NO</th>
+                <th>CODE</th>
+                <th>DISCOUNT</th>
+                <th>MIN CART</th>
+                <th>MAX DISCOUNT</th>
+                <th>VALID PERIOD</th>
+                <th>USAGE</th>
+                <th>LIST / UNLIST</th>
+                <th>ACTIONS</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for coupon in coupons %}
+            <tr data-coupon-id="{{ coupon.id }}">
+                <td>{{ forloop.counter }}</td>
+                <td><span class="coupon-code-badge">{{ coupon.code }}</span></td>
+                <td>
+                    {% if coupon.discount_type == 'percent' %}
+                        {{ coupon.discount_value }}%
+                    {% else %}
+                        Rs.{{ coupon.discount_value }}
+                    {% endif %}
+                </td>
+                <td>Rs.{{ coupon.min_cart_value|default:"0" }}</td>
+                <td>Rs.{{ coupon.max_discount|default:"0" }}</td>
+                <td>{{ coupon.start_date|date:"d M Y" }} - {{ coupon.end_date|date:"d M Y" }}</td>
+                <td>{{ coupon.max_usage }} / {{ coupon.max_usage_per_user }} per user</td>
+                <td>
+                    <label class="toggle-switch">
+                        <input type="checkbox" class="toggle-input" 
+                               {% if coupon.active %}checked{% endif %}
+                               data-coupon-id="{{ coupon.id }}">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </td>
+                <td>
+                    <div class="action-btns">
+                        <button class="btn-edit" onclick="editCoupon({{ coupon.id }})" title="Edit">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn-delete" onclick="deleteCoupon({{ coupon.id }}, '{{ coupon.code }}')" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="9" class="empty-message">
+                    {% if request.GET.search %}
+                        No coupons found for "{{ request.GET.search }}"
+                    {% else %}
+                        No coupons found
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Pagination -->
+    {% if coupons.has_other_pages %}
+    <div class="pagination">
+        {% if coupons.has_previous %}
+            <a href="?page=1{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}" class="page-link">First</a>
+            <a href="?page={{ coupons.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}" class="page-link">Previous</a>
+        {% endif %}
+
+        {% for num in coupons.paginator.page_range %}
+            {% if coupons.number == num %}
+                <span class="page-link active">{{ num }}</span>
+            {% elif num > coupons.number|add:'-3' and num < coupons.number|add:'3' %}
+                <a href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}" class="page-link">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if coupons.has_next %}
+            <a href="?page={{ coupons.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}" class="page-link">Next</a>
+            <a href="?page={{ coupons.paginator.num_pages }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}" class="page-link">Last</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Add/Edit Coupon Modal -->
+<div id="couponModal" class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 id="modalTitle">Add New Coupon</h3>
+            <button type="button" class="modal-close-btn" onclick="closeModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="couponForm">
+            <input type="hidden" id="couponId" name="coupon_id">
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Coupon Code: <span class="required">*</span></label>
+                    <input type="text" id="couponCode" name="code" placeholder="Enter coupon code" required>
+                </div>
+                <div class="form-group">
+                    <label>Discount Type: <span class="required">*</span></label>
+                    <select id="discountType" name="discount_type" required>
+                        <option value="percent">Percentage</option>
+                        <option value="fixed">Fixed Amount</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Discount Value: <span class="required">*</span></label>
+                    <input type="number" id="discountValue" name="discount_value" placeholder="Enter discount value" required min="1">
+                </div>
+                <div class="form-group">
+                    <label>Min Cart Value: <span class="required">*</span></label>
+                    <input type="number" id="minCartValue" name="min_cart_value" placeholder="Enter minimum cart value" required min="1">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Max Discount: <span class="required">*</span></label>
+                    <input type="number" id="maxDiscount" name="max_discount" placeholder="Enter maximum discount" required min="1">
+                </div>
+                <div class="form-group">
+                    <label>Max Usage: <span class="required">*</span></label>
+                    <input type="number" id="maxUsage" name="max_usage" placeholder="Total usage limit" value="1" required min="1">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Max Usage Per User: <span class="required">*</span></label>
+                    <input type="number" id="maxUsagePerUser" name="max_usage_per_user" placeholder="Per user limit" value="1" required min="1">
+                </div>
+                <div class="form-group">
+                    <label>Start Date: <span class="required">*</span></label>
+                    <input type="date" id="startDate" name="start_date" required>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>End Date: <span class="required">*</span></label>
+                    <input type="date" id="endDate" name="end_date" required>
+                </div>
+                <div class="form-group">
+                    <label>List / Unlist:</label>
+                    <label class="toggle-switch modal-toggle">
+                        <input type="checkbox" id="couponActive" name="active" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group full-width">
+                    <label>Description:</label>
+                    <textarea id="description" name="description" placeholder="Enter coupon description (optional)" rows="3"></textarea>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="btn-save" id="submitBtn">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date().toISOString().split('T')[0];
+    const startDateInput = document.getElementById('startDate');
+    const endDateInput = document.getElementById('endDate');
+    
+    startDateInput.min = today;
+    endDateInput.min = today;
+    
+    startDateInput.addEventListener('change', function() {
+        endDateInput.min = this.value;
+        if (endDateInput.value && endDateInput.value < this.value) {
+            endDateInput.value = this.value;
+        }
+    });
+    
+    // Form submission
+    document.getElementById('couponForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const couponId = document.getElementById('couponId').value;
+        const isEdit = couponId !== '';
+        
+        const formData = {
+            code: document.getElementById('couponCode').value,
+            discount_type: document.getElementById('discountType').value,
+            discount_value: document.getElementById('discountValue').value,
+            min_cart_value: document.getElementById('minCartValue').value,
+            max_discount: document.getElementById('maxDiscount').value,
+            max_usage: document.getElementById('maxUsage').value,
+            max_usage_per_user: document.getElementById('maxUsagePerUser').value,
+            start_date: document.getElementById('startDate').value,
+            end_date: document.getElementById('endDate').value,
+            description: document.getElementById('description').value,
+            active: document.getElementById('couponActive').checked
+        };
+        
+        const url = isEdit 
+            ? `{% url 'edit_coupon' coupon_id=0 %}`.replace('0', couponId)
+            : '{% url "add_coupon" %}';
+        
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('Success', data.message, 'success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showAlert('Error', data.message, 'error');
+            }
+        })
+        .catch(error => {
+            showAlert('Error', 'An unexpected error occurred', 'error');
+        });
+    });
+    
+    // Toggle status
+    document.querySelectorAll('.toggle-input').forEach(toggle => {
+        toggle.addEventListener('change', function() {
+            const couponId = this.dataset.couponId;
+            const checkbox = this;
+            
+            fetch(`{% url 'toggle_coupon_status' coupon_id=0 %}`.replace('0', couponId), {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('Success', data.message, 'success');
+                } else {
+                    checkbox.checked = !checkbox.checked;
+                    showAlert('Error', data.message, 'error');
+                }
+            })
+            .catch(error => {
+                checkbox.checked = !checkbox.checked;
+                showAlert('Error', 'An unexpected error occurred', 'error');
+            });
+        });
+    });
+});
+
+// Alert function
+function showAlert(title, message, type) {
+    const alertBox = document.createElement('div');
+    alertBox.className = `custom-alert ${type}`;
+    alertBox.innerHTML = `
+        <div class="alert-content">
+            <i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i>
+            <div>
+                <strong>${title}</strong>
+                <p>${message}</p>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(alertBox);
+    
+    setTimeout(() => {
+        alertBox.classList.add('show');
+    }, 10);
+    
+    setTimeout(() => {
+        alertBox.classList.remove('show');
+        setTimeout(() => alertBox.remove(), 300);
+    }, 3000);
+}
+
+// Open Add Modal
+function openAddModal() {
+    document.getElementById('modalTitle').textContent = 'Add New Coupon';
+    document.getElementById('submitBtn').textContent = 'Save';
+    document.getElementById('couponForm').reset();
+    document.getElementById('couponId').value = '';
+    document.getElementById('couponCode').removeAttribute('readonly');
+    document.getElementById('startDate').removeAttribute('readonly');
+    document.getElementById('couponActive').checked = true;
+    document.getElementById('couponModal').style.display = 'flex';
+}
+
+// Edit Coupon
+function editCoupon(couponId) {
+    fetch(`{% url 'edit_coupon' coupon_id=0 %}`.replace('0', couponId))
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const coupon = data.coupon;
+            
+            document.getElementById('modalTitle').textContent = 'Edit Coupon';
+            document.getElementById('submitBtn').textContent = 'Save';
+            document.getElementById('couponId').value = coupon.id;
+            document.getElementById('couponCode').value = coupon.code;
+            document.getElementById('couponCode').setAttribute('readonly', true);
+            document.getElementById('discountType').value = coupon.discount_type;
+            document.getElementById('discountValue').value = coupon.discount_value;
+            document.getElementById('minCartValue').value = coupon.min_cart_value || '';
+            document.getElementById('maxDiscount').value = coupon.max_discount || '';
+            document.getElementById('maxUsage').value = coupon.max_usage;
+            document.getElementById('maxUsagePerUser').value = coupon.max_usage_per_user;
+            document.getElementById('startDate').value = coupon.start_date ? coupon.start_date.split('T')[0] : '';
+            document.getElementById('startDate').setAttribute('readonly', true);
+            document.getElementById('endDate').value = coupon.end_date ? coupon.end_date.split('T')[0] : '';
+            document.getElementById('description').value = coupon.description || '';
+            document.getElementById('couponActive').checked = coupon.active;
+            
+            document.getElementById('couponModal').style.display = 'flex';
+        } else {
+            showAlert('Error', data.message, 'error');
+        }
+    })
+    .catch(error => {
+        showAlert('Error', 'An unexpected error occurred', 'error');
+    });
+}
+
+// Delete Coupon
+function deleteCoupon(couponId, couponCode) {
+    if (confirm(`Are you sure you want to delete coupon "${couponCode}"?`)) {
+        fetch(`{% url 'delete_coupon' coupon_id=0 %}`.replace('0', couponId), {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('Success', data.message, 'success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showAlert('Error', data.message, 'error');
+            }
+        })
+        .catch(error => {
+            showAlert('Error', 'An unexpected error occurred', 'error');
+        });
+    }
+}
+
+// Close Modal
+function closeModal() {
+    document.getElementById('couponModal').style.display = 'none';
+}
+
+// Close modal when clicking outside
+document.getElementById('couponModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeModal();
+    }
+});
+
+// Close modal with Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeModal();
+    }
+});
+</script>
+{% endblock %}

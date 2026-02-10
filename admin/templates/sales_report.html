@@ -1,0 +1,351 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}Sales Report | Walkoria{% endblock %}
+{% block page_title %}Sales Report{% endblock %}
+
+{% block extra_styles %}
+<style>
+<style>
+    .stats-container {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 30px;
+        margin-bottom: 30px;
+    }
+    
+    @media (max-width: 992px) {
+        .stats-container {
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        }
+    }
+    
+    .stats-card {
+        background: white;
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border-left: 4px solid transparent;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+
+    .stats-card.primary { border-left-color: var(--primary-color); }
+    .stats-card.success { border-left-color: #2ecc71; }
+    .stats-card.warning { border-left-color: #f1c40f; }
+
+    .stats-content h3 {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin: 0;
+        color: #2c3e50;
+    }
+    
+    .stats-content p {
+        color: #7f8c8d;
+        margin: 5px 0 0;
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .stats-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+    }
+
+    .icon-primary { background: rgba(255, 66, 157, 0.1); color: var(--primary-color); }
+    .icon-success { background: rgba(46, 204, 113, 0.1); color: #2ecc71; }
+    .icon-warning { background: rgba(241, 196, 15, 0.1); color: #f1c40f; }
+
+    .report-filters {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        margin-bottom: 30px;
+    }
+    
+    .report-table-container {
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    }
+    
+    .download-btn {
+        text-decoration: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        color: white;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .download-btn:hover {
+        opacity: 0.9;
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    .btn-pdf { background-color: #e74c3c; }
+    .btn-excel { background-color: #219150; }
+
+    .btn-pink {
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 10px 25px;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.3s;
+    }
+    .btn-pink:hover {
+        background-color: #e63b8c;
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 10px rgba(255, 66, 157, 0.3);
+    }
+    
+    .page-item.active .page-link {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+    }
+    
+    .page-link {
+        color: var(--primary-color);
+    }
+    
+    .page-link:hover {
+        color: #e63b8c;
+    }
+
+    .form-select:focus, .form-control:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.25rem rgba(255, 66, 157, 0.25);
+    }
+
+    .date-range-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    /* Status Badge Styles */
+    .status-badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+        text-transform: uppercase;
+        display: inline-block;
+    }
+
+    .status-pending { background-color: #fff3cd; color: #856404; }
+    .status-payment-failed { background-color: #f5c6cb; color: #721c24; }
+    .status-processing { background-color: #cce5ff; color: #004085; }
+    .status-on-hold { background-color: #ffe5d0; color: #b65a00; }
+    .status-shipped { background-color: #d1ecf1; color: #0c5460; }
+    .status-on-the-way { background-color: #e2d5f1; color: #6f42c1; }
+    .status-delivered { background-color: #d4edda; color: #155724; }
+    .status-cancelled { background-color: #f8d7da; color: #721c24; }
+    .status-return-requested { background-color: #d1f2eb; color: #0b5345; }
+    .status-returned { background-color: #d6d8db; color: #383d41; }
+    .status-refunded { background-color: #e2e3e5; color: #41464b; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="stats-container">
+    <div class="stats-card primary">
+        <div class="stats-content">
+            <h3>{{ total_sales_count }}</h3>
+            <p>Total Orders</p>
+        </div>
+        <div class="stats-icon icon-primary">
+            <i class="fas fa-shopping-bag"></i>
+        </div>
+    </div>
+    <div class="stats-card success">
+        <div class="stats-content">
+            <h3>₹{{ total_amount|floatformat:2 }}</h3>
+            <p>Total Revenue</p>
+        </div>
+        <div class="stats-icon icon-success">
+            <i class="fas fa-rupee-sign"></i>
+        </div>
+    </div>
+    <div class="stats-card warning">
+        <div class="stats-content">
+            <h3>₹{{ total_discount|floatformat:2 }}</h3>
+            <p>Total Discount</p>
+        </div>
+        <div class="stats-icon icon-warning">
+            <i class="fas fa-tags"></i>
+        </div>
+    </div>
+</div>
+
+<div class="report-filters">
+    <form method="get" class="d-flex w-100 align-items-center gap-3 flex-wrap">
+        <div class="d-flex align-items-center gap-2">
+            <label class="fw-bold text-secondary">Filter By:</label>
+            <select name="type" class="form-select" style="width: auto;" id="reportType" onchange="toggleDateInputs()">
+                <option value="daily" {% if report_type == 'daily' %}selected{% endif %}>Daily</option>
+                <option value="weekly" {% if report_type == 'weekly' %}selected{% endif %}>Weekly</option>
+                <option value="monthly" {% if report_type == 'monthly' %}selected{% endif %}>Monthly</option>
+                <option value="yearly" {% if report_type == 'yearly' %}selected{% endif %}>Yearly</option>
+                <option value="custom" {% if report_type == 'custom' %}selected{% endif %}>Custom Date Range</option>
+            </select>
+        </div>
+
+        <div class="date-range-group" id="customDateInputs" style="{% if report_type != 'custom' %}display: none;{% endif %}">
+            <input type="date" name="start_date" class="form-control" value="{{ start_date }}">
+            <span class="fw-bold">-</span>
+            <input type="date" name="end_date" class="form-control" value="{{ end_date }}">
+        </div>
+
+        <button type="submit" class="btn btn-pink px-4">Apply Filter</button>
+
+        <div class="ms-auto d-flex gap-2">
+            <a href="{% url 'download_report_pdf' %}?type={{ report_type }}&start_date={{ start_date }}&end_date={{ end_date }}" class="download-btn btn-pdf">
+                <i class="fas fa-file-pdf"></i> PDF
+            </a>
+            <a href="{% url 'download_report_excel' %}?type={{ report_type }}&start_date={{ start_date }}&end_date={{ end_date }}" class="download-btn btn-excel">
+                <i class="fas fa-file-excel"></i> Excel
+            </a>
+        </div>
+    </form>
+</div>
+
+<div class="report-table-container">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Order ID</th>
+                    <th>Date</th>
+                    <th>Customer</th>
+                    <th>Discount</th>
+                    <th>Total Amount</th>
+                    <th>Payment</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in orders %}
+                <tr>
+                    <td><a href="{% url 'admin_order_overview' order.id %}" class="text-decoration-none fw-bold">#{{ order.order_number }}</a></td>
+                    <td>{{ order.created_at|date:"M d, Y" }}</td>
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="rounded-circle bg-secondary text-white d-flex justify-content-center align-items-center" style="width: 30px; height: 30px; font-size: 0.8rem;">
+                                {{ order.user.name.0|upper }}
+                            </div>
+                            {{ order.user.name }}
+                        </div>
+                    </td>
+                    <td class="text-danger">
+                        {% with item_disc=order.items_discount|default:0 %}
+                        {% with total_disc=item_disc|add:order.discount %}
+                            {% if total_disc > 0 %}-₹{{ total_disc }}{% else %}-{% endif %}
+                        {% endwith %}
+                        {% endwith %}
+                    </td>
+                    <td class="fw-bold">₹{{ order.total_amount }}</td>
+                    <td><span class="badge bg-light text-dark border">{{ order.get_payment_method_display }}</span></td>
+                    <td>
+                        {% with status=order.get_overall_status %}
+                        <span class="status-badge 
+                            {% if status == 'Delivered' %}status-delivered
+                            {% elif status == 'Pending' %}status-pending
+                            {% elif status == 'Payment Failed' %}status-payment-failed
+                            {% elif status == 'Processing' %}status-processing
+                            {% elif status == 'On Hold' %}status-on-hold
+                            {% elif status == 'Shipped' %}status-shipped
+                            {% elif status == 'On the Way' %}status-on-the-way
+                            {% elif status == 'Cancelled' %}status-cancelled
+                            {% elif status == 'Return Requested' %}status-return-requested
+                            {% elif status == 'Returned' %}status-returned
+                            {% elif status == 'Refunded' %}status-refunded
+                            {% else %}status-pending{% endif %}">
+                            {{ status }}
+                        </span>
+                        {% endwith %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center py-5 text-muted">
+                        <i class="fas fa-inbox fa-3x mb-3"></i>
+                        <p>No sales records found for the selected period.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if orders.has_other_pages %}
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if orders.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?type={{ report_type }}&page={{ orders.previous_page_number }}{% if report_type == 'custom' %}&start_date={{ start_date }}&end_date={{ end_date }}{% endif %}">&laquo;</a>
+            </li>
+            {% endif %}
+            
+            {% for i in orders.paginator.page_range %}
+                {% if orders.paginator.num_pages > 10 %}
+                    {% if i == orders.number or i == 1 or i == orders.paginator.num_pages or i >= orders.number|add:"-2" and i <= orders.number|add:"2" %}
+                        <li class="page-item {% if orders.number == i %}active{% endif %}">
+                            <a class="page-link" href="?type={{ report_type }}&page={{ i }}{% if report_type == 'custom' %}&start_date={{ start_date }}&end_date={{ end_date }}{% endif %}">{{ i }}</a>
+                        </li>
+                    {% elif i == orders.number|add:"-3" or i == orders.number|add:"3" %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                {% else %}
+                    <li class="page-item {% if orders.number == i %}active{% endif %}">
+                        <a class="page-link" href="?type={{ report_type }}&page={{ i }}{% if report_type == 'custom' %}&start_date={{ start_date }}&end_date={{ end_date }}{% endif %}">{{ i }}</a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if orders.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?type={{ report_type }}&page={{ orders.next_page_number }}{% if report_type == 'custom' %}&start_date={{ start_date }}&end_date={{ end_date }}{% endif %}">&raquo;</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<script>
+    function toggleDateInputs() {
+        const reportType = document.getElementById('reportType').value;
+        const dateInputs = document.getElementById('customDateInputs');
+        if (reportType === 'custom') {
+            dateInputs.style.display = 'flex';
+        } else {
+            dateInputs.style.display = 'none';
+        }
+    }
+</script>
+{% endblock %}

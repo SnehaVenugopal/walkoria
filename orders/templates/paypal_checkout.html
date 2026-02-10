@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PayPal Checkout</title>
+    <!-- PayPal JS SDK -->
+    <!-- FIX: Match the currency to what you send in views.py. If using INR, chang currency=USD to currency=INR -->
+    <!-- If your Client ID is invalid, this script will fail to load. Check console for 401 errors. -->
+    <script src="https://www.paypal.com/sdk/js?client-id={{ paypal_client_id }}&currency=USD&intent=capture"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f4f4f4;
+        }
+
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+
+        h2 {
+            margin-bottom: 1.5rem;
+            color: #333;
+        }
+
+        .order-info {
+            margin-bottom: 2rem;
+            text-align: left;
+            background: #fafafa;
+            padding: 1rem;
+            border-radius: 4px;
+        }
+
+        .order-info p {
+            margin: 0.5rem 0;
+            color: #666;
+        }
+
+        .order-info strong {
+            color: #333;
+        }
+
+        #paypal-button-container {
+            min-height: 150px;
+        }
+
+        /* Ensure space for buttons */
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>Complete Your Payment</h2>
+        <div class="order-info">
+            <p>Order Number: <strong>{{ order.order_number }}</strong></p>
+            <p>Total Amount: <strong>${{ order.total_amount }}</strong></p>
+            <!-- Note: This displays $ but value is INR? -->
+        </div>
+
+        <!-- PayPal Button Container -->
+        <div id="paypal-button-container"></div>
+        <div id="error-message" style="color: red; display: none; margin-top: 10px;"></div>
+    </div>
+    <script>
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrftoken = getCookie('csrftoken');
+
+        if (typeof paypal === 'undefined') {
+            document.getElementById('error-message').innerText = 'PayPal SDK failed to load. Check Client ID.';
+            document.getElementById('error-message').style.display = 'block';
+        } else {
+            paypal.Buttons({
+                createOrder: function (data, actions) {
+                    return fetch("{% url 'create_paypal_payment' %}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrftoken
+                        },
+                        body: JSON.stringify({
+                            order_id: '{{ order.id }}'
+                        })
+                    }).then(function (res) {
+                        return res.json();
+                    }).then(function (orderData) {
+                        if (orderData.error) {
+                            console.error("Server Error:", orderData.error);
+                            alert("Error creating order: " + JSON.stringify(orderData.error)); // Show full error
+                            throw new Error(JSON.stringify(orderData.error));
+                        }
+                        return orderData.id;
+                    }).catch(function (err) {
+                        console.error("Fetch Error:", err);
+                        alert("Network error occurred.");
+                    });
+                },
+                onApprove: function (data, actions) {
+                    return fetch("{% url 'capture_paypal_payment' %}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrftoken
+                        },
+                        body: JSON.stringify({
+                            orderID: data.orderID,
+                            local_order_id: '{{ order.id }}'
+                        })
+                    }).then(function (res) {
+                        return res.json();
+                    }).then(function (orderData) {
+                        if (orderData.success) {
+                            window.location.href = "{% url 'order_success' order.id %}";
+                        } else {
+                            alert("Payment failed: " + orderData.error);
+                            // Optional: Don't redirect if you want them to try again
+                            // window.location.href = "{% url 'order_detail' order.id %}"; 
+                        }
+                    });
+                },
+                onError: function (err) {
+                    console.error('PayPal Button Error:', err);
+                    document.getElementById('error-message').innerText = 'An error occurred with PayPal: ' + err;
+                    document.getElementById('error-message').style.display = 'block';
+                }
+            }).render('#paypal-button-container');
+        }
+    </script>
+</body>
+
+</html>

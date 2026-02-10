@@ -342,6 +342,27 @@
             box-shadow: 0 15px 35px rgba(255, 66, 157, 0.4);
         }
 
+        .btn-orders {
+            background: transparent;
+            color: var(--primary-color);
+            border: 2px solid var(--primary-color);
+            padding: 1rem 2.5rem;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .btn-orders:hover {
+            background: var(--primary-color);
+            color: white;
+            transform: translateY(-3px);
+            box-shadow: 0 15px 35px rgba(255, 66, 157, 0.3);
+        }
+
         /* Responsive Design */
         @media (max-width: 768px) {
             .navbar-brand {
@@ -512,7 +533,10 @@
                             </div>
                         </div>
                         
-                        <div class="text-center mt-4">
+                        <div class="text-center mt-4 d-flex justify-content-center gap-3 flex-wrap">
+                            <a href="{% url 'my_orders' %}" class="btn-orders">
+                                <i class="fas fa-box me-2"></i>View Orders
+                            </a>
                             <a href="{% url 'home' %}" class="btn-continue">
                                 Continue Shopping
                             </a>

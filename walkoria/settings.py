@@ -32,7 +32,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
-    
+    'django.contrib.admin',  # Django's built-in admin
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -42,7 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'users',
     'social_django',
-    'admin',
+    'admin',  # Your custom admin app
     'category',
     'brand',
     'product',
@@ -51,6 +51,9 @@ INSTALLED_APPS = [
     'userpanel',
     'cart',
     'orders',
+    'wallet',
+    'coupon',
+    'referral',
     
   
 ]
@@ -167,6 +170,26 @@ DATABASES = {
         'PORT': config('DB_PORT'),
     }
 }
+
+
+# ==========================
+# PAYPAL CONFIGURATION
+# ==========================
+
+PAYPAL_CLIENT_ID = config("PAYPAL_CLIENT_ID", default=None)
+PAYPAL_SECRET_KEY = config("PAYPAL_SECRET_KEY", default=None)
+PAYPAL_MODE = config("PAYPAL_MODE", default="sandbox")
+
+
+RAZORPAY_KEY_ID = config("RAZORPAY_KEY_ID")
+RAZORPAY_KEY_SECRET = config("RAZORPAY_KEY_SECRET")
+
+PAYPAL_API_BASE_URL = (
+    "https://api-m.sandbox.paypal.com"
+    if PAYPAL_MODE == "sandbox"
+    else "https://api-m.paypal.com"
+)
+
 
 
 

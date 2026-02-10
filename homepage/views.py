@@ -166,7 +166,9 @@ def filter_products(request):
     if search_query:
         products = products.filter(
             Q(name__icontains=search_query) |
-            Q(description__icontains=search_query)
+            Q(description__icontains=search_query) |
+            Q(brand__name__icontains=search_query) |
+            Q(category__name__icontains=search_query)
         )
 
     if category_ids and category_ids[0]:

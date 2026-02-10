@@ -598,6 +598,21 @@
                             {% endfor %}
                         </div>
 
+                        <!-- Referral Code (Optional) -->
+                        <div class="mb-3">
+                            <label for="referral_code" class="form-label">Referral Code (Optional)</label>
+                            <input type="text" 
+                                   class="form-control {% if form.referral_code.errors %}is-invalid{% endif %}" 
+                                   id="referral_code" 
+                                   name="referral_code" 
+                                   value="{{ form.referral_code.value|default:'' }}" 
+                                   placeholder="Enter referral code (Optional)" 
+                                   style="text-transform: uppercase;">
+                            {% for error in form.referral_code.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
                                             
                         <div class="mb-4 form-check">
                             <input type="checkbox" class="form-check-input" id="terms" required>

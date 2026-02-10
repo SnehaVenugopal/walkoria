@@ -61,7 +61,7 @@ class UpdateCartItemForm(forms.Form):
         if self.cart_item:
             if quantity > self.cart_item.variant.quantity:
                 raise ValidationError(f"Only {self.cart_item.variant.quantity} items available in stock")
-        
+                
         return quantity
 
 class CouponForm(forms.Form):

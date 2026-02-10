@@ -8,22 +8,20 @@ from django.utils import timezone
 from decimal import Decimal
 import json
 from .models import Cart, CartItem
-from .forms import AddToCartForm, UpdateCartItemForm, CouponForm, CartValidationForm
+from .forms import AddToCartForm, UpdateCartItemForm, CartValidationForm
 from product.models import Product, ProductVariant
 from userpanel.models import Wishlist
 from django.db.models import Prefetch
+from coupon.models import Coupon, UserCoupon
+import logging
 
-# try:
-#     from coupon.models import Coupon, UserCoupon
-#     COUPON_AVAILABLE = True
-# except ImportError:
-#     COUPON_AVAILABLE = False
 
+logger = logging.getLogger(__name__)
 
 @login_required
 @cache_control(no_cache=True, must_revalidate=True, no_store=True)
 def view_cart(request):
-    cart, created = Cart.objects.get_or_create(user=request.user)
+    cart, _  = Cart.objects.get_or_create(user=request.user)
     cart_items = cart.items.all().select_related(
             'product', 'variant', 'product__category'
         ).prefetch_related(
@@ -55,21 +53,25 @@ def view_cart(request):
     discount_amount = Decimal(coupon.get('discount_amount', '0'))
     coupon_code = None
     
-    if coupon and COUPON_AVAILABLE:
-        try:
-            coupon_code = Coupon.objects.get(id=coupon_id, is_deleted=False, active=True)
-        except Coupon.DoesNotExist:
-            messages.error(request, 'The coupon you applied earlier is no longer available. It has been removed from your cart.')
-            del request.session['coupon']
-            return redirect('view_cart')
-
+    if coupon:
+            try:
+                coupon_code = Coupon.objects.get(id=coupon_id, is_deleted=False, active=True)
+            except Coupon.DoesNotExist:
+                logger.warning(f"Coupon with ID {coupon_id} not found or inactive.")
+                messages.error(request, 'The coupon you applied earlier is no longer available. It has been removed from your cart.')
+                del request.session['coupon']
+                return redirect('view_cart')
+   
     # Final total after coupon
     total_after_coupon = final_total - discount_amount if discount_amount > 0 else final_total
 
     # Check if any cart item quantity exceeds available stock or product is blocked
     cart_exceeds_stock = False
     blocked_items = []
-    
+    # Add remaining stock info to each cart item
+    for item in cart_items:
+        item.remaining_stock = item.variant.quantity - item.quantity
+        
     for item in cart_items:
         # Check if product or category is blocked/unlisted
         if not item.product.is_listed or item.product.is_deleted:
@@ -79,7 +81,7 @@ def view_cart(request):
             blocked_items.append(f"{item.product.name} (category unavailable)")
             continue
             
-        # Check stock
+        # Check quantity is exceeds
         if item.quantity > item.variant.quantity:
             cart_exceeds_stock = True
             break
@@ -94,6 +96,7 @@ def view_cart(request):
         messages.warning(request, f'The following items were removed from your cart as they are no longer available: {", ".join(blocked_items)}')
         return redirect('view_cart')
 
+#get total cart items count
     cart_count = cart.items.count()
     data = {
         'cart': cart,
@@ -120,7 +123,7 @@ def update_cart_item(request, item_id):
         try:
             cart_item = get_object_or_404(CartItem, id=item_id, cart__user=request.user)
             data = json.loads(request.body)
-            
+            print('reachedddddddddddd')
             # Use form for validation
             form = UpdateCartItemForm(data, cart_item=cart_item)
             if not form.is_valid():
@@ -195,7 +198,8 @@ def update_cart_item(request, item_id):
                 'item_final_price': float(item_final_price),
                 'items_count': cart.items.count(),
                 'is_free_delivery': total_after_discounts > 4999,
-                'max_stock': cart_item.variant.quantity
+                'max_stock': cart_item.variant.quantity,
+                'remaining_stock': cart_item.variant.quantity - quantity
             })
             
         except CartItem.DoesNotExist:
@@ -330,37 +334,48 @@ def add_to_cart(request, product_id):
     
     return redirect('view_cart')
 
-
 @login_required
-@cache_control(no_cache=True, must_revalidate=True, no_store=True)
 def available_coupons(request):
-    if request.method == 'GET' and COUPON_AVAILABLE:
-        try:
-            coupons = Coupon.objects.filter(active=True, is_deleted=False)
-            coupon_list = [{'code': coupon.code, 'description': coupon.description} for coupon in coupons]
+    try:
+        if request.method == 'GET':
+            now = timezone.now()
+            coupons = Coupon.objects.filter(
+                active=True, 
+                is_deleted=False,
+                start_date__lte=now,
+                end_date__gte=now
+            )
+            coupon_list = []
+            for coupon in coupons:
+                # Check if user has already used this coupon
+                user_usage = UserCoupon.objects.filter(user=request.user, coupon=coupon).count()
+                if user_usage < coupon.max_usage_per_user:
+                    # Check if total usage limit not reached
+                    total_usage = UserCoupon.objects.filter(coupon=coupon).count()
+                    if total_usage < coupon.max_usage:
+                        coupon_list.append({
+                            'code': coupon.code,
+                            'description': coupon.description,
+                            'discount_type': coupon.discount_type,
+                            'discount_value': coupon.discount_value,
+                            'min_cart_value': float(coupon.min_cart_value) if coupon.min_cart_value else None,
+                            'max_discount': float(coupon.max_discount) if coupon.max_discount else None,
+                        })
             return JsonResponse({'coupons': coupon_list})
-        except:
-            return JsonResponse({'coupons': []})
-    return JsonResponse({'coupons': []})
+        return JsonResponse({'success': False, 'message': 'Invalid request method'}, status=405)
+    except Exception as e:
+        logger.error(f"Error in available_coupons: {e}")
+        return JsonResponse({'success': False, 'message': 'An unexpected error occurred'})
+
+
 
 
 @login_required
 @cache_control(no_cache=True, must_revalidate=True, no_store=True)
 def apply_coupon(request, coupon_code):
-    if request.method == 'POST' and COUPON_AVAILABLE:
+    if request.method == 'POST':
         try:
-            # Use form for validation
-            form = CouponForm({'coupon_code': coupon_code})
-            if not form.is_valid():
-                return JsonResponse({'success': False, 'message': 'Invalid coupon code format'})
-            
-            coupon_code = form.cleaned_data['coupon_code']
-            
-            try:
-                coupon = Coupon.objects.get(code=coupon_code)
-            except ObjectDoesNotExist:
-                return JsonResponse({'success': False, 'message': 'Invalid coupon, please enter a valid coupon code'})
-            
+            coupon = Coupon.objects.get(code=coupon_code)
             cart = Cart.objects.get(user=request.user)
             
             if UserCoupon.objects.filter(user=request.user, coupon=coupon).exists():
@@ -378,17 +393,15 @@ def apply_coupon(request, coupon_code):
                 effective_price = cart.total_price - 99
             else:
                 effective_price = cart.total_price
-                
             if coupon.discount_type == 'fixed':
                 discount = float(coupon.discount_value)
             else:
                 discount = float(effective_price * coupon.discount_value // 100)
                 if coupon.max_discount:
-                    discount = min(discount, float(coupon.max_discount))
+                    discount = max(discount, float(coupon.max_discount))
             
             if discount > effective_price - 1:
                 return JsonResponse({'success': False, 'message': 'Coupon discount exceeds cart total'})
-                
             request.session['coupon'] = {
                 'coupon_id': coupon.id,
                 'discount_amount': discount,
@@ -401,10 +414,13 @@ def apply_coupon(request, coupon_code):
                 'coupon_code': coupon.code
             })
         
+        except ObjectDoesNotExist:
+            logger.error(f"Invalid coupon code: {coupon_code}")
+            return JsonResponse({'success': False, 'message': 'Invalid coupon, please enter a valid coupon code'})
         except Exception as e:
-            return JsonResponse({'success': False, 'message': f"An unexpected error occurred: {str(e)}"})
-    
-    return JsonResponse({'success': False, 'message': 'Coupon system not available'})
+            logger.error(f"Error in apply_coupon: {e}")
+            return JsonResponse({'success': False, 'message': "An unexpected error occurred"})
+    return JsonResponse({'success': False, 'message': 'Invalid request method'}, status=405)
 
 
 @login_required
@@ -422,20 +438,16 @@ def remove_coupon(request):
                 return JsonResponse({'success': True, 'message': 'Coupon removed successfully', 'new_total': float(cart.total_price)})
             else:
                 return JsonResponse({'success': False, 'message': 'No coupon applied to remove'})
+        
         except Cart.DoesNotExist:
+            logger.error(f"Cart not found for user: {request.user.id}")
             return JsonResponse({'success': False, 'message': 'Cart not found'})
         except Exception as e:
-            return JsonResponse({'success': False, 'message': f'An error occurred: {str(e)}'})
-    
+            logger.error(f"Error in remove_coupon: {e}")
+            return JsonResponse({'success': False, 'message': 'An error occurred while removing the coupon'})
     return JsonResponse({'success': False, 'message': 'Invalid request method'}, status=405)
 
 
-def get_cart_count(request):
-    """Helper function to get cart count for navigation"""
-    if request.user.is_authenticated:
-        try:
-            cart = Cart.objects.get(user=request.user)
-            return cart.items.count()
-        except Cart.DoesNotExist:
-            return 0
-    return 0
+
+
+

@@ -3,7 +3,7 @@ from django.utils import timezone
 from users.models import CustomUser
 from userpanel.models import Address
 from product.models import ProductVariant
-# from coupon.models import Coupon
+from coupon.models import Coupon
 
 
 class Order(models.Model):
@@ -11,10 +11,12 @@ class Order(models.Model):
         ('RP', 'Razor Pay'),
         ('WP', 'Wallet Pay'),
         ('COD', 'Cash on Delivery'),
+        ('PP', 'PayPal'), 
     ]
+    
 
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='orders')
-    # coupon = models.ForeignKey(Coupon, on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')
+    coupon = models.ForeignKey(Coupon, on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')
     order_number = models.CharField(max_length=20, unique=True)
     discount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     subtotal = models.DecimalField(max_digits=10, decimal_places=2)
@@ -32,6 +34,52 @@ class Order(models.Model):
     def calculate_total(self):
         self.subtotal = sum(item.price * item.quantity for item in self.items.all())
         self.save()
+
+    def get_overall_status(self):
+        """Determine overall order status based on all items' statuses"""
+        items = self.items.all()
+        if not items:
+            return 'Pending'
+        
+        statuses = [item.status for item in items]
+        
+        # Check if all items have Payment_Failed status
+        if all(s == 'Payment_Failed' for s in statuses):
+            return 'Payment Failed'
+        
+        # Priority order for determining overall status
+        # If all items have the same status, return that status
+        if len(set(statuses)) == 1:
+            return statuses[0].replace('_', ' ')
+        
+        # If any item is Delivered, show as Delivered (or Partially Delivered)
+        if 'Delivered' in statuses:
+            if all(s in ['Delivered', 'Returned', 'Cancelled'] for s in statuses):
+                return 'Delivered'
+            return 'Partially Delivered'
+        
+        # If any item is Shipped or On_the_Way
+        if 'Shipped' in statuses or 'On_the_Way' in statuses:
+            return 'Shipped'
+        
+        # If any item is Processing
+        if 'Processing' in statuses:
+            return 'Processing'
+        
+        # If all items are Cancelled
+        if all(s == 'Cancelled' for s in statuses):
+            return 'Cancelled'
+        
+        # If all items are Returned
+        if all(s == 'Returned' for s in statuses):
+            return 'Returned'
+        
+        # If any item has Return_Requested
+        if 'Return_Requested' in statuses:
+            return 'Return Requested'
+        
+        # Default to Pending
+        return 'Pending'
 
     def __str__(self):
         return f"Order {self.order_number} by {self.user.name}"
@@ -95,6 +143,47 @@ class OrderItem(models.Model):
             self.invoice_number = f"INV-{self.id}{timezone.now().strftime('%Y%m%d%H%M%S')}"
             self.is_bill_generated = True
             self.save()
+
+    def get_effective_price(self):
+        """
+        Calculate the effective price paid for this item (Base Price - Offer Discount).
+        Does NOT include Coupon discount as that is applied to total.
+        """
+        try:
+            from wallet.models import Offer
+            from django.db.models import Q
+            from decimal import Decimal
+            
+            # Find the offer that was active when order was placed
+            # Note: This is an estimation since we don't store the exact offer ID on OrderItem
+            created_at = self.order.created_at
+            
+            active_offer = Offer.objects.filter(
+                (Q(offer_type='Product', product=self.product_variant.product) | 
+                 Q(offer_type='Category', category=self.product_variant.product.category)),
+                start_date__lte=created_at,
+                end_date__gte=created_at
+            ).order_by('-discount_percentage').first()
+            
+            # Fallback
+            if not active_offer:
+                 active_offer = Offer.objects.filter(
+                    (Q(offer_type='Product', product=self.product_variant.product) | 
+                     Q(offer_type='Category', category=self.product_variant.product.category))
+                ).order_by('-discount_percentage').first()
+            
+            offer_discount = 0
+            if active_offer:
+                p = active_offer.discount_percentage
+                # item.price is the Base Sale Price per unit
+                offer_discount = self.price * (Decimal(p) / Decimal(100))
+                
+            return self.price - offer_discount
+            
+        except ImportError:
+            return self.price
+        except Exception:
+            return self.price
 
     def save(self, *args, **kwargs):
         if self.status == 'Delivered':

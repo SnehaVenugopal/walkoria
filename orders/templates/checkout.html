@@ -11,6 +11,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+        <!-- Razorpay SDK -->
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
     
     <style>
         :root {
@@ -570,7 +572,7 @@
                 {% endfor %}
             {% endif %}
 
-            <form method="POST" id="checkoutForm">
+       <form method="POST" id="checkoutForm" onsubmit="return handleFormSubmit(event)">
                 {% csrf_token %}
                 <div class="row">
                     <!-- Left Column - Address and Order Summary -->
@@ -664,9 +666,9 @@
                         <div class="checkout-container">
                             <h3 class="section-title">3. Payment Method</h3>
                             
-                            <div class="payment-method" onclick="selectPayment('RP')">
-                                <input type="radio" name="payment_method" value="RP" id="payment_rp">
-                                <label for="payment_rp">Razor Pay</label>
+                            <div class="payment-method" onclick="selectPayment('PP')">
+                                <input type="radio" name="payment_method" value="PP" id="payment_pp">
+                                <label for="payment_pp">PayPal</label>
                             </div>
                             
                             <div class="payment-method" onclick="selectPayment('WP')">
@@ -678,6 +680,11 @@
                                 <input type="radio" name="payment_method" value="COD" id="payment_cod" checked>
                                 <label for="payment_cod">Cash on Delivery</label>
                             </div>
+                                <div class="payment-method" onclick="selectPayment('RP')">
+    <input type="radio" name="payment_method" value="RP" id="payment_rp">
+    <label for="payment_rp"><i class="fas fa-credit-card me-2"></i>Razorpay (UPI/Cards/NetBanking)</label>
+</div>
+                        </div>
                         </div>
                     </div>
 
@@ -688,8 +695,22 @@
                             
                             <div class="price-row">
                                 <span class="price-label">Price ({{ cart.items.count }} items)</span>
-                                <span class="price-value">₹{{ cart.get_total_actual_price }}</span>
+                                <span class="price-value">₹{{ total_actual_price }}</span>
                             </div>
+
+                            {% if total_normal_discount > 0 %}
+                            <div class="price-row">
+                                <span class="price-label">Discount</span>
+                                <span class="price-value text-success">-₹{{ total_normal_discount }}</span>
+                            </div>
+                            {% endif %}
+                            
+                            {% if total_offer_discount > 0 %}
+                            <div class="price-row">
+                                <span class="price-label">Offer Discount</span>
+                                <span class="price-value text-success">-₹{{ total_offer_discount }}</span>
+                            </div>
+                            {% endif %}
                             
                             <div class="price-row">
                                 <span class="price-label">Delivery Charges</span>
@@ -701,6 +722,13 @@
                                     {% endif %}
                                 </span>
                             </div>
+
+                            {% if discount_amount > 0 %}
+                            <div class="price-row">
+                                <span class="price-label">Coupon Discount</span>
+                                <span class="price-value text-success">-₹{{ discount_amount }}</span>
+                            </div>
+                            {% endif %}
                             
                             <div class="price-row total-row">
                                 <span class="price-label">Total Amount</span>
@@ -996,10 +1024,11 @@
                     // Handle errors
                     if (data.errors) {
                         // Show field-specific errors
-                        for (const [field, errors] of Object.entries(data.errors)) {
+                        for (const [field, error] of Object.entries(data.errors)) {
                             const fieldInput = form.querySelector(`[name="${field}"]`);
                             if (fieldInput) {
-                                showFieldError(fieldInput, errors[0]);
+                                // error is already a string from backend, not an array
+                                showFieldError(fieldInput, error);
                             }
                         }
                         showErrorToast('Please fix the form errors.');
@@ -1098,6 +1127,181 @@
                 }, 300);
             }, 4000);
         }
+        // Razorpay Integration
+function handleFormSubmit(event) {
+    const paymentMethod = document.querySelector('input[name="payment_method"]:checked');
+    
+    if (!paymentMethod) {
+        showErrorToast('Please select a payment method');
+        event.preventDefault();
+        return false;
+    }
+    
+    const addressId = document.querySelector('input[name="address_id"]:checked');
+    if (!addressId) {
+        showErrorToast('Please select a delivery address');
+        event.preventDefault();
+        return false;
+    }
+    
+    if (paymentMethod.value === 'RP') {
+        event.preventDefault();
+        initiateRazorpayPayment();
+        return false;
+    }
+    
+    return true;
+}
+
+function initiateRazorpayPayment() {
+    const addressId = document.querySelector('input[name="address_id"]:checked').value;
+    const csrfToken = getCookie('csrftoken');
+    
+    const placeOrderBtn = document.querySelector('.btn-place-order');
+    const originalBtnText = placeOrderBtn.innerHTML;
+    placeOrderBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+    placeOrderBtn.disabled = true;
+    
+    fetch('{% url "create_razorpay_order" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({ address_id: addressId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showErrorToast(data.error);
+            placeOrderBtn.innerHTML = originalBtnText;
+            placeOrderBtn.disabled = false;
+            return;
+        }
+        
+        // Store order_id in session for verification
+        sessionStorage.setItem('pendingOrderId', data.order_id);
+        
+        let paymentSuccess = false;
+        
+        const options = {
+            key: data.razorpay_key_id,
+            amount: data.amount,
+            currency: data.currency,
+            name: 'Walkoria',
+            description: 'Order Payment',
+            order_id: data.razorpay_order_id,
+            // callback_url with order_id for redirect-based payments (Netbanking, etc.)
+            callback_url: window.location.origin + '{% url "verify_razorpay_payment" %}' + '?order_id=' + data.order_id,
+            prefill: {
+                name: '{{ user.name }}',
+                email: '{{ user.email }}',
+                contact: ''
+            },
+            theme: { color: '#ff429d' },
+            notes: {
+                order_id: data.order_id
+            },
+            modal: {
+                ondismiss: function() {
+                    // Payment cancelled or modal closed (for non-redirect payments)
+                    console.log('Payment modal dismissed, redirecting to failure page...');
+                    showErrorToast('Payment cancelled. Redirecting to failure page...');
+                    window.location.href = '/orders/order-failure/' + data.order_id + '/';
+                }
+            }
+        };
+        
+        const rzp = new Razorpay(options);
+        
+        // Handle payment failure (for non-redirect payment methods)
+        rzp.on('payment.failed', function (response) {
+            console.log('Payment failed:', response.error);
+            showErrorToast('Payment failed: ' + response.error.description);
+            window.location.href = '/orders/order-failure/' + data.order_id + '/';
+        });
+        
+        rzp.open();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showErrorToast('Error initiating payment. Please try again.');
+        placeOrderBtn.innerHTML = originalBtnText;
+        placeOrderBtn.disabled = false;
+    });
+}
+
+// Function to verify payment on server and redirect
+function verifyAndRedirect(razorpayResponse, orderId) {
+    const csrfToken = getCookie('csrftoken');
+    
+    // Create a form to POST the payment data to the server
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{% url "verify_razorpay_payment" %}';
+    
+    // Add CSRF token
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrfmiddlewaretoken';
+    csrfInput.value = csrfToken;
+    form.appendChild(csrfInput);
+    
+    // Add Razorpay response data
+    const fields = {
+        'razorpay_order_id': razorpayResponse.razorpay_order_id,
+        'razorpay_payment_id': razorpayResponse.razorpay_payment_id,
+        'razorpay_signature': razorpayResponse.razorpay_signature
+    };
+    
+    for (const [key, value] of Object.entries(fields)) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = value;
+        form.appendChild(input);
+    }
+    
+    document.body.appendChild(form);
+    form.submit();
+}
+
+
+function verifyRazorpayPayment(razorpayResponse, orderId) {
+    const csrfToken = getCookie('csrftoken');
+    
+    fetch('{% url "verify_razorpay_payment" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({
+            razorpay_order_id: razorpayResponse.razorpay_order_id,
+            razorpay_payment_id: razorpayResponse.razorpay_payment_id,
+            razorpay_signature: razorpayResponse.razorpay_signature,
+            order_id: orderId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSuccessToast('Payment successful!');
+            window.location.href = data.redirect_url;
+        } else {
+            showErrorToast(data.error || 'Payment verification failed');
+            window.location.href = '/orders/order-failure/' + orderId + '/';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showErrorToast('Error verifying payment');
+        window.location.href = '/orders/order-failure/' + orderId + '/';
+    });
+}
     </script>
+
+    
+
 </body>
 </html>

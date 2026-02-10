@@ -153,18 +153,23 @@
     }
     
     .remove-btn {
-        background: none;
-        border: none;
+        background: white;
+        border: 2px solid #dc3545;
         color: #dc3545;
         font-size: 0.9rem;
         cursor: pointer;
         transition: all 0.3s ease;
-        text-decoration: underline;
+        text-decoration: none;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-weight: 600;
     }
     
     .remove-btn:hover {
-        color: #c82333;
+        background: linear-gradient(135deg, #dc3545 0%, #ff6b7a 50%, #ffffff 100%);
+        color: white;
         transform: scale(1.05);
+        box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
     }
     
     .order-summary {
@@ -411,6 +416,75 @@
         text-decoration: none !important; /* Ensure no underline */
     }
     
+          /* Coupon Modal Styles */
+        .coupon-card {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            transition: background 0.3s ease;
+        }
+
+        .coupon-card:last-child {
+            border-bottom: none;
+        }
+
+        .coupon-card:hover {
+            background: #f8f9fa;
+        }
+
+        .coupon-code-tag {
+            display: inline-block;
+            background: var(--gradient-primary);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 1rem;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .coupon-description {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+
+        .coupon-details {
+            font-size: 0.85rem;
+            color: #888;
+        }
+
+        .coupon-details span {
+            margin-right: 15px;
+        }
+
+        .copy-coupon-btn {
+            background: transparent;
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .copy-coupon-btn:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .no-coupons {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+
+        .no-coupons i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            color: #ddd;
+        }
     @media (max-width: 768px) {
         .cart-content {
             flex-direction: column;
@@ -432,7 +506,9 @@
         .cart-title {
             font-size: 2rem;
         }
+          
     }
+
 </style>
 {% endblock %}
 
@@ -470,15 +546,17 @@
                             {% endif %}
                         </div>
                         
-                        <div class="item-stock {% if item.variant.quantity > 5 %}stock-available{% elif item.variant.quantity > 0 %}stock-low{% else %}stock-out{% endif %}">
-                            {% if item.variant.quantity > 5 %}
+                        {% with remaining=item.variant.quantity|add:"-"|add:item.quantity %}
+                        <div class="item-stock {% if item.variant.quantity > item.quantity|add:5 %}stock-available{% elif item.variant.quantity > item.quantity %}stock-low{% else %}stock-out{% endif %}">
+                            {% if item.variant.quantity > item.quantity|add:5 %}
                                 In Stock
-                            {% elif item.variant.quantity > 0 %}
-                                Only {{ item.variant.quantity }} left
+                            {% elif item.variant.quantity > item.quantity %}
+                                Only {{ item.variant.quantity|add:"-"|add:item.quantity }} left
                             {% else %}
-                                Out of Stock
+                                No more available
                             {% endif %}
                         </div>
+                        {% endwith %}
                         
                         <div class="quantity-controls">
                             <button class="quantity-btn decrease-btn" data-item-id="{{ item.id }}" 
@@ -613,26 +691,53 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Remove item functionality
-    document.querySelectorAll('.remove-btn').forEach(btn => {
-        console.log('asdfasdf')
-        document.querySelectorAll(".remove-btn").forEach(button => {
-        button.addEventListener("click", function() {
-            const itemId = this.dataset.itemId;
-
-            fetch(`/cart/remove/${itemId}/`, {
+    document.querySelectorAll('.remove-btn').forEach(button => {
+        button.addEventListener("click", function(e) {
+            e.preventDefault();
+            const form = this.closest('form');
+            const itemId = form.action.split('/').filter(Boolean).pop();
+            
+            showLoading();
+            
+            fetch(form.action, {
                 method: "POST",
                 headers: {
-                    "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]').value
+                    "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    "X-Requested-With": "XMLHttpRequest"
                 }
             })
-            .then(response => {
-                if (response.ok) {
-                    // remove the item div from the DOM
-                    document.querySelector(`.cart-item[data-item-id="${itemId}"]`).remove();
+            .then(response => response.json())
+            .then(data => {
+                hideLoading();
+                if (data.success) {
+                    // Remove the item div from the DOM
+                    const cartItem = document.querySelector(`.cart-item[data-item-id="${itemId}"]`);
+                    if (cartItem) {
+                        cartItem.remove();
+                    }
+                    
+                    // Update cart count in navbar
+                    const cartBadge = document.querySelector('.cart-badge');
+                    if (cartBadge) {
+                        cartBadge.textContent = data.items_count;
+                    }
+                    
+                    // Show success notification (same style as cart update)
+                    showNotification('Item removed from cart successfully', 'success');
+                    
+                    // If cart is empty, reload the page to show empty cart message
+                    if (data.items_count === 0) {
+                        location.reload();
+                    }
+                } else {
+                    showNotification(data.message || 'Error removing item', 'error');
                 }
+            })
+            .catch(error => {
+                hideLoading();
+                showNotification('Error removing item from cart', 'error');
             });
         });
-    });
     });
     
     // Coupon functionality
@@ -664,19 +769,39 @@ function updateCartItem(itemId, quantity) {
     .then(data => {
         hideLoading();
         if (data.success) {
-            // Update quantity input
-            document.querySelector(`input[data-item-id="${itemId}"]`).value = quantity;
-            
-            // Update summary
-            document.getElementById('total-actual-price').textContent = data.total_actual_price;
-            document.getElementById('total-normal-discount').textContent = data.total_normal_discount;
-            document.getElementById('total-offer-discount').textContent = data.total_offer_discount;
-            document.getElementById('final-total').textContent = data.total_after_coupon;
-            
-            // Update buttons state
-            updateQuantityButtons(itemId, quantity, data.max_stock);
-            
-            showNotification('Cart updated successfully', 'success');
+    // Update quantity input
+    document.querySelector(`input[data-item-id="${itemId}"]`).value = quantity;
+    
+    // Update summary
+    document.getElementById('total-actual-price').textContent = data.total_actual_price;
+    if (document.getElementById('total-normal-discount')) {
+        document.getElementById('total-normal-discount').textContent = data.total_normal_discount;
+    }
+    if (document.getElementById('total-offer-discount')) {
+        document.getElementById('total-offer-discount').textContent = data.total_offer_discount;
+    }
+    document.getElementById('final-total').textContent = data.total_after_coupon;
+    
+    // Item price update removed as per user request (maintain unit price display)
+    /*
+    const cartItem = document.querySelector(`.cart-item[data-item-id="${itemId}"]`);
+    if (cartItem) {
+        const priceElement = cartItem.querySelector('.item-price');
+        if (priceElement && data.item_final_price) {
+            // Update the displayed price (keep the original structure)
+            const salePrice = priceElement.childNodes[0];
+            if (salePrice) {
+                salePrice.textContent = `₹${data.item_final_price} `;
+            }
+        }
+    }
+    */
+    
+    // Update buttons state and stock display
+    updateQuantityButtons(itemId, quantity, data.max_stock, data.remaining_stock);
+    
+    showNotification('Cart updated successfully', 'success');
+
         } else {
             showNotification(data.message, 'error');
         }
@@ -714,30 +839,117 @@ function applyCoupon(couponCode) {
 }
 
 function viewAvailableCoupons() {
+    showLoading();
+    
     fetch('/cart/available-coupons/')
     .then(response => response.json())
     .then(data => {
+        hideLoading();
+        const couponsList = document.getElementById('coupons-list');
+        
         if (data.coupons && data.coupons.length > 0) {
-            let couponList = 'Available Coupons:\n\n';
+            let html = '';
             data.coupons.forEach(coupon => {
-                couponList += `${coupon.code}: ${coupon.description}\n`;
+                html += `
+                    <div class="coupon-card">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="coupon-code-tag">${coupon.code}</div>
+                                <p class="coupon-description">${coupon.description || 'No description available'}</p>
+                                <div class="coupon-details">
+                                    ${coupon.discount_type === 'percent' 
+                                        ? `<span><i class="fas fa-percent me-1"></i>${coupon.discount_value}% Off</span>`
+                                        : `<span><i class="fas fa-rupee-sign me-1"></i>₹${coupon.discount_value} Off</span>`
+                                    }
+                                    ${coupon.min_cart_value 
+                                        ? `<span><i class="fas fa-shopping-cart me-1"></i>Min: ₹${coupon.min_cart_value}</span>`
+                                        : ''
+                                    }
+                                    ${coupon.max_discount 
+                                        ? `<span><i class="fas fa-arrow-down me-1"></i>Max: ₹${coupon.max_discount}</span>`
+                                        : ''
+                                    }
+                                </div>
+                            </div>
+                            <button class="copy-coupon-btn" onclick="applyCouponFromModal('${coupon.code}')">
+                                Apply
+                            </button>
+                        </div>
+                    </div>
+                `;
             });
-            alert(couponList);
+            couponsList.innerHTML = html;
         } else {
-            showNotification('No coupons available', 'info');
+            couponsList.innerHTML = `
+                <div class="no-coupons">
+                    <i class="fas fa-ticket-alt"></i>
+                    <p>No coupons available at the moment</p>
+                </div>
+            `;
         }
+        
+        // Show the modal
+        const modal = new bootstrap.Modal(document.getElementById('couponsModal'));
+        modal.show();
     })
     .catch(error => {
+        hideLoading();
         showNotification('Error fetching coupons', 'error');
     });
 }
 
-function updateQuantityButtons(itemId, quantity, maxStock) {
+function applyCouponFromModal(code) {
+    // Close the modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('couponsModal'));
+    modal.hide();
+    
+    // Set the coupon code in input and apply
+    document.getElementById('coupon-code').value = code;
+    applyCoupon(code);
+}
+function updateQuantityButtons(itemId, quantity, maxStock, remainingStock) {
     const decreaseBtn = document.querySelector(`.decrease-btn[data-item-id="${itemId}"]`);
     const increaseBtn = document.querySelector(`.increase-btn[data-item-id="${itemId}"]`);
+    const cartItem = document.querySelector(`.cart-item[data-item-id="${itemId}"]`);
     
     decreaseBtn.disabled = quantity <= 1;
     increaseBtn.disabled = quantity >= 5 || quantity >= maxStock;
+    
+    // Update the stock display - show remaining stock available
+    const stockElement = cartItem.querySelector('.item-stock');
+    if (stockElement) {
+        const availableStock = maxStock - quantity;
+        if (availableStock > 5) {
+            stockElement.textContent = 'In Stock';
+            stockElement.className = 'item-stock stock-available';
+        } else if (availableStock > 0) {
+            stockElement.textContent = `Only ${availableStock} left`;
+            stockElement.className = 'item-stock stock-low';
+        } else {
+            stockElement.textContent = 'No more available';
+            stockElement.className = 'item-stock stock-out';
+        }
+    }
 }
 </script>
+
+<!-- Available Coupons Modal -->
+<div class="modal fade" id="couponsModal" tabindex="-1" aria-labelledby="couponsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius: 15px; overflow: hidden;">
+            <div class="modal-header" style="background: var(--gradient-primary); color: white; border: none;">
+                <h5 class="modal-title" id="couponsModalLabel">
+                    <i class="fas fa-tags me-2"></i>Available Coupons
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" style="max-height: 400px; overflow-y: auto; padding: 0;">
+                <div id="coupons-list">
+                    <!-- Coupons will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

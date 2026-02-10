@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Failed - Walkoria</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-color: #ff429d;
+            --secondary-color: #6c5ce7;
+            --danger-color: #dc3545;
+            --danger-color-dark: #c82333;
+            --text-dark: #2d3436;
+            --text-light: #636e72;
+            --bg-light: #f8f9fa;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 50%, #c82333 100%);
+            min-height: 100vh;
+            color: var(--text-dark);
+        }
+
+        /* Navigation Styles */
+        .navbar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .navbar-brand {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary-color) !important;
+            text-decoration: none;
+        }
+
+        .navbar-nav .nav-link {
+            color: var(--text-dark) !important;
+            font-weight: 500;
+            margin: 0 1rem;
+            transition: color 0.3s ease;
+        }
+
+        .navbar-nav .nav-link:hover {
+            color: var(--primary-color) !important;
+        }
+
+        .search-container {
+            position: relative;
+            max-width: 400px;
+        }
+
+        .search-input {
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            padding: 0.75rem 1rem;
+            padding-right: 3rem;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(255, 66, 157, 0.25);
+            outline: none;
+        }
+
+        .search-btn {
+            position: absolute;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--primary-color);
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            transition: all 0.3s ease;
+        }
+
+        .search-btn:hover {
+            background: #e91e63;
+            transform: translateY(-50%) scale(1.05);
+        }
+
+        .cart-icon {
+            position: relative;
+            color: var(--text-dark);
+            font-size: 1.5rem;
+            text-decoration: none;
+            margin-right: 1rem;
+            transition: color 0.3s ease;
+        }
+
+        .cart-icon:hover {
+            color: var(--primary-color);
+        }
+
+        .cart-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .profile-dropdown {
+            position: relative;
+        }
+
+        .profile-btn {
+            background: var(--primary-color);
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .profile-btn:hover {
+            background: #e91e63;
+            transform: scale(1.05);
+        }
+
+        .dropdown-menu {
+            border: none;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            padding: 0.5rem 0;
+            margin-top: 0.5rem;
+        }
+
+        .dropdown-item {
+            padding: 0.75rem 1.5rem;
+            color: var(--text-dark);
+            transition: all 0.3s ease;
+        }
+
+        .dropdown-item:hover {
+            background: var(--bg-light);
+            color: var(--primary-color);
+        }
+
+        /* Main Content Styles */
+        .main-content {
+            padding: 3rem 0;
+            min-height: calc(100vh - 80px);
+        }
+
+        .failure-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 3rem 2rem;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+            margin-bottom: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .failure-icon {
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(135deg, var(--danger-color), var(--danger-color-dark));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 2rem;
+            animation: failureShake 0.8s ease-in-out;
+            box-shadow: 0 10px 30px rgba(220, 53, 69, 0.4);
+        }
+
+        @keyframes failureShake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+
+        .failure-icon i {
+            color: white;
+            font-size: 3.5rem;
+        }
+
+        .failure-title {
+            color: var(--danger-color);
+            font-weight: 700;
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .failure-message {
+            color: var(--text-light);
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            line-height: 1.6;
+        }
+
+        .failure-submessage {
+            color: var(--text-light);
+            font-size: 1rem;
+            margin-bottom: 2rem;
+            line-height: 1.5;
+        }
+
+        .order-number {
+            color: var(--primary-color);
+            font-weight: 700;
+            font-size: 1.1em;
+        }
+
+        .order-details {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .details-title {
+            color: var(--text-dark);
+            font-weight: 700;
+            font-size: 1.8rem;
+            margin-bottom: 2rem;
+            text-align: center;
+            position: relative;
+        }
+
+        .details-title::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 3px;
+            background: linear-gradient(135deg, var(--danger-color), var(--primary-color));
+            border-radius: 2px;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 1rem 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .detail-row:hover {
+            background: rgba(220, 53, 69, 0.05);
+            border-radius: 10px;
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            color: var(--text-light);
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        .detail-value {
+            color: var(--text-dark);
+            font-weight: 600;
+            font-size: 1rem;
+            text-align: right;
+        }
+
+        .status-badge {
+            background: #fff3cd;
+            color: #856404;
+            padding: 0.35rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .status-badge.failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .btn-retry {
+            background: linear-gradient(135deg, var(--danger-color), var(--danger-color-dark));
+            color: white;
+            border: none;
+            padding: 1rem 3rem;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-retry::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn-retry:hover::before {
+            left: 100%;
+        }
+
+        .btn-retry:hover {
+            color: white;
+            transform: translateY(-3px);
+            box-shadow: 0 15px 35px rgba(220, 53, 69, 0.4);
+        }
+
+        .btn-orders {
+            background: transparent;
+            color: var(--primary-color);
+            border: 2px solid var(--primary-color);
+            padding: 1rem 2.5rem;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .btn-orders:hover {
+            background: var(--primary-color);
+            color: white;
+            transform: translateY(-3px);
+            box-shadow: 0 15px 35px rgba(255, 66, 157, 0.3);
+        }
+
+        .btn-home {
+            background: transparent;
+            color: var(--text-light);
+            border: 2px solid #dee2e6;
+            padding: 1rem 2rem;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .btn-home:hover {
+            background: var(--bg-light);
+            color: var(--text-dark);
+            border-color: var(--text-light);
+            transform: translateY(-2px);
+        }
+
+        .help-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 1.5rem;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .help-section p {
+            margin: 0;
+            color: var(--text-light);
+        }
+
+        .help-section a {
+            color: var(--primary-color);
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .help-section a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .navbar-brand {
+                font-size: 1.5rem;
+            }
+
+            .search-container {
+                max-width: 250px;
+            }
+
+            .failure-container {
+                padding: 2rem 1.5rem;
+            }
+            
+            .failure-title {
+                font-size: 2rem;
+            }
+            
+            .order-details {
+                padding: 1.5rem;
+            }
+            
+            .detail-row {
+                flex-direction: column;
+                align-items: flex-start;
+                text-align: left;
+            }
+
+            .btn-retry, .btn-orders {
+                padding: 0.875rem 2rem;
+                font-size: 1rem;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .main-content {
+                padding: 2rem 0;
+            }
+
+            .failure-icon {
+                width: 100px;
+                height: 100px;
+            }
+
+            .failure-icon i {
+                font-size: 2.5rem;
+            }
+
+            .failure-title {
+                font-size: 1.8rem;
+            }
+
+            .details-title {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'home' %}">Walkoria</a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'home' %}">HOME</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'product_listing' %}">PRODUCTS</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#about">ABOUT US</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#contact">CONTACT</a>
+                    </li>
+                </ul>
+                
+                <div class="d-flex align-items-center">
+                    <!-- Search Bar -->
+                    <div class="search-container me-3">
+                        <input type="text" class="search-input" placeholder="Search Products, Brands and more...">
+                        <button class="search-btn">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Cart Icon -->
+                    <a href="{% url 'view_cart' %}" class="cart-icon">
+                        <i class="fas fa-shopping-cart"></i>
+                        <span class="cart-badge">{{ cart_items_count|default:0 }}</span>
+                    </a>
+                    
+                    <!-- Profile Dropdown -->
+                    {% if user.is_authenticated %}
+                    <div class="profile-dropdown dropdown">
+                        <button class="profile-btn dropdown-toggle" data-bs-toggle="dropdown">
+                            {{ user.name|first|upper }}
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="fas fa-user me-2"></i>Profile</a></li>
+                            <li><a class="dropdown-item" href="{% url 'my_orders' %}"><i class="fas fa-box me-2"></i>My Orders</a></li>
+                            <li><a class="dropdown-item" href="{% url 'wishlist' %}"><i class="fas fa-heart me-2"></i>Wishlist</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="{% url 'logout_account' %}"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
+                        </ul>
+                    </div>
+                    {% else %}
+                    <a href="{% url 'login_to_account' %}" class="btn btn-outline-primary me-2">Login</a>
+                    <a href="{% url 'signup' %}" class="btn btn-primary">Sign Up</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <!-- Failure Message -->
+                    <div class="failure-container">
+                        <div class="failure-icon">
+                            <i class="fas fa-times"></i>
+                        </div>
+                        
+                        <h1 class="failure-title">Payment Failed!</h1>
+                        
+                        <p class="failure-message">
+                            We couldn't process your payment for order 
+                            <span class="order-number">#{{ order.order_number }}</span>
+                        </p>
+                        
+                        <p class="failure-submessage">
+                            Don't worry! Your order has been saved. You can retry the payment or choose a different payment method.
+                        </p>
+                    </div>
+
+                    <!-- Order Details -->
+                    <div class="order-details">
+                        <h2 class="details-title">Order Summary</h2>
+                        
+                        <div class="detail-row">
+                            <span class="detail-label">Order Number:</span>
+                            <span class="detail-value">#{{ order.order_number }}</span>
+                        </div>
+                        
+                        <div class="detail-row">
+                            <span class="detail-label">Order Total:</span>
+                            <span class="detail-value">₹{{ order.total_amount }}</span>
+                        </div>
+                        
+                        <div class="detail-row">
+                            <span class="detail-label">Payment Method:</span>
+                            <span class="detail-value">{{ order.get_payment_method_display }}</span>
+                        </div>
+                        
+                        <div class="detail-row">
+                            <span class="detail-label">Payment Status:</span>
+                            <span class="detail-value">
+                                <span class="status-badge failed">
+                                    <i class="fas fa-times-circle me-1"></i>Failed
+                                </span>
+                            </span>
+                        </div>
+                        
+                        <div class="text-center mt-4 d-flex justify-content-center gap-3 flex-wrap">
+                            <a href="{% url 'retry_payment' order.id %}" class="btn-retry" style="cursor: pointer; text-decoration: none;">
+                                <i class="fas fa-redo me-2"></i>Retry Payment
+                            </a>
+                            <a href="{% url 'order_detail' order.id %}" class="btn-orders">
+                                <i class="fas fa-box me-2"></i>View Order Details
+                            </a>
+                        </div>
+                        
+                        <div class="text-center mt-3">
+                            <a href="{% url 'home' %}" class="btn-home">
+                                <i class="fas fa-home me-2"></i>Back to Home
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Help Section -->
+                    <div class="help-section">
+                        <p>
+                            <i class="fas fa-question-circle me-2"></i>
+                            Need help? <a href="#contact">Contact our support team</a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

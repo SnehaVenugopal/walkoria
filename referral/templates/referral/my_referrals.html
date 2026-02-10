@@ -1,0 +1,605 @@
+{% extends 'base_userpanel.html' %}
+
+{% block title %}Refer & Earn - Walkoria{% endblock %}
+
+{% block additional_styles %}
+<style>
+    /* Referral Page Specific Styles - Matching Wallet Page */
+    .wallet-container {
+        max-width: 100%;
+    }
+
+    .referral-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+        gap: 20px;
+    }
+
+    .referral-code-section {
+        flex: 1;
+        min-width: 250px;
+    }
+
+    .referral-code-box {
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--dark-color) 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(255, 66, 157, 0.3);
+        text-align: center;
+    }
+
+    .referral-code-label {
+        font-size: 0.95rem;
+        opacity: 0.9;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .referral-code-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 0;
+        letter-spacing: 4px;
+    }
+
+    .share-buttons {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        margin-top: 20px;
+    }
+
+    .share-btn {
+        background-color: white;
+        color: var(--primary-color);
+        border: none;
+        padding: 12px 30px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 1rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .share-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Stats Card */
+    .stats-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-radius: 15px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        padding: 30px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        max-width: 400px;
+        width: 100%;
+    }
+
+    .stat-item {
+        margin-bottom: 20px;
+    }
+
+    .stat-label {
+        font-size: 1rem;
+        color: #666;
+        margin-bottom: 10px;
+    }
+
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #28a745;
+        margin: 0;
+    }
+
+    .offer-info {
+        background-color: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        border-left: 4px solid #28a745;
+        margin-top: 20px;
+    }
+
+    .offer-rewards {
+        display: flex;
+        justify-content: space-around;
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid #dee2e6;
+    }
+
+    .reward-item {
+        text-align: center;
+    }
+
+    .reward-label {
+        font-size: 0.85rem;
+        color: #999;
+        margin-bottom: 5px;
+    }
+
+    .reward-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+
+    /* Section Styles */
+    .section-title {
+        font-size: 1.4rem;
+        color: #333;
+        font-weight: 600;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid var(--primary-color);
+    }
+
+    /* How It Works Section */
+    .steps-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 30px;
+        margin-bottom: 30px;
+    }
+
+    .step-item {
+        text-align: center;
+        padding: 20px;
+        transition: transform 0.3s ease;
+    }
+
+    .step-item:hover {
+        transform: translateY(-5px);
+    }
+
+    .step-icon {
+        font-size: 3rem;
+        margin-bottom: 15px;
+    }
+
+    .step-title {
+        font-weight: 600;
+        margin-bottom: 10px;
+        color: #333;
+    }
+
+    .step-description {
+        font-size: 0.9rem;
+        color: #666;
+    }
+
+    /* Referral History Table */
+    .referral-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+        table-layout: auto;
+        min-width: 700px;
+    }
+
+    .referral-table thead {
+        background-color: #f8f9fa;
+    }
+
+    .referral-table th {
+        padding: 16px;
+        text-align: left;
+        font-weight: 600;
+        color: #333;
+        font-size: 0.95rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid #eee;
+    }
+
+    .referral-table td {
+        padding: 16px;
+        border-bottom: 1px solid #eee;
+        color: #666;
+        font-size: 0.95rem;
+    }
+
+    .referral-table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .referral-table tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .status-badge.rewarded {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .status-badge.pending {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #999;
+    }
+
+    .empty-state-icon {
+        font-size: 3rem;
+        margin-bottom: 20px;
+        color: #ddd;
+    }
+
+    .empty-state-text {
+        font-size: 1.1rem;
+        margin-bottom: 10px;
+    }
+
+    .empty-state-subtext {
+        font-size: 0.95rem;
+        color: #bbb;
+    }
+
+    /* Pagination - Matching Wallet Page */
+    .pagination-wrapper {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #eee;
+    }
+
+    .pagination {
+        display: flex;
+        gap: 5px;
+        align-items: center;
+    }
+
+    .pagination a,
+    .pagination span {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 38px;
+        height: 38px;
+        border: 1px solid #ddd;
+        text-decoration: none;
+        color: #666;
+        border-radius: 6px;
+        transition: all 0.3s ease;
+        font-weight: 500;
+    }
+
+    .pagination a:hover {
+        background-color: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+
+    .pagination .current {
+        background-color: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+        cursor: default;
+    }
+
+    .pagination .disabled {
+        color: #ccc;
+        cursor: not-allowed;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .referral-header {
+            flex-direction: column;
+        }
+
+        .referral-code-value {
+            font-size: 2rem;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+        }
+
+        .steps-container {
+            grid-template-columns: 1fr;
+        }
+
+        .referral-table {
+            font-size: 0.9rem;
+        }
+
+        .referral-table th,
+        .referral-table td {
+            padding: 12px 8px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'home' %}" style="color: var(--primary-color);">Home</a></li>
+        <li class="breadcrumb-item active">Refer & Earn</li>
+    </ol>
+</nav>
+
+<div class="wallet-container">
+    <!-- Referral Code & Stats Section -->
+    <div class="referral-header">
+        <div class="referral-code-section">
+            <div class="referral-code-box">
+                <div class="referral-code-label">Your Referral Code</div>
+                <h2 class="referral-code-value" id="referralCode">{{ referral_code }}</h2>
+                <div class="share-buttons">
+                    <button class="share-btn" onclick="copyReferralCode()">
+                        <i class="fas fa-copy"></i> Copy Code
+                    </button>
+                    <button class="share-btn" onclick="shareReferral()">
+                        <i class="fas fa-share-alt"></i> Share
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="stats-card">
+            <h5 style="color: #333; margin-bottom: 20px;"><i class="fas fa-chart-line me-2"></i>Your Stats</h5>
+            <div class="stat-item">
+                <div class="stat-label">Total Successful Referrals</div>
+                <h2 class="stat-value">{{ total_referrals }}</h2>
+            </div>
+
+            {% if active_offer %}
+            <div class="offer-info">
+                <h6 class="mb-2" style="color: #333;"><i class="fas fa-tag me-2"></i>{{ active_offer.name }}</h6>
+                {% if active_offer.description %}
+                <p class="mb-0" style="font-size: 0.9rem; color: #666;">{{ active_offer.description }}</p>
+                {% endif %}
+                <div class="offer-rewards">
+                    <div class="reward-item">
+                        <div class="reward-label">You Get</div>
+                        <div class="reward-value">₹{{ active_offer.referrer_reward }}</div>
+                    </div>
+                    <div class="reward-item">
+                        <div class="reward-label">Friend Gets</div>
+                        <div class="reward-value" style="color: #28a745;">₹{{ active_offer.referred_reward }}</div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-warning" style="margin-top: 20px; margin-bottom: 0;">
+                <i class="fas fa-exclamation-triangle me-2"></i>No active referral offer at the moment.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- How It Works -->
+    <div class="content-card">
+        <h3 class="section-title"><i class="fas fa-info-circle me-2"></i>How It Works</h3>
+        <div class="steps-container">
+            <div class="step-item">
+                <div class="step-icon" style="color: var(--primary-color);">
+                    <i class="fas fa-user-plus"></i>
+                </div>
+                <h6 class="step-title">Step 1</h6>
+                <p class="step-description">Share your referral code with friends</p>
+            </div>
+            <div class="step-item">
+                <div class="step-icon" style="color: #17a2b8;">
+                    <i class="fas fa-clipboard-check"></i>
+                </div>
+                <h6 class="step-title">Step 2</h6>
+                <p class="step-description">Friend signs up using your code</p>
+            </div>
+            <div class="step-item">
+                <div class="step-icon" style="color: #ffc107;">
+                    <i class="fas fa-shopping-cart"></i>
+                </div>
+                <h6 class="step-title">Step 3</h6>
+                <p class="step-description">Friend makes their first purchase</p>
+            </div>
+            <div class="step-item">
+                <div class="step-icon" style="color: #28a745;">
+                    <i class="fas fa-gift"></i>
+                </div>
+                <h6 class="step-title">Step 4</h6>
+                <p class="step-description">Both of you get wallet credits!</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Referral History -->
+    <div class="content-card">
+        <h3 class="section-title"><i class="fas fa-history me-2"></i>Referral History</h3>
+
+        {% if successful_referrals %}
+        <div class="table-responsive">
+            <table class="referral-table">
+                <thead>
+                    <tr>
+                        <th><i class="fas fa-user me-2"></i>User</th>
+                        <th><i class="fas fa-envelope me-2"></i>Email</th>
+                        <th><i class="fas fa-calendar me-2"></i>Joined Date</th>
+                        <th><i class="fas fa-gift me-2"></i>Reward Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ref in successful_referrals %}
+                    <tr>
+                        <td>
+                            <i class="fas fa-user-circle text-primary me-2"></i>
+                            {{ ref.referred_user.name|default:ref.referred_user.username }}
+                        </td>
+                        <td>{{ ref.referred_user.email }}</td>
+                        <td>{{ ref.used_at|date:"M d, Y" }}</td>
+                        <td>
+                            {% if ref.reward_given_to_referrer %}
+                            <span class="status-badge rewarded">
+                                <i class="fas fa-check-circle"></i> Rewarded
+                            </span>
+                            {% else %}
+                            <span class="status-badge pending">
+                                <i class="fas fa-clock"></i> Pending
+                            </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if successful_referrals.has_other_pages %}
+        <div class="pagination-wrapper">
+            <div class="pagination">
+                {% if successful_referrals.has_previous %}
+                <a href="?page=1" title="First"><i class="fas fa-angle-double-left"></i></a>
+                <a href="?page={{ successful_referrals.previous_page_number }}" title="Previous"><i class="fas fa-angle-left"></i></a>
+                {% else %}
+                <span class="disabled"><i class="fas fa-angle-double-left"></i></span>
+                <span class="disabled"><i class="fas fa-angle-left"></i></span>
+                {% endif %}
+
+                {% for num in successful_referrals.paginator.page_range %}
+                    {% if successful_referrals.number == num %}
+                    <span class="current">{{ num }}</span>
+                    {% elif num > successful_referrals.number|add:'-3' and num < successful_referrals.number|add:'3' %}
+                    <a href="?page={{ num }}">{{ num }}</a>
+                    {% endif %}
+                {% endfor %}
+
+                {% if successful_referrals.has_next %}
+                <a href="?page={{ successful_referrals.next_page_number }}" title="Next"><i class="fas fa-angle-right"></i></a>
+                <a href="?page={{ successful_referrals.paginator.num_pages }}" title="Last"><i class="fas fa-angle-double-right"></i></a>
+                {% else %}
+                <span class="disabled"><i class="fas fa-angle-right"></i></span>
+                <span class="disabled"><i class="fas fa-angle-double-right"></i></span>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="empty-state-text">No referrals yet</div>
+            <div class="empty-state-subtext">Share your referral code to start earning rewards!</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copyReferralCode() {
+    const code = document.getElementById('referralCode').innerText;
+    navigator.clipboard.writeText(code).then(() => {
+        showToast('Referral code copied to clipboard!', 'success');
+    }).catch(() => {
+        alert('Failed to copy code. Please copy manually: ' + code);
+    });
+}
+
+function shareReferral() {
+    const code = document.getElementById('referralCode').innerText;
+    const text = `🎁 Join Walkoria using my referral code ${code} and get amazing rewards! 🎉`;
+    const url = window.location.origin + '/create/signup?ref=' + code;
+    
+    if (navigator.share) {
+        navigator.share({
+            title: 'Join Walkoria & Get Rewards!',
+            text: text,
+            url: url
+        }).catch(() => {
+            copyShareLink(text, url);
+        });
+    } else {
+        copyShareLink(text, url);
+    }
+}
+
+function copyShareLink(text, url) {
+    const fullText = text + '\n\n' + url;
+    navigator.clipboard.writeText(fullText).then(() => {
+        showToast('Referral message copied! Share it with your friends.', 'info');
+    }).catch(() => {
+        alert('Please share this: ' + fullText);
+    });
+}
+
+function showToast(message, type) {
+    const iconMap = {
+        'success': 'fa-check-circle',
+        'info': 'fa-info-circle',
+        'warning': 'fa-exclamation-triangle',
+        'danger': 'fa-times-circle'
+    };
+    
+    const bgMap = {
+        'success': '#d4edda',
+        'info': '#d1ecf1',
+        'warning': '#fff3cd',
+        'danger': '#f8d7da'
+    };
+    
+    const colorMap = {
+        'success': '#155724',
+        'info': '#0c5460',
+        'warning': '#856404',
+        'danger': '#721c24'
+    };
+    
+    const toastHtml = `
+        <div class="alert alert-dismissible fade show" role="alert" 
+             style="position: fixed; top: 100px; right: 20px; z-index: 9999; 
+                    background-color: ${bgMap[type]}; color: ${colorMap[type]}; 
+                    border-left: 4px solid ${colorMap[type]}; min-width: 300px;">
+            <i class="fas ${iconMap[type]} me-2"></i>${message}
+            <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', toastHtml);
+    
+    setTimeout(() => {
+        const alerts = document.querySelectorAll('.alert');
+        if (alerts.length > 0) {
+            alerts[alerts.length - 1].remove();
+        }
+    }, 3000);
+}
+</script>
+{% endblock %}

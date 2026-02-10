@@ -102,12 +102,20 @@
             color: white;
             font-size: 1.2rem;
             margin-right: 5px;
+            position: relative;
+            display: inline-block;
         }
         
         .dropdown-menu {
             background-color: rgba(0, 0, 0, 0.9);
             border: 1px solid rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
+        }
+        
+        .dropdown-toggle::after {
+            margin-left: 0.5rem;
+            vertical-align: middle;
+            border-top-color: white;
         }
         
         .dropdown-item {
@@ -341,6 +349,17 @@
             color: #0c5460;
             border-left: 4px solid #17a2b8;
         }
+
+        .alert-error {
+            background: linear-gradient(135deg, #ff429d 0%, #ff89c2 100%);
+            color: white;
+            border: none;
+            border-left: none;
+        }
+        
+        .alert-error .btn-close {
+            filter: brightness(0) invert(1);
+        }
         
         /* Error message styles */
         .error-message {
@@ -352,6 +371,22 @@
         .is-invalid {
             border-color: #dc3545;
         }
+        
+        .cart-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
         
         /* Responsive Design */
         @media (max-width: 768px) {
@@ -424,11 +459,16 @@
                         <a class="nav-link" href="#">CONTACT</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'view_cart' %}"><i class="fas fa-shopping-cart cart-icon"></i> <span class="badge bg-danger">0</span></a>
+                        <a class="nav-link" href="{% url 'view_cart' %}">
+                            <span class="cart-icon">
+                                <i class="fas fa-shopping-cart"></i>
+                                <span class="cart-badge">{{ cart_count|default:0 }}</span>
+                            </span>
+                        </a>
                     </li>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user"></i> {{ user.name|default:"User" }}
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-user me-1"></i> {{ user.name.split.0|default:"User"|title }}
                         </a>
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="fas fa-user me-2"></i>Profile</a></li>
@@ -472,10 +512,10 @@
             <a href="{% url 'wishlist' %}" class="side-nav-item {% if request.resolver_match.url_name == 'wishlist' %}active{% endif %}">
                 <i class="fas fa-heart"></i> Wishlist
             </a>
-            <a href="#" class="side-nav-item">
+            <a href="{%url 'wallet'%}" class="side-nav-item">
                 <i class="fas fa-wallet"></i> Wallet
             </a>
-            <a href="#" class="side-nav-item">
+            <a href="{% url 'referral:my_referrals' %}" class="side-nav-item {% if 'referral' in request.resolver_match.url_name %}active{% endif %}">
                 <i class="fas fa-gift"></i> Refer & Earn
             </a>
             <a href="{% url 'logout_account' %}" class="side-nav-item text-danger">
