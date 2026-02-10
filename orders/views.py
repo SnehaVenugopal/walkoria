@@ -264,21 +264,30 @@ def checkout(request):
                 messages.success(request, f"Order placed successfully. Your order number is {order.order_number}")
                 return redirect('order_success', order_id=order.id)
 
-        # Calculate total discount for display
-        total_discount = cart.get_total_actual_price() - cart.total_price if hasattr(cart, 'get_total_actual_price') else 0
+        # Calculate detailed totals for display (similar to cart view)
+        total_actual_price = sum(item.variant.actual_price * item.quantity for item in cart.items.all())
+        total_sale_price_before_offer = sum(item.variant.sale_price * item.quantity for item in cart.items.all())
+        total_normal_discount = total_actual_price - total_sale_price_before_offer
+        total_offer_discount = sum(item.get_offer_discount() for item in cart.items.all())
+        
+        # Calculate total discount for display (Normal + Offer + Coupon)
+        total_discount = total_normal_discount + total_offer_discount + discount_amount
         
         data = {
             'cart': cart,
             'addresses': addresses,
             'total_amount': total_amount,
             'total_discount': total_discount,
+            'total_actual_price': total_actual_price, # MRP
+            'total_sale_price_before_offer': total_sale_price_before_offer, # Sale Price
+            'total_normal_discount': total_normal_discount, # Regular Discount
+            'total_offer_discount': total_offer_discount, # Offer Discount
             'payment_methods': Order.PAYMENT_METHOD_CHOICES,
             'coupon_code': coupon_code,
             'discount_amount': discount_amount,
             'total_price_after_coupon_discount': total_price_after_coupon_discount,
         }
         
-    
         return render(request, 'checkout.html', data)
     
     except Wallet.DoesNotExist:
@@ -318,10 +327,16 @@ def order_failure(request, order_id):
 @cache_control(no_cache=True, must_revalidate=True, no_store=True)
 def retry_payment(request, order_id):
     """Retry payment for a failed order"""
+    print(f"=== RETRY PAYMENT ===")
+    print(f"Order ID: {order_id}")
+    
     order = get_object_or_404(Order, id=order_id, user=request.user)
+    print(f"Order found: {order.order_number}")
+    print(f"Payment status: {order.payment_status}")
     
     # Only allow retry if payment is not completed
     if order.payment_status:
+        print("Order already paid, redirecting to order_detail")
         messages.info(request, 'This order has already been paid.')
         return redirect('order_detail', order_id=order.id)
     
@@ -337,7 +352,9 @@ def retry_payment(request, order_id):
             'receipt': f'retry_{order.order_number}',
             'payment_capture': 1
         }
+        print(f"Creating Razorpay order with data: {razorpay_order_data}")
         razorpay_order = razorpay_client.order.create(razorpay_order_data)
+        print(f"Razorpay order created: {razorpay_order['id']}")
         
         # Update the order with new razorpay_order_id
         order.razorpay_order_id = razorpay_order['id']
@@ -350,10 +367,15 @@ def retry_payment(request, order_id):
             'amount': int(order.total_amount * 100),
             'user_name': request.user.name,
             'user_email': request.user.email,
-            'user_phone': request.user.phone_number,
+            'user_phone': request.user.mobile_no or '',
         }
+        print(f"Rendering retry_payment.html with context")
+        print(f"========================")
         return render(request, 'retry_payment.html', context)
     except Exception as e:
+        print(f"ERROR in retry_payment: {e}")
+        import traceback
+        traceback.print_exc()
         logger.error(f"Error creating Razorpay order for retry: {e}")
         messages.error(request, 'Failed to initiate payment retry. Please try again.')
         return redirect('order_failure', order_id=order.id)
@@ -483,6 +505,7 @@ def order_detail(request, order_id):
 
 @login_required
 @cache_control(no_cache=True, must_revalidate=True, no_store=True)
+@transaction.atomic
 def cancel_product(request, item_id):
     """Handle product cancellation with refund logic"""
     try:
@@ -516,51 +539,119 @@ def cancel_product(request, item_id):
         product_variant.quantity += order_item.quantity
         product_variant.save()
 
-        # Calculate refund amount
-        total_item_price = order_item.price * order_item.quantity
-        proportion = total_item_price / (order.total_amount + order.discount) if (order.total_amount + order.discount) > 0 else 0
-        allocated_discount = order.discount * proportion
-        refund_amount = total_item_price - allocated_discount
-        # After updating subtotal
-        order.subtotal -= refund_amount
+        from wallet.models import Offer
+        from django.db.models import Q
         
-        # Recalculate delivery charge:
+        # Calculate active offer discount at the time of order
+        active_offer = Offer.objects.filter(
+            (Q(offer_type='Product', product=order_item.product_variant.product) | 
+             Q(offer_type='Category', category=order_item.product_variant.product.category)),
+            start_date__lte=order.created_at,
+            end_date__gte=order.created_at
+        ).order_by('-discount_percentage').first()
+        
+        # Fallback: Loose match if strict date match fails (consistent with admin view)
+        if not active_offer:
+             active_offer = Offer.objects.filter(
+                (Q(offer_type='Product', product=order_item.product_variant.product) | 
+                 Q(offer_type='Category', category=order_item.product_variant.product.category))
+            ).order_by('-discount_percentage').first()
+
+        item_offer_discount = Decimal('0')
+        if active_offer:
+            p = active_offer.discount_percentage
+            # Calculate offer amount based on Base Sale Price
+            item_offer_discount = (Order.objects.get(id=order.id).items.get(id=order_item.id).price * order_item.quantity) * (Decimal(str(p)) / Decimal('100'))
+            
+        # Effective Price User Paid for this item (before coupon)
+        # Use price from DB to be safe
+        db_item = OrderItem.objects.get(id=order_item.id)
+        base_total_price = db_item.price * db_item.quantity
+        effective_item_price = base_total_price - item_offer_discount
+        
+        # Calculate total product value of the order (excluding shipping, as coupon doesn't apply to shipping)
+        # We need this to allocate coupon discount proportionally
+        total_order_product_value = order.total_amount + order.discount - order.shipping_cost
+        
+        # Avoid division by zero
+        if total_order_product_value > 0:
+            proportion = effective_item_price / total_order_product_value
+        else:
+            proportion = Decimal('0')
+            
+        allocated_coupon_discount = order.discount * proportion
+        refund_amount = effective_item_price - allocated_coupon_discount
+
+        # Ensure refund amount is not negative (safety)
+        if refund_amount < 0:
+            refund_amount = Decimal('0')
+        
+        # After updating subtotal
+        # Note: order.subtotal is likely storing the Base Sale Price total (high value) based on checkout logic.
+        # We should deduct the Base value from subtotal, but refund the effective value.
+        order.subtotal -= base_total_price
+        
+        # Recalculate delivery charge handling:
         if order.subtotal <= 0:  
             order.shipping_cost = 0  
             order.total_amount = 0  
         else:
-            order.shipping_cost = 99  # or your dynamic logic
-            order.total_amount = order.subtotal + order.shipping_cost - order.discount
+            # If subtotal is still positive, we just reduce the total_amount by the refunded CASH amount
+            order.total_amount -= refund_amount
+            
+            # Recalculate shipping if needed (e.g. if it drops below free shipping threshold)
+            # For now, let's keep shipping simple or valid as per user business logic.
+            # If the user wants to adjust shipping on partial cancellation, that's complex.
+            # Assuming shipping cost remains unless order is fully cancelled (which subtotal<=0 covers).
+            if order.total_amount < 0:
+                order.total_amount = 0
 
         order.save()
 
         # Handle wallet refund for paid orders
-        # Check if item was paid BEFORE changing status
-        was_paid = order_item.item_payment_status == 'Paid'
+        # Check if item/order was paid BEFORE changing status
+        # We check both item status and overall order payment status to be safe
+        # ALSO: If it's an online payment and status is Processing/Shipped/etc, we assume it's paid.
+        is_online_payment = order.payment_method in ['RP', 'WP', 'PP']
         
-        # Credit wallet for all paid orders (RP, WP, PP, or COD if delivered)
+        # Taking a safer approach: If it's Online Payment, assume Paid unless explicitly Failed/Pending.
+        # Since we are cancelling a VALID order item (not a failed one), it must be paid.
+        was_paid = (
+            order_item.item_payment_status == 'Paid' or 
+            order.payment_status or 
+            (is_online_payment)
+        )
+        
+        print(f"DEBUG REFUND: Item {order_item.id}, Was Paid: {was_paid}, Refund Amount: {refund_amount}")
+
+        # Credit wallet for all paid orders (RP, WP, PP, or COD if delivered/paid)
         if was_paid:
-            from decimal import Decimal
-            wallet, _ = Wallet.objects.get_or_create(user=order.user)
-            wallet.refresh_from_db()
-            refund_decimal = Decimal(str(refund_amount))
-            wallet.balance = wallet.balance + refund_decimal
-            wallet.save()
-            WalletTransaction.objects.create(
-                wallet=wallet,
-                transaction_type="Cr",
-                amount=refund_decimal,
-                status="Completed",
-                transaction_id="RF" + str(int(time.time()))[-6:] + uuid.uuid4().hex[:4].upper(),
-            )
-            order_item.item_payment_status = 'Refunded'
+            if refund_amount > 0:
+                wallet, _ = Wallet.objects.get_or_create(user=order.user)
+                wallet.refresh_from_db()
+                refund_decimal = Decimal(str(refund_amount))
+                wallet.balance = wallet.balance + refund_decimal
+                wallet.save()
+                WalletTransaction.objects.create(
+                    wallet=wallet,
+                    transaction_type="Cr",
+                    amount=refund_decimal,
+                    status="Completed",
+                    transaction_id="RF" + str(int(time.time()))[-5:] + uuid.uuid4().hex[:4].upper(),
+                )
+                order_item.item_payment_status = 'Refunded'
+                messages.success(request, f'Product cancelled successfully. ₹{refund_amount:.2f} has been credited to your wallet.')
+            else:
+                order_item.item_payment_status = 'Refunded'
+                messages.warning(request, f'Product cancelled. Refund amount calculated as ₹0.00.')
         elif order.payment_method == 'COD':
             order_item.item_payment_status = 'Cancelled'
+            messages.success(request, 'Product has been cancelled successfully.')
         else:
-            order_item.item_payment_status = 'Processing'
+            order_item.item_payment_status = 'Cancelled' 
+            messages.success(request, 'Product has been cancelled successfully.')
         
         order_item.save()
-        messages.success(request, 'Product has been cancelled successfully.')
        
     
     cancellation_reasons = OrderItem.CANCELLATION_REASON_CHOICES
@@ -865,18 +956,80 @@ def create_razorpay_order(request):
 @csrf_exempt
 def verify_razorpay_payment(request):
     """Verify Razorpay payment signature and update order status"""
-    if request.method == 'POST':
+    if request.method in ['POST', 'GET']:
         try:
             import razorpay
             from wallet.utils import razorpay_client
             
-            # Get data from POST (Razorpay callback sends form data)
-            razorpay_order_id = request.POST.get('razorpay_order_id')
-            razorpay_payment_id = request.POST.get('razorpay_payment_id')
-            razorpay_signature = request.POST.get('razorpay_signature')
+            # Get data from both POST and GET (Razorpay may use either for callbacks)
+            razorpay_order_id = request.POST.get('razorpay_order_id') or request.GET.get('razorpay_order_id')
+            razorpay_payment_id = request.POST.get('razorpay_payment_id') or request.GET.get('razorpay_payment_id')
+            razorpay_signature = request.POST.get('razorpay_signature') or request.GET.get('razorpay_signature')
             
-            # Log incoming data for debugging
-            logger.info(f"Razorpay verification - order_id: {razorpay_order_id}, payment_id: {razorpay_payment_id}")
+            # Get order_id from query params (we pass this in callback_url)
+            local_order_id = request.GET.get('order_id')
+            
+            # Check for Razorpay error parameters (sent on failure)
+            error_code = request.POST.get('error[code]') or request.GET.get('error[code]')
+            error_description = request.POST.get('error[description]') or request.GET.get('error[description]')
+            
+            # Log incoming data for debugging (using print for console output)
+            print(f"=== RAZORPAY VERIFICATION ===")
+            print(f"Method: {request.method}")
+            print(f"razorpay_order_id: {razorpay_order_id}")
+            print(f"razorpay_payment_id: {razorpay_payment_id}")
+            print(f"razorpay_signature: {razorpay_signature}")
+            print(f"local_order_id: {local_order_id}")
+            print(f"error_code: {error_code}")
+            print(f"error_description: {error_description}")
+            print(f"POST data: {dict(request.POST)}")
+            print(f"GET data: {dict(request.GET)}")
+            print(f"Full path: {request.get_full_path()}")
+            print(f"=============================")
+            
+            logger.info(f"Razorpay verification - order_id: {razorpay_order_id}, local_order_id: {local_order_id}, payment_id: {razorpay_payment_id}, error: {error_code}")
+            
+            # Check if this is an error callback from Razorpay
+            if error_code or error_description:
+                logger.warning(f"Payment failed with error: {error_code} - {error_description}")
+                # Try to find order by razorpay_order_id first, then by local_order_id
+                order = None
+                if razorpay_order_id:
+                    try:
+                        order = Order.objects.get(razorpay_order_id=razorpay_order_id)
+                    except Order.DoesNotExist:
+                        pass
+                if not order and local_order_id:
+                    try:
+                        order = Order.objects.get(id=local_order_id)
+                    except Order.DoesNotExist:
+                        pass
+                
+                if order:
+                    order.items.update(status='Payment_Failed', item_payment_status='Failed')
+                    return redirect('order_failure', order_id=order.id)
+                return redirect('my_orders')
+            
+            # Check if this is a failed payment callback (missing payment_id or signature)
+            if not razorpay_payment_id or not razorpay_signature:
+                logger.warning(f"Payment failed or cancelled - missing payment_id or signature for order: {razorpay_order_id}")
+                # Try to find order by razorpay_order_id first, then by local_order_id
+                order = None
+                if razorpay_order_id:
+                    try:
+                        order = Order.objects.get(razorpay_order_id=razorpay_order_id)
+                    except Order.DoesNotExist:
+                        pass
+                if not order and local_order_id:
+                    try:
+                        order = Order.objects.get(id=local_order_id)
+                    except Order.DoesNotExist:
+                        pass
+                
+                if order:
+                    order.items.update(status='Payment_Failed', item_payment_status='Failed')
+                    return redirect('order_failure', order_id=order.id)
+                return redirect('my_orders')
             
             # Find the order by razorpay_order_id
             order = get_object_or_404(Order, razorpay_order_id=razorpay_order_id)
@@ -894,8 +1047,7 @@ def verify_razorpay_payment(request):
             except razorpay.errors.SignatureVerificationError as sig_error:
                 logger.error(f"Signature verification failed: {sig_error}")
                 order.items.update(status='Payment_Failed', item_payment_status='Failed')
-                redirect_url = reverse('order_failure', args=[order.id])
-                return redirect(redirect_url)
+                return redirect('order_failure', order_id=order.id)
             
             # Payment verified successfully
             with transaction.atomic():
@@ -904,18 +1056,17 @@ def verify_razorpay_payment(request):
                 order.razorpay_signature = razorpay_signature
                 order.save()
                 
-                order.items.update(item_payment_status='Paid')
+                order.items.update(status='Processing', item_payment_status='Paid')
             
             logger.info(f"Order {order.order_number} payment verified and updated successfully")
             
             # Redirect to success page
-            redirect_url = reverse('order_success', args=[order.id])
-            return redirect(redirect_url)
+            return redirect('order_success', order_id=order.id)
             
         except Exception as e:
             logger.error(f"Error verifying Razorpay payment: {e}")
-            # Try to get order_id from POST data
-            razorpay_order_id = request.POST.get('razorpay_order_id')
+            # Try to get order_id from POST or GET data
+            razorpay_order_id = request.POST.get('razorpay_order_id') or request.GET.get('razorpay_order_id')
             try:
                 if razorpay_order_id:
                     order = Order.objects.get(razorpay_order_id=razorpay_order_id)

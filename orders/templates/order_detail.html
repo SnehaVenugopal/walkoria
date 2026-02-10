@@ -365,9 +365,15 @@
                 </div>
                 <div class="col-md-4 text-md-end">
                     <div class="mb-2">
-                        <span class="status-badge status-{{ order.get_overall_status|lower }}">
+                        {% if order.payment_status %}
+                        <span class="status-badge" style="background: #d4edda; color: #155724;">
+                            Paid
+                        </span>
+                        {% else %}
+                        <span class="status-badge status-{{ order.get_overall_status|lower|slugify }}">
                             {{ order.get_overall_status|default:"Processing" }}
                         </span>
+                        {% endif %}
                     </div>
                     <div class="h4 mb-0">₹{{ order.total_amount }}</div>
                 </div>
@@ -405,7 +411,7 @@
 
 
 
-                    <p><strong>Refunded Amount:</strong> ₹{{ item.price|floatformat:2 }}</p>
+                    <p><strong>Refunded Amount:</strong> ₹{{ item.get_effective_price|floatformat:2 }}</p>
                     {% endif %}
                     {% endfor %}
 
@@ -461,9 +467,9 @@
                             <p><strong>Color:</strong> {{ item.product_variant.color }}</p>
                             <p><strong>Size:</strong> {{ item.product_variant.size }}</p>
                             <p><strong>Quantity:</strong> {{ item.quantity }}</p>
-                            <p><strong>Price:</strong> ₹{{ item.price }} each</p>
-                            <p><strong>Total:</strong> ₹{{ item.price|multiply:item.quantity }}</p>
-                            <p><strong>Status:</strong>
+                            <p><strong>Price:</strong> ₹{{ item.get_effective_price|floatformat:2 }} each</p>
+                            <p><strong>Total:</strong> ₹{{ item.get_effective_price|multiply:item.quantity|floatformat:2 }}</p>
+                            <p><strong>Order Status:</strong>
                                 <span class="status-badge status-{{ item.status|lower }}">
                                     {{ item.get_status_display }}
                                 </span>
@@ -496,7 +502,7 @@
                                 <i class="fas fa-undo me-2"></i>Return Item
                             </a>
                             {% if order.payment_status or order.payment_method == 'COD' %}
-                            <a href="{% url 'download_invoice' order.id %}" class="btn btn-custom btn-primary-custom">
+                            <a href="{% url 'download_invoice' item.id %}" class="btn btn-custom btn-primary-custom">
                                 <i class="fas fa-file-invoice me-2"></i>Download Invoice
                             </a>
                             {% endif %}
@@ -520,7 +526,7 @@
                             </a>
                             {% endif %}
                             <button type="button" class="btn btn-custom btn-cancel" 
-                                onclick="openCancelModal({{ item.id }}, '{{ item.product_variant.product.name }}', '{{ item.product_variant.color|default:"N/A" }}', '{{ item.product_variant.size|default:"N/A" }}', {{ item.quantity }}, {{ item.price }}, '{{ item.order.order_number }}', '{{ item.product_variant.product.images.first.image|default:"" }}')">
+                                onclick="openCancelModal({{ item.id }}, '{{ item.product_variant.product.name }}', '{{ item.product_variant.color|default:"N/A" }}', '{{ item.product_variant.size|default:"N/A" }}', {{ item.quantity }}, {{ item.get_effective_price|floatformat:2 }}, '{{ item.order.order_number }}', '{{ item.product_variant.product.images.first.image|default:"" }}')">
                                 <i class="fas fa-times me-2"></i>Cancel Item
                             </button>
                             {% elif item.status == 'Cancelled' %}
@@ -651,7 +657,7 @@
                     </div>
                     <div>
                         <h6 class="mb-1">Refund Credited</h6>
-                        <p class="text-muted mb-0">₹{{ item.price|floatformat:2 }} credited to wallet</p>
+                        <p class="text-muted mb-0">₹{{ item.get_effective_price|floatformat:2 }} credited to wallet</p>
                     </div>
                 </div>
                 {% endif %}
@@ -675,7 +681,7 @@
                     </div>
                     <div>
                         <h6 class="mb-1">Refund Credited</h6>
-                        <p class="text-muted mb-0">₹{{ item.price|floatformat:2 }} credited to wallet</p>
+                        <p class="text-muted mb-0">₹{{ item.get_effective_price|floatformat:2 }} credited to wallet</p>
                     </div>
                 </div>
                 {% endif %}

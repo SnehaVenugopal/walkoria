@@ -292,17 +292,65 @@
                     {{ order.shipping_address.city }}, {{ order.shipping_address.state }} {{ order.shipping_address.postal_code }}
                 </div>
             </div>
-            <div class="info-group">
-                <div class="info-label">Shipping Cost</div>
-                <div class="info-value">₹{{ order.shipping_cost }}</div>
-            </div>
-            <div class="info-group">
-                <div class="info-label">Payment Method</div>
-                <div class="info-value">{{ order.get_payment_method_display }}</div>
-            </div>
-            <div class="info-group">
-                <div class="info-label">Total Amount</div>
-                <div class="info-value"><strong>₹{{ order.total_amount }}</strong></div>
+            
+            <!-- Pricing Breakdown -->
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #e9ecef;">
+                <h6 style="color: #2c3e50; font-weight: 600; margin-bottom: 15px; border-bottom: 1px solid #dee2e6; padding-bottom: 8px;">
+                    Payment Summary
+                </h6>
+                
+                <!-- Total MRP -->
+                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="color: #6c757d;">Total MRP:</span>
+                    <span style="font-weight: 500;">₹{{ total_mrp|floatformat:2 }}</span>
+                </div>
+
+                <!-- Regular Discount / Base Price -->
+                {% if total_normal_discount > 0 %}
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px; color: #198754;">
+                    <span>Price:</span>
+                    <span style="font-weight: 500;">₹{{ total_base_sale_price|floatformat:2 }}</span>
+                </div>
+                {% endif %}
+
+                <!-- Offer Discount -->
+                {% if total_offer_discount > 0 %}
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px; color: #198754;">
+                    <span>Offer Discount:</span>
+                    <span style="font-weight: 500;">- ₹{{ total_offer_discount|floatformat:2 }}</span>
+                </div>
+                {% endif %}
+
+                 <!-- Subtotal (Sold Price) -->
+                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px; border-top: 1px solid #dee2e6; padding-top: 8px;">
+                    <span style="color: #2c3e50; font-weight: 600;">Total:</span>
+                    <span style="font-weight: 600;">₹{{ total_sold_price|floatformat:2 }}</span>
+                </div>
+
+                <!-- Shipping -->
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="color: #6c757d;">Delivery Charges:</span>
+                    <span style="font-weight: 500;">+ ₹{{ order.shipping_cost|floatformat:2 }}</span>
+                </div>
+
+                <!-- Coupon Discount -->
+                {% if order.discount > 0 %}
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px; color: #198754;">
+                    <span>Coupon Discount:</span>
+                    <span style="font-weight: 500;">- ₹{{ order.discount|floatformat:2 }}</span>
+                </div>
+                {% endif %}
+
+                <!-- Grand Total -->
+                <div style="display: flex; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ced4da; font-size: 1.1em;">
+                    <span style="color: #2c3e50; font-weight: 700;">TOTAL PAYABLE:</span>
+                    <span style="color: #d63384; font-weight: 700;">₹{{ order.total_amount|floatformat:2 }}</span>
+                </div>
+                
+                <div style="margin-top: 15px;">
+                     <div class="info-label">Payment Method</div>
+                     <div class="info-value">{{ order.get_payment_method_display }}</div>
+                </div>
             </div>
         </div>
     </div>
@@ -314,7 +362,7 @@
         <i class="fas fa-shopping-bag me-2"></i>Order Items
     </h4>
     
-    {% for item in order.items.all %}
+    {% for item in items %}
     <div class="order-item-card">
         <div class="item-header">
             <div>
@@ -337,11 +385,33 @@
                 </div>
                 <div class="info-group">
                     <div class="info-label">Unit Price</div>
-                    <div class="info-value">₹{{ item.price }}</div>
+                    <div class="info-value">
+                        {% if item.original_price > item.price %}
+                            <span style="text-decoration: line-through; color: #999; margin-right: 5px;">₹{{ item.original_price|floatformat:2 }}</span>
+                            <span style="color: #d63384; font-weight: 600;">₹{{ item.price|floatformat:2 }}</span>
+                            
+                            {% if item.offer_details %}
+                                <div style="margin-top: 4px;">
+                                    <span class="badge bg-success" style="font-size: 0.75em;">
+                                        {{ item.offer_details.percentage }}% OFF
+                                    </span>
+                                    {% if item.offer_details.name %}
+                                    <span style="font-size: 0.8em; color: #198754; margin-left: 5px;">
+                                        ({{ item.offer_details.name }} - {{ item.offer_details.type }})
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <span class="badge bg-success" style="font-size: 0.75em; margin-left: 5px;">Offer Applied</span>
+                            {% endif %}
+                        {% else %}
+                            ₹{{ item.price|floatformat:2 }}
+                        {% endif %}
+                    </div>
                 </div>
                 <div class="info-group">
-                    <div class="info-label">Total Price</div>
-                    <div class="info-value"><strong>₹{{ item.total_price }}</strong></div>
+                     <div class="info-label">Item Total</div>
+                     <div class="info-value"><strong>₹{{ item.total_price|floatformat:2 }}</strong></div>
                 </div>
             </div>
             <div>

@@ -599,7 +599,7 @@
                         </div>
                         
                         <div class="text-center mt-4 d-flex justify-content-center gap-3 flex-wrap">
-                            <a href="{% url 'retry_payment' order.id %}" class="btn-retry">
+                            <a href="{% url 'retry_payment' order.id %}" class="btn-retry" style="cursor: pointer; text-decoration: none;">
                                 <i class="fas fa-redo me-2"></i>Retry Payment
                             </a>
                             <a href="{% url 'order_detail' order.id %}" class="btn-orders">

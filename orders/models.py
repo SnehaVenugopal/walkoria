@@ -43,6 +43,10 @@ class Order(models.Model):
         
         statuses = [item.status for item in items]
         
+        # Check if all items have Payment_Failed status
+        if all(s == 'Payment_Failed' for s in statuses):
+            return 'Payment Failed'
+        
         # Priority order for determining overall status
         # If all items have the same status, return that status
         if len(set(statuses)) == 1:
@@ -139,6 +143,47 @@ class OrderItem(models.Model):
             self.invoice_number = f"INV-{self.id}{timezone.now().strftime('%Y%m%d%H%M%S')}"
             self.is_bill_generated = True
             self.save()
+
+    def get_effective_price(self):
+        """
+        Calculate the effective price paid for this item (Base Price - Offer Discount).
+        Does NOT include Coupon discount as that is applied to total.
+        """
+        try:
+            from wallet.models import Offer
+            from django.db.models import Q
+            from decimal import Decimal
+            
+            # Find the offer that was active when order was placed
+            # Note: This is an estimation since we don't store the exact offer ID on OrderItem
+            created_at = self.order.created_at
+            
+            active_offer = Offer.objects.filter(
+                (Q(offer_type='Product', product=self.product_variant.product) | 
+                 Q(offer_type='Category', category=self.product_variant.product.category)),
+                start_date__lte=created_at,
+                end_date__gte=created_at
+            ).order_by('-discount_percentage').first()
+            
+            # Fallback
+            if not active_offer:
+                 active_offer = Offer.objects.filter(
+                    (Q(offer_type='Product', product=self.product_variant.product) | 
+                     Q(offer_type='Category', category=self.product_variant.product.category))
+                ).order_by('-discount_percentage').first()
+            
+            offer_discount = 0
+            if active_offer:
+                p = active_offer.discount_percentage
+                # item.price is the Base Sale Price per unit
+                offer_discount = self.price * (Decimal(p) / Decimal(100))
+                
+            return self.price - offer_discount
+            
+        except ImportError:
+            return self.price
+        except Exception:
+            return self.price
 
     def save(self, *args, **kwargs):
         if self.status == 'Delivered':

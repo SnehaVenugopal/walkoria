@@ -782,7 +782,8 @@ function updateCartItem(itemId, quantity) {
     }
     document.getElementById('final-total').textContent = data.total_after_coupon;
     
-    // Update item price display
+    // Item price update removed as per user request (maintain unit price display)
+    /*
     const cartItem = document.querySelector(`.cart-item[data-item-id="${itemId}"]`);
     if (cartItem) {
         const priceElement = cartItem.querySelector('.item-price');
@@ -794,6 +795,7 @@ function updateCartItem(itemId, quantity) {
             }
         }
     }
+    */
     
     // Update buttons state and stock display
     updateQuantityButtons(itemId, quantity, data.max_stock, data.remaining_stock);

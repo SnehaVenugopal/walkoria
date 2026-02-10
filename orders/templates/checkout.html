@@ -695,8 +695,22 @@
                             
                             <div class="price-row">
                                 <span class="price-label">Price ({{ cart.items.count }} items)</span>
-                                <span class="price-value">₹{{ cart.get_total_actual_price }}</span>
+                                <span class="price-value">₹{{ total_actual_price }}</span>
                             </div>
+
+                            {% if total_normal_discount > 0 %}
+                            <div class="price-row">
+                                <span class="price-label">Discount</span>
+                                <span class="price-value text-success">-₹{{ total_normal_discount }}</span>
+                            </div>
+                            {% endif %}
+                            
+                            {% if total_offer_discount > 0 %}
+                            <div class="price-row">
+                                <span class="price-label">Offer Discount</span>
+                                <span class="price-value text-success">-₹{{ total_offer_discount }}</span>
+                            </div>
+                            {% endif %}
                             
                             <div class="price-row">
                                 <span class="price-label">Delivery Charges</span>
@@ -708,6 +722,13 @@
                                     {% endif %}
                                 </span>
                             </div>
+
+                            {% if discount_amount > 0 %}
+                            <div class="price-row">
+                                <span class="price-label">Coupon Discount</span>
+                                <span class="price-value text-success">-₹{{ discount_amount }}</span>
+                            </div>
+                            {% endif %}
                             
                             <div class="price-row total-row">
                                 <span class="price-label">Total Amount</span>
@@ -1170,7 +1191,8 @@ function initiateRazorpayPayment() {
             name: 'Walkoria',
             description: 'Order Payment',
             order_id: data.razorpay_order_id,
-            callback_url: window.location.origin + '{% url "verify_razorpay_payment" %}',
+            // callback_url with order_id for redirect-based payments (Netbanking, etc.)
+            callback_url: window.location.origin + '{% url "verify_razorpay_payment" %}' + '?order_id=' + data.order_id,
             prefill: {
                 name: '{{ user.name }}',
                 email: '{{ user.email }}',
@@ -1182,19 +1204,17 @@ function initiateRazorpayPayment() {
             },
             modal: {
                 ondismiss: function() {
-                    // Small delay to allow success redirect to happen first if applicable
-                    setTimeout(function() {
-                        console.log('Payment modal dismissed, redirecting to failure page...');
-                        showErrorToast('Payment cancelled. Redirecting to failure page...');
-                        window.location.href = '/orders/order-failure/' + data.order_id + '/';
-                    }, 500);
+                    // Payment cancelled or modal closed (for non-redirect payments)
+                    console.log('Payment modal dismissed, redirecting to failure page...');
+                    showErrorToast('Payment cancelled. Redirecting to failure page...');
+                    window.location.href = '/orders/order-failure/' + data.order_id + '/';
                 }
             }
         };
         
         const rzp = new Razorpay(options);
         
-        // Handle payment failure
+        // Handle payment failure (for non-redirect payment methods)
         rzp.on('payment.failed', function (response) {
             console.log('Payment failed:', response.error);
             showErrorToast('Payment failed: ' + response.error.description);
@@ -1211,6 +1231,40 @@ function initiateRazorpayPayment() {
     });
 }
 
+// Function to verify payment on server and redirect
+function verifyAndRedirect(razorpayResponse, orderId) {
+    const csrfToken = getCookie('csrftoken');
+    
+    // Create a form to POST the payment data to the server
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{% url "verify_razorpay_payment" %}';
+    
+    // Add CSRF token
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrfmiddlewaretoken';
+    csrfInput.value = csrfToken;
+    form.appendChild(csrfInput);
+    
+    // Add Razorpay response data
+    const fields = {
+        'razorpay_order_id': razorpayResponse.razorpay_order_id,
+        'razorpay_payment_id': razorpayResponse.razorpay_payment_id,
+        'razorpay_signature': razorpayResponse.razorpay_signature
+    };
+    
+    for (const [key, value] of Object.entries(fields)) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = value;
+        form.appendChild(input);
+    }
+    
+    document.body.appendChild(form);
+    form.submit();
+}
 
 
 function verifyRazorpayPayment(razorpayResponse, orderId) {
