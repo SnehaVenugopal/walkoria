@@ -592,13 +592,21 @@ def handle_return_request(request, request_id, action):
             order_item.item_payment_status = 'Refunded'
             return_requests.status = 'Approved'
 
-            # refund by proportion
-            total_item_price = order_item.price * order_item.quantity
-            proportion = total_item_price / (order.total_amount + order.discount)
-            allocated_discount = order.discount * proportion
-            returned_item_price = order_item.price  * order_item.quantity
-            proportional_discount = (allocated_discount / order_item.quantity) * order_item.quantity
-            refund_amount = returned_item_price - proportional_discount
+            # Refund = effective price (after offer) x qty, minus proportional coupon discount
+            from decimal import Decimal
+            effective_unit_price = order_item.get_effective_price()
+            effective_total = effective_unit_price * order_item.quantity
+
+            order_total_before_coupon = order.total_amount + order.discount
+            if order_total_before_coupon > 0:
+                proportion = effective_total / order_total_before_coupon
+            else:
+                proportion = Decimal('0')
+            allocated_coupon_discount = Decimal(str(order.discount)) * proportion
+            refund_amount = effective_total - allocated_coupon_discount
+            if refund_amount < 0:
+                refund_amount = Decimal('0')
+
 
             wallet, _ = Wallet.objects.get_or_create(user=order.user)
             from decimal import Decimal
@@ -758,13 +766,20 @@ def update_order_item(request, item_id):
                 print(f"Error giving referral rewards: {e}")
 
         if request.POST.get('status') == 'Returned' and order_item.item_payment_status == 'Paid':
-            # refund by proportion
-            total_item_price = order_item.price * order_item.quantity
-            proportion = total_item_price / (order.total_amount + order.discount)
-            allocated_discount = order.discount * proportion
-            returned_item_price = order_item.price  * order_item.quantity
-            proportional_discount = (allocated_discount / order_item.quantity) * order_item.quantity
-            refund_amount = returned_item_price - proportional_discount
+            # Refund = effective price (after offer) x qty, minus proportional coupon discount
+            from decimal import Decimal
+            effective_unit_price = order_item.get_effective_price()
+            effective_total = effective_unit_price * order_item.quantity
+
+            order_total_before_coupon = order.total_amount + order.discount
+            if order_total_before_coupon > 0:
+                proportion = effective_total / order_total_before_coupon
+            else:
+                proportion = Decimal('0')
+            allocated_coupon_discount = Decimal(str(order.discount)) * proportion
+            refund_amount = effective_total - allocated_coupon_discount
+            if refund_amount < 0:
+                refund_amount = Decimal('0')
 
             order.total_amount -= refund_amount
             order.subtotal -= order_item.original_price

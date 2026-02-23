@@ -695,28 +695,33 @@
         <div class="order-summary">
             <h2 class="summary-title">Order Summary</h2>
             
-            <div class="summary-row">
+            {% comment %} <div class="summary-row">
                 <span class="summary-label">{{ cart_items.count }} Item{{ cart_items.count|pluralize }} MRP Rate</span>
                 <span class="summary-value">₹<span id="total-actual-price">{{ total_actual_price }}</span></span>
-            </div>
+            </div> {% endcomment %}
             
-            <div class="summary-row">
+            {% comment %} <div class="summary-row">
                 <span class="summary-label">Sale Price</span>
                 <span class="summary-value">₹<span id="total-sale-price">{{ total_sale_price }}</span></span>
-            </div>
+            </div> {% endcomment %}
 
-            {% if total_normal_discount > 0 %}
+            {% comment %} {% if total_normal_discount > 0 %}
             <div class="summary-row">
                 <span class="summary-label">Sale Price Discount</span>
                 <span class="summary-value discount-value">-₹<span id="total-normal-discount">{{ total_normal_discount }}</span></span>
             </div>
-            {% endif %}
+            {% endif %} {% endcomment %}
             
-            <div class="summary-row" id="offer-discount-row" {% if not has_any_offer %}style="display:none;"{% endif %}>
+            {% comment %} <div class="summary-row" id="offer-discount-row" {% if not has_any_offer %}style="display:none;"{% endif %}>
                 <span class="summary-label">Offer Discount</span>
                 <span class="summary-value discount-value">-₹<span id="total-offer-discount">{{ total_offer_discount }}</span></span>
+            </div> {% endcomment %}
+
+            <div class="summary-row" style="border-top: 1px dashed #e0e0e0; margin-top: 6px; padding-top: 10px;">
+                <span class="summary-label" style="font-weight:600; color:#333;">Subtotal</span>
+                <span class="summary-value" style="font-weight:600; color:#333;">₹<span id="subtotal-value">{{ total_after_discounts }}</span></span>
             </div>
-            
+
             <div class="summary-row">
                 <span class="summary-label">Delivery Charges</span>
                 <span id="delivery-charge-value" class="summary-value {% if delivery_charge == 0 %}delivery-free{% endif %}">
@@ -883,7 +888,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     // IF cart is not empty, update summary with new totals
                     if (data.items_count > 0) {
-                        document.getElementById('total-actual-price').textContent = data.total_actual_price;
+                        const totalActualElR = document.getElementById('total-actual-price');
+                        if (totalActualElR) totalActualElR.textContent = data.total_actual_price;
                         if (document.getElementById('total-sale-price')) {
                             document.getElementById('total-sale-price').textContent = data.total_sale_price;
                         }
@@ -900,6 +906,10 @@ document.addEventListener('DOMContentLoaded', function() {
                                 offerRow.style.display = 'none';
                             }
                         }
+
+                        // Update Subtotal
+                        const subtotalElR = document.getElementById('subtotal-value');
+                        if (subtotalElR) subtotalElR.textContent = data.total_after_discounts;
                         
                         // Update Delivery Charge
                         const deliveryElR = document.getElementById('delivery-charge-value');
@@ -913,7 +923,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             }
                         }
 
-                        document.getElementById('final-total').textContent = data.total_after_coupon;
+                        const finalTotalElRm = document.getElementById('final-total');
+                        if (finalTotalElRm) finalTotalElRm.textContent = data.total_after_coupon;
 
                         // Update coupon discount display
                         const couponDiscountElR = document.getElementById('coupon-discount-value');
@@ -978,14 +989,13 @@ function updateCartItem(itemId, quantity) {
     // Update quantity input
     document.querySelector(`input[data-item-id="${itemId}"]`).value = quantity;
     
-    // Update summary
-    document.getElementById('total-actual-price').textContent = data.total_actual_price;
-    if (document.getElementById('total-sale-price')) {
-        document.getElementById('total-sale-price').textContent = data.total_sale_price;
-    }
-    if (document.getElementById('total-normal-discount')) {
-        document.getElementById('total-normal-discount').textContent = data.total_normal_discount;
-    }
+    // Update summary (null-safe — some rows may be hidden/commented out)
+    const totalActualEl = document.getElementById('total-actual-price');
+    if (totalActualEl) totalActualEl.textContent = data.total_actual_price;
+    const totalSaleEl = document.getElementById('total-sale-price');
+    if (totalSaleEl) totalSaleEl.textContent = data.total_sale_price;
+    const totalNormalEl = document.getElementById('total-normal-discount');
+    if (totalNormalEl) totalNormalEl.textContent = data.total_normal_discount;
     // Offer discount row — show/hide
     const offerRow = document.getElementById('offer-discount-row');
     if (offerRow) {
@@ -996,6 +1006,9 @@ function updateCartItem(itemId, quantity) {
             offerRow.style.display = 'none';
         }
     }
+    // Update Subtotal
+    const subtotalEl = document.getElementById('subtotal-value');
+    if (subtotalEl) subtotalEl.textContent = data.total_after_discounts;
     // Update Delivery Charge
     const deliveryEl = document.getElementById('delivery-charge-value');
     if (deliveryEl) {
@@ -1007,7 +1020,8 @@ function updateCartItem(itemId, quantity) {
             deliveryEl.classList.remove('delivery-free');
         }
     }
-    document.getElementById('final-total').textContent = data.total_after_coupon;
+    const finalTotalEl = document.getElementById('final-total');
+    if (finalTotalEl) finalTotalEl.textContent = data.total_after_coupon;
 
     // Update coupon discount display if a coupon row is visible
     const couponDiscountEl = document.getElementById('coupon-discount-value');

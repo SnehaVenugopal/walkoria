@@ -308,6 +308,22 @@
             font-weight: 600;
             color: var(--primary-color);
             font-size: 1.1rem;
+            text-align: right;
+        }
+
+        .item-original-price {
+            font-size: 0.85rem;
+            color: #999;
+            text-decoration: line-through;
+            display: block;
+            text-align: right;
+        }
+
+        .item-image-wrap {
+            width: 80px;
+            height: 80px;
+            flex-shrink: 0;
+            margin-right: 15px;
         }
 
         .price-row {
@@ -695,25 +711,21 @@
                             
                             {% for item in cart.items.all %}
                                 <div class="order-item">
-                                    <!-- Fixed product image loading from Cloudinary and added fallback -->
-                                    {% if item.product.images.first %}
-                                        <img src="{{ item.variant.product.images.first.image }}" 
-                                             alt="{{ item.variant.product.name }}" 
-                                             class="item-image" 
-                                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
-                                             onload="this.nextElementSibling.style.display='none';">
-                                        <div class="item-image bg-light d-flex align-items-center justify-content-center" style="display: none;">
-                                            {% comment %} <i class="fas fa-image text-muted"></i> {% endcomment %}
-                                        </div>
-                                    {% else %}
-                                        <div class="item-image bg-light d-flex align-items-center justify-content-center">
-                                            <i class="fas fa-image text-muted"></i>
-                                        </div>
-                                    {% endif %}
-                                    
+                                    <div class="item-image-wrap">
+                                        {% if item.product.images.first %}
+                                            <img src="{{ item.variant.product.images.first.image }}"
+                                                 alt="{{ item.variant.product.name }}"
+                                                 style="width:80px;height:80px;object-fit:cover;border-radius:8px;"
+                                                 onerror="this.style.display='none';">
+                                        {% else %}
+                                            <div class="bg-light d-flex align-items-center justify-content-center" style="width:80px;height:80px;border-radius:8px;">
+                                                <i class="fas fa-image text-muted"></i>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+
                                     <div class="item-details">
                                         <div class="item-name">{{ item.variant.product.name }}</div>
-                                        <!-- Fixed variant display to show actual color and size values -->
                                         <div class="item-variant">
                                             {% if item.variant.color and item.variant.color != 'N/A' %}
                                                 Color: {{ item.variant.color }}{% if item.variant.size and item.variant.size != 'N/A' %}, {% endif %}
@@ -729,9 +741,16 @@
                                         </div>
                                         <div class="item-quantity">Quantity: {{ item.quantity }}</div>
                                     </div>
-                                    
-                                    <!-- Fixed price display to ensure it shows the actual price -->
-                                    <div class="item-price">₹{{ item.total_price|floatformat:2 }}</div>
+
+                                    <!-- Price: struck-through sale price + pink final price (matches home page) -->
+                                    <div>
+                                        {% with offer=item.get_offer_details %}
+                                        {% if offer %}
+                                            <span class="item-original-price">₹{{ item.total_price|floatformat:2 }}</span>
+                                        {% endif %}
+                                        {% endwith %}
+                                        <div class="item-price">₹{{ item.get_final_price|floatformat:2 }}</div>
+                                    </div>
                                 </div>
                             {% endfor %}
                         </div>
@@ -740,10 +759,7 @@
                         <div class="checkout-container">
                             <h3 class="section-title">3. Payment Method</h3>
                             
-                            <div class="payment-method" onclick="selectPayment('PP')">
-                                <input type="radio" name="payment_method" value="PP" id="payment_pp">
-                                <label for="payment_pp">PayPal</label>
-                            </div>
+
                             
                             <div class="payment-method" onclick="selectPayment('WP')">
                                 <input type="radio" name="payment_method" value="WP" id="payment_wp">
@@ -772,25 +788,13 @@
                         <div class="checkout-container">
                             <h3 class="section-title">Price Details</h3>
                             
+                            <!-- Subtotal (after offer discounts, before delivery & coupon) -->
                             <div class="price-row">
-                                <span class="price-label">Price ({{ cart.items.count }} items)</span>
-                                <span class="price-value">₹{{ total_actual_price }}</span>
+                                <span class="price-label">Subtotal</span>
+                                <span class="price-value">₹{{ subtotal_after_offers }}</span>
                             </div>
 
-                            {% if total_normal_discount > 0 %}
-                            <div class="price-row">
-                                <span class="price-label">Discount</span>
-                                <span class="price-value text-success">-₹{{ total_normal_discount }}</span>
-                            </div>
-                            {% endif %}
-                            
-                            {% if total_offer_discount > 0 %}
-                            <div class="price-row">
-                                <span class="price-label">Offer Discount</span>
-                                <span class="price-value text-success">-₹{{ total_offer_discount }}</span>
-                            </div>
-                            {% endif %}
-                            
+                            <!-- Delivery Charges -->
                             <div class="price-row">
                                 <span class="price-label">Delivery Charges</span>
                                 <span class="price-value {% if cart.delivery_charge == 0 %}text-success{% endif %}">
@@ -803,22 +807,24 @@
                             </div>
 
                             {% if discount_amount > 0 %}
+                            <!-- Coupon Applied -->
                             <div class="price-row">
-                                <span class="price-label">Coupon Discount</span>
+                                <span class="price-label" style="color: #28a745;">
+                                    <i class="fas fa-tag me-1"></i>
+                                    Coupon Applied
+                                    {% if coupon_code %}
+                                        <span style="font-size: 0.8rem; font-weight: 600;">({{ coupon_code.code }})</span>
+                                    {% endif %}
+                                </span>
                                 <span class="price-value text-success">-₹{{ discount_amount }}</span>
                             </div>
                             {% endif %}
-                            
+
+                            <!-- Total -->
                             <div class="price-row total-row">
-                                <span class="price-label">Total Amount</span>
+                                <span class="price-label">TOTAL</span>
                                 <span class="price-value">₹{{ total_amount }}</span>
                             </div>
-                            
-                            {% if total_discount > 0 %}
-                                <div class="savings-text mt-2">
-                                    Your Total Savings on this order ₹{{ total_discount }}
-                                </div>
-                            {% endif %}
                             
                             <button type="submit" class="btn-place-order mt-4">
                                 Place Order

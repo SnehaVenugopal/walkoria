@@ -159,6 +159,7 @@ def view_cart(request):
         'total_normal_discount': total_normal_discount,
         'total_offer_discount': total_offer_discount,
         'has_any_offer': has_any_offer,
+        'total_after_discounts': total_after_discounts,
         'delivery_charge': delivery_charge,
         'coupon_code': coupon_code,
         'discount_amount': discount_amount,

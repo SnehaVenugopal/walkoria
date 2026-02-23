@@ -97,7 +97,16 @@ def product_detail(request, product_id):
         id=product_id
     )
 
-    related_products = Product.objects.filter(is_deleted=False).exclude(id=product.id)[:4]
+    related_products_qs = Product.objects.filter(is_deleted=False).exclude(id=product.id)[:4]
+    related_products = list(related_products_qs)
+    for rp in related_products:
+        rp.offer_percentage, rp.offer_type = get_best_offer(rp)
+        rv = rp.variants.filter(is_deleted=False).first()
+        if rv and rp.offer_percentage > 0:
+            discount = (rv.sale_price * rp.offer_percentage) / 100
+            rp.offer_price = round(rv.sale_price - discount, 2)
+        else:
+            rp.offer_price = None
     variants = product.variants.filter(is_deleted=False)
 
     # Get offer info
@@ -132,7 +141,10 @@ def product_detail(request, product_id):
     reviews = ProductReview.objects.filter(product=product).order_by('-created_at')
     avg_rating = reviews.aggregate(Avg('rating'))['rating__avg'] or 0
     review_count = reviews.count()
-    related_products = related_products.annotate(avg_rating=Avg('reviews__rating'), review_count=Count('reviews'))
+    for rp in related_products:
+        rp_reviews = ProductReview.objects.filter(product=rp)
+        rp.avg_rating = rp_reviews.aggregate(Avg('rating'))['rating__avg'] or 0
+        rp.review_count = rp_reviews.count()
     
     data = {
         'product': product,
@@ -185,10 +197,17 @@ def product_listing(request):
             'images'
         ).order_by('-created_at')
     
-    # get review
+    # get review + offer info
     for product in all_products:
         product.avg_rating = ProductReview.objects.filter(product=product).aggregate(Avg('rating'))['rating__avg'] or 0
         product.review_count = ProductReview.objects.filter(product=product).count()
+        product.offer_percentage, product.offer_type = get_best_offer(product)
+        rv = product.variants.filter(is_deleted=False).first()
+        if rv and product.offer_percentage > 0:
+            discount = (rv.sale_price * product.offer_percentage) / 100
+            product.offer_price = round(rv.sale_price - discount, 2)
+        else:
+            product.offer_price = None
     
     # Pagination
     paginator = Paginator(all_products, 12)
@@ -259,11 +278,20 @@ def filter_products(request):
         products = products.annotate(avg_rating=Avg('reviews__rating')).order_by('-avg_rating')
     products = products.distinct()
 
-    # get review
+    # get review + offer info
     products = products.annotate(avg_rating=Avg('reviews__rating'), review_count=Count('reviews'))
+    products_list = list(products)
+    for product in products_list:
+        product.offer_percentage, product.offer_type = get_best_offer(product)
+        rv = product.variants.filter(is_deleted=False).first()
+        if rv and product.offer_percentage > 0:
+            discount = (rv.sale_price * product.offer_percentage) / 100
+            product.offer_price = round(rv.sale_price - discount, 2)
+        else:
+            product.offer_price = None
 
     # Pagination
-    paginator = Paginator(products, 12)
+    paginator = Paginator(products_list, 12)
     page_obj = paginator.get_page(page)
     html = render_to_string('product_grid.html', {'products': page_obj}, request=request)
 
