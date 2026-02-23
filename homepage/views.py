@@ -7,28 +7,74 @@ from django.db.models import Min, Max, Q, Avg, Count
 from django.core.serializers.json import DjangoJSONEncoder
 import json
 from django.db.models import Prefetch
+from django.utils import timezone
 from product.models import Product, ProductVariant, ProductImage
 from category.models import Category
 from brand.models import Brand
 from reviews.models import ProductReview
+from wallet.models import Offer
 
 
 
 # Create your views here.
 
+def custom_404(request, exception):
+    """Custom 404 error page"""
+    return render(request, '404.html', status=404)
+
+
+def get_best_offer(product):
+    """Get the best offer percentage and type for a product (product or category offer)."""
+    now = timezone.now()
+    
+    # Check product-specific offers
+    product_offer = Offer.objects.filter(
+        product=product,
+        offer_type='Product',
+        start_date__lte=now,
+        end_date__gte=now,
+        is_active=True
+    ).order_by('-discount_percentage').first()
+    
+    # Check category offers
+    category_offer = Offer.objects.filter(
+        category=product.category,
+        offer_type='Category',
+        start_date__lte=now,
+        end_date__gte=now,
+        is_active=True
+    ).order_by('-discount_percentage').first()
+    
+    product_discount = product_offer.discount_percentage if product_offer else 0
+    category_discount = category_offer.discount_percentage if category_offer else 0
+    
+    if product_discount >= category_discount and product_discount > 0:
+        return product_discount, 'Product Offer'
+    elif category_discount > 0:
+        return category_discount, 'Category Offer'
+    return 0, None
+
 
 @cache_control(no_cache=True, must_revalidate=True, no_store=True)
 def home(request):
-    latest_products = Product.objects.filter(is_deleted=False).order_by('-created_at')[:5]
-    featured_products = Product.objects.filter(is_deleted=False, variants__sale_price__isnull=False).distinct()[:5]
-    trending_products = Product.objects.filter(is_deleted=False).order_by('-total_quantity')[:5]
+    latest_products = Product.objects.filter(is_deleted=False).order_by('-created_at')[:4]
+    featured_products = Product.objects.filter(is_deleted=False, variants__sale_price__isnull=False).distinct()[:4]
+    trending_products = Product.objects.filter(is_deleted=False).order_by('-total_quantity')[:4]
    
     
-    # get review
+    # get review, offer percentage, and offer price
     for product_list in [latest_products, featured_products, trending_products]:
         for product in product_list:
             product.avg_rating = ProductReview.objects.filter(product=product).aggregate(Avg('rating'))['rating__avg'] or 0
             product.review_count = ProductReview.objects.filter(product=product).count()
+            product.offer_percentage, product.offer_type = get_best_offer(product)
+            # Calculate offer price from sale_price
+            variant = product.variants.first()
+            if variant and product.offer_percentage > 0:
+                discount = (variant.sale_price * product.offer_percentage) / 100
+                product.offer_price = round(variant.sale_price - discount, 2)
+            else:
+                product.offer_price = None
     data = {
         'latest_products': latest_products,
         'featured_products': featured_products,
@@ -54,11 +100,21 @@ def product_detail(request, product_id):
     related_products = Product.objects.filter(is_deleted=False).exclude(id=product.id)[:4]
     variants = product.variants.filter(is_deleted=False)
 
+    # Get offer info
+    offer_percentage, offer_type = get_best_offer(product)
+
     available_variants = []
     for variant in variants:
         variant_images = [img.image for img in variant.images.filter(is_deleted=False)]
         if not variant_images:  # If no variant images, use product images
             variant_images = [img.image for img in product.images.filter(is_deleted=False)]
+        
+        # Calculate offer price for each variant
+        if offer_percentage > 0:
+            discount = (variant.sale_price * offer_percentage) / 100
+            variant_offer_price = str(round(variant.sale_price - discount, 2))
+        else:
+            variant_offer_price = None
             
         available_variants.append({
             'id': variant.id,
@@ -66,6 +122,7 @@ def product_detail(request, product_id):
             'color': variant.color,
             'sale_price': str(variant.sale_price),
             'actual_price': str(variant.actual_price),
+            'offer_price': variant_offer_price,
             'quantity': variant.quantity,
             'images': variant_images
         })
@@ -84,6 +141,8 @@ def product_detail(request, product_id):
         'reviews': reviews,
         'avg_rating': avg_rating,
         'review_count': review_count,
+        'offer_percentage': offer_percentage,
+        'offer_type': offer_type,
     }
     
     return render(request, 'product_detail.html', data)

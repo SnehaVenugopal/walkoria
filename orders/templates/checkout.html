@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <title>Checkout - Walkoria</title>
     
     <!-- Bootstrap CSS -->
@@ -36,69 +37,46 @@
 
         /* Navigation Styles */
         .navbar {
-            background-color: white;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            padding: 1rem 0;
+            background: white;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            padding: 15px 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
         }
 
         .navbar-brand {
-            font-size: 2rem;
-            font-weight: 700;
+            font-weight: bold;
             color: var(--primary-color) !important;
-            text-decoration: none;
+            font-size: 2rem;
+            letter-spacing: 1px;
         }
 
-        .navbar-nav .nav-link {
+        .nav-link {
             color: #333 !important;
             font-weight: 500;
-            margin: 0 1rem;
-            transition: color 0.3s ease;
+            margin: 0 15px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            letter-spacing: 0.5px;
         }
 
-        .navbar-nav .nav-link:hover {
+        .nav-link:hover {
             color: var(--primary-color) !important;
+            transform: translateY(-2px);
         }
 
-        .search-container {
-            position: relative;
-            max-width: 400px;
-        }
-
-        .search-input {
-            border: 2px solid #e0e0e0;
-            border-radius: 25px;
-            padding: 10px 45px 10px 20px;
-            width: 100%;
-            outline: none;
-            transition: border-color 0.3s ease;
-        }
-
-        .search-input:focus {
-            border-color: var(--primary-color);
-        }
-
-        .search-btn {
-            position: absolute;
-            right: 5px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: var(--primary-color);
-            border: none;
-            border-radius: 50%;
-            width: 35px;
-            height: 35px;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .cart-icon, .profile-icon {
-            position: relative;
+        .cart-icon {
             color: #333;
-            font-size: 1.2rem;
-            margin: 0 10px;
-            text-decoration: none;
+            font-size: 1.3rem;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .cart-icon:hover {
+            color: var(--primary-color);
+            transform: scale(1.1);
         }
 
         .cart-badge {
@@ -116,16 +94,92 @@
             justify-content: center;
         }
 
-        .profile-avatar {
+        /* Wishlist Icon Styles */
+        .wishlist-icon {
+            color: #ff429d;
+            font-size: 1.3rem;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .wishlist-icon:hover {
+            transform: scale(1.1);
+            animation: heartbeat 0.6s ease-in-out;
+        }
+
+        .wishlist-star {
+            position: absolute;
+            top: -6px;
+            right: -4px;
+            font-size: 0.5rem;
+            color: #fff;
+            text-shadow: 0 0 4px #ff429d, 0 0 8px #ff429d, 0 0 12px #fff;
+            opacity: 1;
+            transition: all 0.3s ease;
+            animation: starBlink 0.4s ease-in-out infinite;
+        }
+
+        .nav-item .nav-link .wishlist-icon {
+            margin-right: -8px;
+        }
+
+        @keyframes heartbeat {
+            0%, 100% { transform: scale(1.1); }
+            25% { transform: scale(1.2); }
+            50% { transform: scale(1.1); }
+            75% { transform: scale(1.25); }
+        }
+
+        @keyframes starBlink {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.3; transform: scale(1.4); }
+        }
+
+        .user-dropdown {
+            position: relative;
+        }
+
+        .user-avatar {
             width: 35px;
             height: 35px;
             border-radius: 50%;
-            background: var(--primary-color);
+            background: linear-gradient(135deg, #ff429d 0%, #ff89c2 100%);
             color: white;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: 600;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .user-avatar:hover {
+            transform: scale(1.1);
+        }
+
+        .auth-buttons .btn {
+            border-radius: 25px;
+            padding: 8px 20px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .auth-buttons .btn-login {
+            background: linear-gradient(135deg, #ff429d 0%, #ff89c2 100%);
+            color: white;
+            border: none;
+        }
+
+        .auth-buttons .btn-signup {
+            background: transparent;
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+            margin-left: 10px;
+        }
+
+        .auth-buttons .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
 
         /* Main Content Styles */
@@ -325,6 +379,21 @@
             color: #333;
         }
 
+        .payment-method.disabled-payment {
+            opacity: 0.55;
+            cursor: not-allowed;
+            border-color: #e0e0e0;
+            background-color: #f5f5f5;
+        }
+
+        .payment-method.disabled-payment:hover {
+            border-color: #e0e0e0;
+        }
+
+        .payment-method.disabled-payment label {
+            cursor: not-allowed;
+        }
+
         .btn-place-order {
             background-color: #000;
             color: white;
@@ -364,36 +433,27 @@
             margin-bottom: 20px;
         }
 
-        /* Enhanced profile dropdown styling */
-        .dropdown-toggle::after {
-            display: none;
-        }
-        
-        .profile-icon.dropdown-toggle {
-            text-decoration: none;
-            border: none;
-            background: none;
-        }
-        
-        .profile-icon.dropdown-toggle:focus {
-            box-shadow: none;
-        }
-        
         .dropdown-menu {
             border-radius: 10px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             border: none;
             margin-top: 10px;
         }
-        
+
         .dropdown-item {
             padding: 10px 20px;
             transition: background-color 0.3s ease;
         }
-        
-        .dropdown-item:hover {
-            background-color: rgba(255, 66, 157, 0.1);
-            color: var(--primary-color);
+
+        .dropdown-item:hover,
+        .dropdown-item:focus {
+            background: #fff0f6 !important;
+            color: #ff429d !important;
+        }
+
+        .dropdown-item:hover i,
+        .dropdown-item:focus i {
+            color: #ff429d !important;
         }
 
         @media (max-width: 768px) {
@@ -493,62 +553,76 @@
     <nav class="navbar navbar-expand-lg">
         <div class="container">
             <a class="navbar-brand" href="{% url 'home' %}">Walkoria</a>
-            
+
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
-            
+
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'home' %}">HOME</a>
+                        <a class="nav-link" href="{% url 'home' %}">Home</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'product_listing' %}">PRODUCTS</a>
+                        <a class="nav-link" href="{% url 'product_listing' %}">Products</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#about">ABOUT US</a>
+                        <a class="nav-link" href="#">About Us</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#contact">CONTACT</a>
+                        <a class="nav-link" href="#">Contact</a>
                     </li>
                 </ul>
-                
-                <div class="d-flex align-items-center">
-                    {% comment %} <div class="search-container me-3">
-                        <input type="text" class="search-input" placeholder="Search Products, Brands and more...">
-                        <button class="search-btn">
-                            <i class="fas fa-search"></i>
-                        </button>
-                    </div> {% endcomment %}
-                    
-                    <a href="{% url 'view_cart' %}" class="cart-icon">
-                        <i class="fas fa-shopping-cart"></i>
-                        <span class="cart-badge">{{ cart.items.count|default:0 }}</span>
-                    </a>
-                    
-                    {% if user.is_authenticated %}
-                        <div class="dropdown">
-                            <!-- Fixed profile dropdown to prevent black button styling -->
-                            <a href="#" class="profile-icon dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                                <div class="profile-avatar">
-                                    {{ user.name|first|upper|default:"U" }}
-                                </div>
-                            </a>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="fas fa-user me-2"></i>Profile</a></li>
-                                <li><a class="dropdown-item" href="{% url 'my_orders' %}"><i class="fas fa-shopping-bag me-2"></i>My Orders</a></li>
-                                <li><a class="dropdown-item" href="{% url 'wishlist' %}"><i class="fas fa-heart me-2"></i>Wishlist</a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item text-danger" href="{% url 'logout_account' %}"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
-                            </ul>
-                        </div>
-                    {% else %}
-                        <a href="{% url 'login' %}" class="profile-icon">
-                            <i class="fas fa-user"></i>
+
+                <ul class="navbar-nav ms-auto">
+                    <!-- Wishlist Icon -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'wishlist' %}">
+                            <i class="fas fa-heart wishlist-icon">
+                                <i class="fas fa-star wishlist-star"></i>
+                            </i>
                         </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'view_cart' %}">
+                            <i class="fas fa-shopping-cart cart-icon">
+                                <span class="cart-badge">{{ cart.items.count|default:0 }}</span>
+                            </i>
+                        </a>
+                    </li>
+
+                    {% if user.is_authenticated %}
+                    <li class="nav-item dropdown user-dropdown">
+                        <div class="user-avatar" data-bs-toggle="dropdown">
+                            {% if user.profile_image %}
+                                <img class="user-avatar" src="{{ user.profile_image }}" alt="">
+                            {% else %}
+                                {{ user.name|first|default:"U"|upper }}
+                            {% endif %}
+                        </div>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="far fa-user me-2"></i>Profile</a></li>
+                            <li><a class="dropdown-item" href="{% url 'my_orders' %}"><i class="far fa-rectangle-list me-2"></i>My Orders</a></li>
+                            <li><a class="dropdown-item" href="{% url 'wishlist' %}"><i class="far fa-heart me-2"></i>Wishlist</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form action="{% url 'logout_account' %}" method="post" class="px-2">
+                                    {% csrf_token %}
+                                    <button type="submit" class="dropdown-item text-danger">
+                                        <i class="fas fa-right-from-bracket me-2"></i>Logout
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </li>
+                    {% else %}
+                    <li class="nav-item auth-buttons d-flex">
+                        <a href="{% url 'login_to_account' %}" class="btn btn-login">Login</a>
+                        <a href="{% url 'signup' %}" class="btn btn-signup">Sign Up</a>
+                    </li>
                     {% endif %}
-                </div>
+                </ul>
             </div>
         </div>
     </nav>
@@ -676,9 +750,14 @@
                                 <label for="payment_wp">Wallet Pay</label>
                             </div>
                             
-                            <div class="payment-method" onclick="selectPayment('COD')">
-                                <input type="radio" name="payment_method" value="COD" id="payment_cod" checked>
+                            <div class="payment-method {% if total_amount > 1000 %}disabled-payment{% endif %}" onclick="{% if total_amount > 1000 %}event.preventDefault(); showErrorToast('Cash on Delivery is not available for orders above ₹1,000.'){% else %}selectPayment('COD'){% endif %}">
+                                <input type="radio" name="payment_method" value="COD" id="payment_cod" {% if total_amount <= 1000 %}checked{% endif %} {% if total_amount > 1000 %}disabled{% endif %}>
                                 <label for="payment_cod">Cash on Delivery</label>
+                                {% if total_amount > 1000 %}
+                                <div style="font-size: 0.8rem; color: #dc3545; margin-top: 4px; margin-left: 26px;">
+                                    <i class="fas fa-info-circle"></i> COD not available for orders above ₹1,000
+                                </div>
+                                {% endif %}
                             </div>
                                 <div class="payment-method" onclick="selectPayment('RP')">
     <input type="radio" name="payment_method" value="RP" id="payment_rp">
@@ -714,8 +793,8 @@
                             
                             <div class="price-row">
                                 <span class="price-label">Delivery Charges</span>
-                                <span class="price-value {% if cart.total_price > 4999 %}text-success{% endif %}">
-                                    {% if cart.total_price > 4999 %}
+                                <span class="price-value {% if cart.delivery_charge == 0 %}text-success{% endif %}">
+                                    {% if cart.delivery_charge == 0 %}
                                         FREE
                                     {% else %}
                                         ₹{{ cart.delivery_charge }}
@@ -1076,9 +1155,17 @@
                 }
             }
             
-            const codPayment = document.querySelector('.payment-method:last-child');
-            if (codPayment) {
-                codPayment.classList.add('selected');
+            // Auto-select the checked payment method
+            const checkedPayment = document.querySelector('input[name="payment_method"]:checked');
+            if (checkedPayment) {
+                checkedPayment.closest('.payment-method').classList.add('selected');
+            } else {
+                // If no payment method is checked (e.g., COD disabled), select the first available
+                const firstAvailable = document.querySelector('input[name="payment_method"]:not(:disabled)');
+                if (firstAvailable) {
+                    firstAvailable.checked = true;
+                    firstAvailable.closest('.payment-method').classList.add('selected');
+                }
             }
         });
 
@@ -1142,6 +1229,16 @@ function handleFormSubmit(event) {
         showErrorToast('Please select a delivery address');
         event.preventDefault();
         return false;
+    }
+    
+    // COD limit check on frontend
+    if (paymentMethod.value === 'COD') {
+        const totalAmount = parseFloat('{{ total_amount }}');
+        if (totalAmount > 1000) {
+            event.preventDefault();
+            showErrorToast('Cash on Delivery is not available for orders above ₹1,000. Please choose an online payment method.');
+            return false;
+        }
     }
     
     if (paymentMethod.value === 'RP') {

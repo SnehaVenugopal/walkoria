@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <title>{% block title %}Admin Dashboard | Walkoria{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -234,16 +235,17 @@
                   </a>
                 </li>
                 <li><a href="{% url 'coupon' %}" class="{% if request.resolver_match.url_name == 'admin_coupon' %}active{% endif %}" onclick="changePageTitle('Coupon Management')"><i class="fas fa-ticket-alt"></i> Coupon </a></li>
-                <li>
+                {% comment %} <li>
                   <a href="#"
                      class="{% if request.resolver_match.url_name == 'banner_management' %}active{% endif %}"
                      onclick="changePageTitle('Banner Management')">
                      <i class="fas fa-image"></i> Banner Management
                   </a>
-                </li>
+                </li> {% endcomment %}
                 <li><a href="{% url 'sales_report' %}" class="{% if request.resolver_match.url_name == 'sales_report' %}active{% endif %}" onclick="changePageTitle('Sales Report')"><i class="fas fa-chart-line"></i> Sales Report</a></li>
+                <li><a href="{% url 'admin_wallet_transactions' %}" class="{% if request.resolver_match.url_name == 'admin_wallet_transactions' or request.resolver_match.url_name == 'admin_wallet_transaction_detail' %}active{% endif %}" onclick="changePageTitle('Wallet Management')"><i class="fas fa-wallet"></i> Wallet Management</a></li>
                 <li><a href="{% url 'brand' %}" class="{% if request.resolver_match.url_name == 'brand' %}active{% endif %}" onclick="changePageTitle('Brand')"><i class="fas fa-tags"></i> Brand</a></li>
-                <li><a href="#" onclick="changePageTitle('Settings')"><i class="fas fa-cog"></i> Settings</a></li>
+                {% comment %} <li><a href="#" onclick="changePageTitle('Settings')"><i class="fas fa-cog"></i> Settings</a></li> {% endcomment %}
             </ul>
             <!-- Logout Section -->
             <div class="logout-section">

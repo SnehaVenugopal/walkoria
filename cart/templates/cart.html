@@ -226,6 +226,115 @@
         color: #28a745;
         font-weight: bold;
     }
+
+    /* ── Latest Products: Offer Badge (same as homepage) ── */
+    .latest-products .product-image-wrap {
+        position: relative;
+        overflow: visible;
+    }
+    .latest-products .offer-badge {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        z-index: 10;
+        width: 44px;
+        height: 44px;
+        pointer-events: none;
+        filter: drop-shadow(0 0 6px rgba(255,255,255,0.7));
+        animation: lp-flower-pop 2s ease-in-out infinite;
+    }
+    @keyframes lp-flower-pop {
+        0%, 100% { transform: scale(1); }
+        15%      { transform: scale(1.12); }
+        30%      { transform: scale(1); }
+    }
+    .latest-products .flower-petal {
+        position: absolute;
+        width: 22px;
+        height: 26px;
+        background: linear-gradient(135deg, #ff429d 0%, #ff6fb5 100%);
+        border-radius: 50%;
+        left: 50%;
+        bottom: 50%;
+        margin-left: -11px;
+        transform-origin: center bottom;
+    }
+    .latest-products .flower-petal:nth-child(1) { transform: rotate(0deg); }
+    .latest-products .flower-petal:nth-child(2) { transform: rotate(72deg); }
+    .latest-products .flower-petal:nth-child(3) { transform: rotate(144deg); }
+    .latest-products .flower-petal:nth-child(4) { transform: rotate(216deg); }
+    .latest-products .flower-petal:nth-child(5) { transform: rotate(288deg); }
+    .latest-products .offer-text {
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 5;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+    }
+    .latest-products .offer-pct {
+        color: #fff;
+        font-weight: 800;
+        font-size: 0.6rem;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    }
+    .latest-products .offer-off {
+        color: #fff;
+        font-weight: 800;
+        font-size: 0.32rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    }
+    .latest-products .comet-orbit {
+        position: absolute;
+        width: 100%; height: 100%;
+        top: 0; left: 0;
+        animation: comet-spin 3s linear infinite, comet-fade 3s ease-in-out infinite;
+        pointer-events: none;
+    }
+    .latest-products .comet-orbit::before {
+        content: '';
+        position: absolute;
+        width: 100%; height: 100%;
+        border-radius: 50%;
+        background: conic-gradient(from 295deg at 50% 50%, transparent 0deg, rgba(200,200,220,0.12) 25deg, rgba(255,255,255,0.7) 56deg, transparent 64deg, transparent 360deg);
+        -webkit-mask: radial-gradient(circle, transparent 56%, black 64%);
+        mask: radial-gradient(circle, transparent 56%, black 64%);
+    }
+    .latest-products .comet {
+        position: absolute;
+        top: -3px; left: 50%;
+        width: 5px; height: 5px;
+        margin-left: -2.5px;
+        background: radial-gradient(circle, #ffffff 30%, rgba(220,220,240,0.6) 70%, transparent 100%);
+        border-radius: 50%;
+        box-shadow: 0 0 4px 1px rgba(255,255,255,0.9);
+        animation: comet-scale 3s ease-in-out infinite;
+    }
+    @keyframes comet-spin  { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes comet-fade  { 0% { opacity:1; } 25% { opacity:0.45; } 50% { opacity:0.12; } 75% { opacity:0.45; } 100% { opacity:1; } }
+    @keyframes comet-scale { 0% { transform:scale(1.3); } 50% { transform:scale(0.35); } 100% { transform:scale(1.3); } }
+
+    .latest-products .lp-original-price {
+        text-decoration: line-through;
+        color: #999;
+        font-size: 0.75rem;
+        margin-right: 4px;
+    }
+    .latest-products .lp-offer-price {
+        color: #ff429d;
+        font-weight: 700;
+        font-size: 0.9rem;
+    }
+    .latest-products .lp-sale-price {
+        color: #ff429d;
+        font-weight: 700;
+        font-size: 0.9rem;
+    }
     
     .coupon-section {
         margin: 25px 0;
@@ -528,7 +637,7 @@
             <div class="cart-item" data-item-id="{{ item.id }}">
                 <div class="d-flex">
                     <a href="{% url 'product_detail' item.product.id %}">
-                        <img src="{% if item.product.images.first %}{{ item.product.images.first.image }}{% else %}/placeholder.svg?height=120&width=120{% endif %}" 
+                        <img src="{% if item.variant.images.first %}{{ item.variant.images.first.image }}{% elif item.product.images.first %}{{ item.product.images.first.image }}{% else %}/placeholder.svg?height=120&width=120{% endif %}" 
                             alt="{{ item.product.name }}" class="item-image">
                     </a>
                     <div class="item-details">
@@ -540,9 +649,14 @@
                         </p>
                         
                         <div class="item-price">
-                            ₹{{ item.variant.sale_price }}
-                            {% if item.variant.actual_price > item.variant.sale_price %}
-                                <span class="item-original-price">₹{{ item.variant.actual_price }}</span>
+                            {% if item.has_offer %}
+                                <span class="current-price">₹{{ item.total_final_price }}</span>
+                                <span class="item-original-price">₹{{ item.total_sale_price }}</span>
+                            {% else %}
+                                <span class="current-price">₹{{ item.total_sale_price }}</span>
+                                {% if item.variant.actual_price > item.variant.sale_price %}
+                                    <span class="item-original-price">₹{{ item.total_actual_price }}</span>
+                                {% endif %}
                             {% endif %}
                         </div>
                         
@@ -582,35 +696,57 @@
             <h2 class="summary-title">Order Summary</h2>
             
             <div class="summary-row">
-                <span class="summary-label">{{ cart_items.count }} ITEM{{ cart_items.count|pluralize }}</span>
+                <span class="summary-label">{{ cart_items.count }} Item{{ cart_items.count|pluralize }} MRP Rate</span>
                 <span class="summary-value">₹<span id="total-actual-price">{{ total_actual_price }}</span></span>
             </div>
             
+            <div class="summary-row">
+                <span class="summary-label">Sale Price</span>
+                <span class="summary-value">₹<span id="total-sale-price">{{ total_sale_price }}</span></span>
+            </div>
+
             {% if total_normal_discount > 0 %}
             <div class="summary-row">
-                <span class="summary-label">Discount</span>
+                <span class="summary-label">Sale Price Discount</span>
                 <span class="summary-value discount-value">-₹<span id="total-normal-discount">{{ total_normal_discount }}</span></span>
             </div>
             {% endif %}
             
-            {% if total_offer_discount > 0 %}
-            <div class="summary-row">
+            <div class="summary-row" id="offer-discount-row" {% if not has_any_offer %}style="display:none;"{% endif %}>
                 <span class="summary-label">Offer Discount</span>
                 <span class="summary-value discount-value">-₹<span id="total-offer-discount">{{ total_offer_discount }}</span></span>
             </div>
-            {% endif %}
             
             <div class="summary-row">
                 <span class="summary-label">Delivery Charges</span>
-                <span class="summary-value {% if cart.total_price > 4999 %}delivery-free{% endif %}">
-                    {% if cart.total_price > 4999 %}Free{% else %}₹{{ delivery_charge }}{% endif %}
+                <span id="delivery-charge-value" class="summary-value {% if delivery_charge == 0 %}delivery-free{% endif %}">
+                    {% if delivery_charge == 0 %}Free{% else %}₹{{ delivery_charge }}{% endif %}
                 </span>
             </div>
-            
+
             {% if coupon_code %}
-            <div class="summary-row">
-                <span class="summary-label">Coupon Applied ({{ coupon_code.code }})</span>
-                <span class="summary-value discount-value">-₹{{ discount_amount }}</span>
+            <div class="summary-row" id="coupon-applied-row">
+                <span class="summary-label">
+                    <i class="fas fa-tag me-1" style="color:#28a745;"></i>
+                    Coupon Applied (<strong>{{ coupon_code.code }}</strong>)
+                    <button onclick="removeCoupon()" title="Remove coupon"
+                        style="background:none;border:none;color:#dc3545;cursor:pointer;font-size:13px;margin-left:6px;padding:0;font-weight:600;">
+                        <i class="fas fa-times-circle"></i> Remove
+                    </button>
+                </span>
+                <span class="summary-value discount-value" id="coupon-discount-value">-₹{{ discount_amount }}</span>
+            </div>
+            {% else %}
+            <div class="summary-row" id="coupon-applied-row" style="display:none;">
+                <span class="summary-label">
+                    <i class="fas fa-tag me-1" style="color:#28a745;"></i>
+                    Coupon Applied (<strong id="coupon-applied-code"></strong>)
+                    <button onclick="removeCoupon()" title="Remove coupon"
+                        style="background:none;border:none;color:#dc3545;cursor:pointer;font-size:13px;margin-left:6px;padding:0;font-weight:600;">
+                        <i class="fas fa-times-circle"></i> Remove
+                    </button>
+                </span>
+                <span class="summary-value discount-value" id="coupon-discount-value">-₹0</span>
             </div>
             {% endif %}
             
@@ -655,10 +791,33 @@
             <div class="col-lg-2 col-md-4 col-sm-6 mb-4">
                 <div class="product-card">
                     <a href="{% url 'product_detail' product.id %}">
-                        <img src="{% if product.images.first %}{{ product.images.first.image }}{% else %}/placeholder.svg?height=200&width=200{% endif %}" 
-                             alt="{{ product.name }}" class="product-image">
-                        <h4 class="product-name">{{ product.name|truncatechars:25 }}</h4>
-                        <p class="product-price">₹{{ product.variants.first.sale_price }}</p>
+                        <div class="product-image-wrap" style="position:relative;overflow:visible;">
+                            {% if product.offer_percentage > 0 %}
+                            <div class="offer-badge">
+                                <div class="flower-petal"></div>
+                                <div class="flower-petal"></div>
+                                <div class="flower-petal"></div>
+                                <div class="flower-petal"></div>
+                                <div class="flower-petal"></div>
+                                <div class="offer-text">
+                                    <span class="offer-pct">{{ product.offer_percentage }}%</span>
+                                    <span class="offer-off">OFF</span>
+                                </div>
+                                <div class="comet-orbit"><div class="comet"></div></div>
+                            </div>
+                            {% endif %}
+                            <img src="{% if product.images.first %}{{ product.images.first.image }}{% else %}/placeholder.svg?height=200&width=200{% endif %}"
+                                 alt="{{ product.name }}" class="product-image">
+                        </div>
+                        <h4 class="product-name">{{ product.name|truncatechars:22 }}</h4>
+                        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+                            {% if product.offer_price %}
+                            <span class="lp-original-price">₹{{ product.variants.first.sale_price }}</span>
+                            <span class="lp-offer-price">₹{{ product.offer_price }}</span>
+                            {% else %}
+                            <span class="lp-sale-price">₹{{ product.variants.first.sale_price }}</span>
+                            {% endif %}
+                        </div>
                     </a>
                 </div>
             </div>
@@ -722,6 +881,53 @@ document.addEventListener('DOMContentLoaded', function() {
                         cartBadge.textContent = data.items_count;
                     }
                     
+                    // IF cart is not empty, update summary with new totals
+                    if (data.items_count > 0) {
+                        document.getElementById('total-actual-price').textContent = data.total_actual_price;
+                        if (document.getElementById('total-sale-price')) {
+                            document.getElementById('total-sale-price').textContent = data.total_sale_price;
+                        }
+                        if (document.getElementById('total-normal-discount')) {
+                            document.getElementById('total-normal-discount').textContent = data.total_normal_discount;
+                        }
+                        // Offer discount row — show/hide based on has_any_offer
+                        const offerRow = document.getElementById('offer-discount-row');
+                        if (offerRow) {
+                            if (data.has_any_offer) {
+                                offerRow.style.display = '';
+                                document.getElementById('total-offer-discount').textContent = data.total_offer_discount;
+                            } else {
+                                offerRow.style.display = 'none';
+                            }
+                        }
+                        
+                        // Update Delivery Charge
+                        const deliveryElR = document.getElementById('delivery-charge-value');
+                        if (deliveryElR) {
+                            if (data.is_free_delivery) {
+                                deliveryElR.textContent = 'Free';
+                                deliveryElR.classList.add('delivery-free');
+                            } else {
+                                deliveryElR.textContent = `₹${data.delivery_charge}`;
+                                deliveryElR.classList.remove('delivery-free');
+                            }
+                        }
+
+                        document.getElementById('final-total').textContent = data.total_after_coupon;
+
+                        // Update coupon discount display
+                        const couponDiscountElR = document.getElementById('coupon-discount-value');
+                        const couponRowR = document.getElementById('coupon-applied-row');
+                        if (couponDiscountElR && couponRowR) {
+                            if (data.coupon_discount_amount > 0) {
+                                couponDiscountElR.textContent = `-₹${data.coupon_discount_amount.toFixed(2)}`;
+                                couponRowR.style.display = '';
+                            } else {
+                                couponRowR.style.display = 'none';
+                            }
+                        }
+                    }
+
                     // Show success notification (same style as cart update)
                     showNotification('Item removed from cart successfully', 'success');
                     
@@ -774,28 +980,63 @@ function updateCartItem(itemId, quantity) {
     
     // Update summary
     document.getElementById('total-actual-price').textContent = data.total_actual_price;
+    if (document.getElementById('total-sale-price')) {
+        document.getElementById('total-sale-price').textContent = data.total_sale_price;
+    }
     if (document.getElementById('total-normal-discount')) {
         document.getElementById('total-normal-discount').textContent = data.total_normal_discount;
     }
-    if (document.getElementById('total-offer-discount')) {
-        document.getElementById('total-offer-discount').textContent = data.total_offer_discount;
-    }
-    document.getElementById('final-total').textContent = data.total_after_coupon;
-    
-    // Item price update removed as per user request (maintain unit price display)
-    /*
-    const cartItem = document.querySelector(`.cart-item[data-item-id="${itemId}"]`);
-    if (cartItem) {
-        const priceElement = cartItem.querySelector('.item-price');
-        if (priceElement && data.item_final_price) {
-            // Update the displayed price (keep the original structure)
-            const salePrice = priceElement.childNodes[0];
-            if (salePrice) {
-                salePrice.textContent = `₹${data.item_final_price} `;
-            }
+    // Offer discount row — show/hide
+    const offerRow = document.getElementById('offer-discount-row');
+    if (offerRow) {
+        if (data.has_any_offer) {
+            offerRow.style.display = '';
+            document.getElementById('total-offer-discount').textContent = data.total_offer_discount;
+        } else {
+            offerRow.style.display = 'none';
         }
     }
-    */
+    // Update Delivery Charge
+    const deliveryEl = document.getElementById('delivery-charge-value');
+    if (deliveryEl) {
+        if (data.is_free_delivery) {
+            deliveryEl.textContent = 'Free';
+            deliveryEl.classList.add('delivery-free');
+        } else {
+            deliveryEl.textContent = `₹${data.delivery_charge}`;
+            deliveryEl.classList.remove('delivery-free');
+        }
+    }
+    document.getElementById('final-total').textContent = data.total_after_coupon;
+
+    // Update coupon discount display if a coupon row is visible
+    const couponDiscountEl = document.getElementById('coupon-discount-value');
+    const couponRow = document.getElementById('coupon-applied-row');
+    if (couponDiscountEl && couponRow) {
+        if (data.coupon_discount_amount > 0) {
+            couponDiscountEl.textContent = `-₹${data.coupon_discount_amount.toFixed(2)}`;
+            couponRow.style.display = '';
+        } else {
+            couponRow.style.display = 'none';
+        }
+    }
+    
+    // Update Item Totals
+    const cartItem = document.querySelector(`.cart-item[data-item-id="${itemId}"]`);
+    if (cartItem) {
+        const currentPriceEl = cartItem.querySelector('.current-price');
+        const originalPriceEl = cartItem.querySelector('.item-original-price');
+        
+        if (data.item_has_offer) {
+            // Offer exists: show offer price, cut sale price
+            if (currentPriceEl) currentPriceEl.textContent = `₹${data.item_final_price}`;
+            if (originalPriceEl) originalPriceEl.textContent = `₹${data.item_sale_total}`;
+        } else {
+            // No offer: show sale price, cut MRP
+            if (currentPriceEl) currentPriceEl.textContent = `₹${data.item_sale_total}`;
+            if (originalPriceEl) originalPriceEl.textContent = `₹${data.item_actual_total}`;
+        }
+    }
     
     // Update buttons state and stock display
     updateQuantityButtons(itemId, quantity, data.max_stock, data.remaining_stock);
@@ -865,10 +1106,6 @@ function viewAvailableCoupons() {
                                         ? `<span><i class="fas fa-shopping-cart me-1"></i>Min: ₹${coupon.min_cart_value}</span>`
                                         : ''
                                     }
-                                    ${coupon.max_discount 
-                                        ? `<span><i class="fas fa-arrow-down me-1"></i>Max: ₹${coupon.max_discount}</span>`
-                                        : ''
-                                    }
                                 </div>
                             </div>
                             <button class="copy-coupon-btn" onclick="applyCouponFromModal('${coupon.code}')">
@@ -902,10 +1139,42 @@ function applyCouponFromModal(code) {
     // Close the modal
     const modal = bootstrap.Modal.getInstance(document.getElementById('couponsModal'));
     modal.hide();
-    
+
     // Set the coupon code in input and apply
     document.getElementById('coupon-code').value = code;
     applyCoupon(code);
+}
+
+function removeCoupon() {
+    showLoading();
+    fetch('{% url "remove_coupon" %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(r => r.json())
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            // Hide coupon row
+            const couponRow = document.getElementById('coupon-applied-row');
+            if (couponRow) couponRow.style.display = 'none';
+
+            // Restore total (add back the coupon discount)
+            const discountEl = document.getElementById('coupon-discount-value');
+            const currentTotal = parseFloat(document.getElementById('final-total').textContent.replace(/,/g, ''));
+            const discountText = discountEl ? discountEl.textContent.replace(/[^\d.]/g, '') : '0';
+            const removedDiscount = parseFloat(discountText) || 0;
+            document.getElementById('final-total').textContent = (currentTotal + removedDiscount).toFixed(2);
+
+            showNotification('Coupon removed successfully', 'success');
+        } else {
+            showNotification(data.message || 'Failed to remove coupon', 'error');
+        }
+    })
+    .catch(() => { hideLoading(); showNotification('Error removing coupon', 'error'); });
 }
 function updateQuantityButtons(itemId, quantity, maxStock, remainingStock) {
     const decreaseBtn = document.querySelector(`.decrease-btn[data-item-id="${itemId}"]`);

@@ -1,0 +1,422 @@
+{% extends 'admin_base.html' %}
+
+{% block title %}Transaction Detail | Walkoria{% endblock %}
+{% block page_title %}Transaction Detail{% endblock %}
+
+{% block extra_css %}
+<style>
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: #6c757d;
+        text-decoration: none;
+        font-size: 14px;
+        margin-bottom: 25px;
+        font-weight: 500;
+        transition: color 0.2s;
+    }
+
+    .back-link:hover { color: var(--primary-color); }
+
+    /* ── Hero Banner ── */
+    .txn-hero {
+        border-radius: 18px;
+        padding: 35px 40px;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 30px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .txn-hero.credit-hero { background: linear-gradient(135deg, #1e8449, #27ae60, #58d68d); }
+    .txn-hero.debit-hero  { background: linear-gradient(135deg, #922b21, #e74c3c, #f1948a); }
+
+    .txn-hero::before {
+        content: '';
+        position: absolute;
+        right: -60px;
+        top: -60px;
+        width: 220px;
+        height: 220px;
+        background: rgba(255,255,255,0.08);
+        border-radius: 50%;
+    }
+
+    .txn-hero::after {
+        content: '';
+        position: absolute;
+        right: 60px;
+        bottom: -80px;
+        width: 160px;
+        height: 160px;
+        background: rgba(255,255,255,0.06);
+        border-radius: 50%;
+    }
+
+    .hero-left h2 {
+        font-size: 1.1rem;
+        font-weight: 500;
+        opacity: 0.9;
+        margin: 0 0 8px;
+    }
+
+    .hero-amount {
+        font-size: 3rem;
+        font-weight: 800;
+        line-height: 1;
+        margin: 0 0 12px;
+        letter-spacing: -1px;
+    }
+
+    .hero-txn-id {
+        font-size: 13px;
+        opacity: 0.8;
+        font-family: monospace;
+    }
+
+    .hero-badge {
+        background: rgba(255,255,255,0.2);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.3);
+        border-radius: 50px;
+        padding: 10px 22px;
+        font-weight: 600;
+        font-size: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        z-index: 1;
+    }
+
+    /* ── Detail Grid ── */
+    .detail-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 25px;
+        margin-bottom: 25px;
+    }
+
+    @media (max-width: 900px) {
+        .detail-grid { grid-template-columns: 1fr; }
+    }
+
+    .detail-card {
+        background: white;
+        border-radius: 15px;
+        padding: 28px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.07);
+    }
+
+    .detail-card h4 {
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: #7f8c8d;
+        margin: 0 0 20px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .detail-card h4 i {
+        color: var(--primary-color);
+    }
+
+    .detail-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 12px 0;
+        border-bottom: 1px solid #f8f9fa;
+    }
+
+    .detail-row:last-child { border-bottom: none; padding-bottom: 0; }
+
+    .detail-label {
+        font-size: 13px;
+        color: #7f8c8d;
+        font-weight: 500;
+        flex: 0 0 140px;
+    }
+
+    .detail-value {
+        font-size: 14px;
+        color: #2c3e50;
+        font-weight: 600;
+        text-align: right;
+    }
+
+    /* ── Source Card ── */
+    .source-card {
+        background: white;
+        border-radius: 15px;
+        padding: 28px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.07);
+        margin-bottom: 25px;
+    }
+
+    .source-card h4 {
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: #7f8c8d;
+        margin: 0 0 20px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .source-card h4 i { color: var(--primary-color); }
+
+    .source-inner {
+        display: flex;
+        align-items: flex-start;
+        gap: 20px;
+    }
+
+    .source-icon-wrap {
+        width: 60px;
+        height: 60px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        flex-shrink: 0;
+    }
+
+    .source-text h5 {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #2c3e50;
+        margin: 0 0 6px;
+    }
+
+    .source-text p {
+        font-size: 14px;
+        color: #7f8c8d;
+        margin: 0 0 15px;
+        line-height: 1.5;
+    }
+
+    .btn-order-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        background: var(--primary-color);
+        color: white;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 14px;
+        transition: all 0.2s ease;
+    }
+
+    .btn-order-link:hover {
+        background: #e63384;
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 18px rgba(255, 66, 157, 0.35);
+    }
+
+    /* ── Status Badge ── */
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .status-pill.completed { background: #d4edda; color: #155724; }
+    .status-pill.pending   { background: #fff3cd; color: #856404; }
+    .status-pill.failed    { background: #f8d7da; color: #721c24; }
+
+    /* ── Wallet Balance ── */
+    .balance-display {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 15px 20px;
+        background: linear-gradient(135deg, #f8f9ff, #e8f0fe);
+        border-radius: 12px;
+        margin-top: 5px;
+    }
+
+    .balance-display i { font-size: 1.4rem; color: var(--primary-color); }
+    .balance-display .amount { font-size: 1.4rem; font-weight: 800; color: #2c3e50; }
+    .balance-display .label { font-size: 12px; color: #7f8c8d; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Back Navigation -->
+<a href="{% url 'admin_wallet_transactions' %}" class="back-link">
+    <i class="fas fa-arrow-left"></i> Back to Wallet Transactions
+</a>
+
+<!-- Hero Banner -->
+<div class="txn-hero {% if txn.transaction_type == 'Cr' %}credit-hero{% else %}debit-hero{% endif %}">
+    <div class="hero-left">
+        <h2>
+            {% if txn.transaction_type == 'Cr' %}
+                <i class="fas fa-arrow-circle-down"></i> Credit Transaction
+            {% else %}
+                <i class="fas fa-arrow-circle-up"></i> Debit Transaction
+            {% endif %}
+        </h2>
+        <div class="hero-amount">
+            {% if txn.transaction_type == 'Cr' %}+{% else %}-{% endif %}₹{{ txn.amount|floatformat:2 }}
+        </div>
+        <div class="hero-txn-id">
+            <i class="fas fa-hashtag"></i> {{ txn.transaction_id|default:"No ID" }}
+        </div>
+    </div>
+    <div class="hero-badge">
+        <i class="fas fa-{{ source_info.icon|default:'wallet' }}"></i>
+        {{ source_info.type }}
+    </div>
+</div>
+
+<!-- Detail Grid -->
+<div class="detail-grid">
+
+    <!-- Transaction Details -->
+    <div class="detail-card">
+        <h4><i class="fas fa-receipt"></i> Transaction Details</h4>
+
+        <div class="detail-row">
+            <span class="detail-label">Transaction ID</span>
+            <span class="detail-value" style="font-family:monospace; font-size:13px;">
+                {{ txn.transaction_id|default:"—" }}
+            </span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Date</span>
+            <span class="detail-value">{{ txn.created_at|date:"M d, Y" }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Time</span>
+            <span class="detail-value">{{ txn.created_at|time:"h:i:s A" }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Type</span>
+            <span class="detail-value">
+                {% if txn.transaction_type == 'Cr' %}
+                    <span style="color:#27ae60; font-weight:700;"><i class="fas fa-arrow-down"></i> Credit</span>
+                {% else %}
+                    <span style="color:#e74c3c; font-weight:700;"><i class="fas fa-arrow-up"></i> Debit</span>
+                {% endif %}
+            </span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Amount</span>
+            <span class="detail-value" style="font-size:1.1rem;">
+                {% if txn.transaction_type == 'Cr' %}
+                    <span style="color:#27ae60;">+₹{{ txn.amount|floatformat:2 }}</span>
+                {% else %}
+                    <span style="color:#e74c3c;">-₹{{ txn.amount|floatformat:2 }}</span>
+                {% endif %}
+            </span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Status</span>
+            <span class="detail-value">
+                <span class="status-pill {{ txn.status|lower }}">
+                    {% if txn.status == 'Completed' %}<i class="fas fa-check-circle"></i>
+                    {% elif txn.status == 'Pending' %}<i class="fas fa-clock"></i>
+                    {% else %}<i class="fas fa-times-circle"></i>{% endif %}
+                    {{ txn.status }}
+                </span>
+            </span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Description</span>
+            <span class="detail-value" style="text-align:right; max-width:200px;">
+                {{ txn.description|default:"—" }}
+            </span>
+        </div>
+    </div>
+
+    <!-- User Details -->
+    <div class="detail-card">
+        <h4><i class="fas fa-user"></i> User Details</h4>
+
+        <div class="detail-row">
+            <span class="detail-label">Name</span>
+            <span class="detail-value">{{ user.name|title }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Email</span>
+            <span class="detail-value" style="font-size:13px;">{{ user.email }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Mobile</span>
+            <span class="detail-value">{{ user.mobile_no|default:"—" }}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Account Status</span>
+            <span class="detail-value">
+                {% if user.status == 'Active' %}
+                    <span style="color:#27ae60; font-weight:700;"><i class="fas fa-circle" style="font-size:10px;"></i> Active</span>
+                {% else %}
+                    <span style="color:#e74c3c; font-weight:700;"><i class="fas fa-circle" style="font-size:10px;"></i> {{ user.status }}</span>
+                {% endif %}
+            </span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Joined</span>
+            <span class="detail-value">{{ user.date_joined|date:"M d, Y" }}</span>
+        </div>
+
+        <!-- Current Wallet Balance -->
+        <div style="margin-top:20px;">
+            <div class="balance-display">
+                <i class="fas fa-wallet"></i>
+                <div>
+                    <div class="amount">₹{{ wallet.balance|floatformat:2 }}</div>
+                    <div class="label">Current Wallet Balance</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Transaction Source / Order Link -->
+<div class="source-card">
+    <h4><i class="fas fa-search"></i> Transaction Source</h4>
+    <div class="source-inner">
+        <div class="source-icon-wrap" style="background: {{ source_info.color }}22; color: {{ source_info.color }};">
+            <i class="fas fa-{{ source_info.icon|default:'wallet' }}"></i>
+        </div>
+        <div class="source-text">
+            <h5>{{ source_info.type }}</h5>
+            <p>{{ source_info.description }}</p>
+
+            {% if source_info.has_order %}
+                <a href="{% url 'admin_order_overview' source_info.order.id %}" class="btn-order-link">
+                    <i class="fas fa-external-link-alt"></i>
+                    View Order #{{ source_info.order.order_number }}
+                </a>
+            {% elif txn.transaction_type == 'Cr' and txn.transaction_id|default:"" and "TXN-" in txn.transaction_id %}
+                <div style="font-size:13px; color:#95a5a6; margin-top:5px;">
+                    <i class="fas fa-info-circle"></i> This was a direct wallet top-up via Razorpay.
+                </div>
+            {% else %}
+                <div style="font-size:13px; color:#95a5a6; margin-top:5px;">
+                    <i class="fas fa-info-circle"></i> No linked order available for this transaction.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}

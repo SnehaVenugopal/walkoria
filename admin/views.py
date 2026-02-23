@@ -16,6 +16,8 @@ from utils.decorators import admin_required
 from django.contrib.auth import logout
 from users.models import CustomUser
 from django.db.models import Q, Count, Sum, F
+from referral.models import Referral, ReferralOffer
+from referral.views import give_referral_rewards
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from orders.models import Order, OrderItem, ReturnRequest
@@ -71,7 +73,372 @@ def login_to_account(request):
 @admin_required
 @cache_control(no_cache=True, must_revalidate=True, no_store=True)
 def dashboard_view(request):
-    return render(request,'dashboard.html')
+    from django.db.models import Sum, Count, F, Q
+    from django.utils import timezone as tz
+    from datetime import timedelta
+    from decimal import Decimal
+
+    # ── Filter ──────────────────────────────────────────────────────────────
+    period = request.GET.get('period', 'monthly')
+    local_now = tz.localtime(tz.now())
+    today = local_now.date()
+
+    if period == 'daily':
+        start = today
+    elif period == 'weekly':
+        start = today - timedelta(days=6)
+    elif period == 'yearly':
+        start = today.replace(month=1, day=1)
+    else:  # monthly (default)
+        start = today.replace(day=1)
+
+    start_dt = tz.make_aware(datetime.combine(start, datetime.min.time()))
+    end_dt   = tz.make_aware(datetime.combine(today, datetime.max.time()))
+
+    # ── KPI Cards ───────────────────────────────────────────────────────────
+    from orders.models import Order, OrderItem
+    from users.models import CustomUser
+    from product.models import Product
+
+    all_completed = OrderItem.objects.filter(
+        status__in=['Delivered', 'Processing', 'Shipped', 'On_the_Way']
+    )
+    total_revenue = Order.objects.filter(
+        created_at__range=(start_dt, end_dt)
+    ).exclude(items__status__in=['Cancelled', 'Payment_Failed']).aggregate(
+        s=Sum('total_amount')
+    )['s'] or Decimal('0')
+
+    total_orders  = Order.objects.filter(created_at__range=(start_dt, end_dt)).count()
+    total_users   = CustomUser.objects.filter(is_superuser=False).count()
+    new_users     = CustomUser.objects.filter(
+        is_superuser=False, date_joined__range=(start_dt, end_dt)
+    ).count()
+    pending_orders = OrderItem.objects.filter(status='Pending').count()
+    total_products = Product.objects.filter(is_deleted=False).count()
+
+    # ── Sales Chart Data ─────────────────────────────────────────────────────
+    import json
+    chart_labels = []
+    chart_data   = []
+
+    if period == 'daily':
+        # last 24 hours by hour
+        for h in range(24):
+            label = f"{h:02d}:00"
+            h_start = tz.make_aware(datetime.combine(today, datetime.min.time())) + timedelta(hours=h)
+            h_end   = h_start + timedelta(hours=1)
+            rev = Order.objects.filter(
+                created_at__range=(h_start, h_end)
+            ).aggregate(s=Sum('total_amount'))['s'] or 0
+            chart_labels.append(label)
+            chart_data.append(float(rev))
+
+    elif period == 'weekly':
+        for i in range(7):
+            day = start + timedelta(days=i)
+            d_start = tz.make_aware(datetime.combine(day, datetime.min.time()))
+            d_end   = tz.make_aware(datetime.combine(day, datetime.max.time()))
+            rev = Order.objects.filter(
+                created_at__range=(d_start, d_end)
+            ).aggregate(s=Sum('total_amount'))['s'] or 0
+            chart_labels.append(day.strftime('%a %d'))
+            chart_data.append(float(rev))
+
+    elif period == 'yearly':
+        import calendar
+        for m in range(1, 13):
+            last_day = calendar.monthrange(today.year, m)[1]
+            m_start = tz.make_aware(datetime.combine(
+                today.replace(month=m, day=1), datetime.min.time()))
+            m_end = tz.make_aware(datetime.combine(
+                today.replace(month=m, day=last_day), datetime.max.time()))
+            rev = Order.objects.filter(
+                created_at__range=(m_start, m_end)
+            ).aggregate(s=Sum('total_amount'))['s'] or 0
+            chart_labels.append(calendar.month_abbr[m])
+            chart_data.append(float(rev))
+
+    else:  # monthly – daily breakdown
+        import calendar
+        days_in_month = calendar.monthrange(today.year, today.month)[1]
+        for d in range(1, days_in_month + 1):
+            try:
+                day = today.replace(day=d)
+            except ValueError:
+                break
+            d_start = tz.make_aware(datetime.combine(day, datetime.min.time()))
+            d_end   = tz.make_aware(datetime.combine(day, datetime.max.time()))
+            rev = Order.objects.filter(
+                created_at__range=(d_start, d_end)
+            ).aggregate(s=Sum('total_amount'))['s'] or 0
+            chart_labels.append(str(d))
+            chart_data.append(float(rev))
+
+    # ── Top 10 Products ──────────────────────────────────────────────────────
+    from product.models import Product
+    top_products = (
+        OrderItem.objects
+        .filter(status__in=['Delivered', 'Processing', 'Shipped', 'On_the_Way'])
+        .values(
+            product_name=F('product_variant__product__name'),
+            product_id=F('product_variant__product__id'),
+        )
+        .annotate(
+            total_qty=Sum('quantity'),
+            total_rev=Sum(F('price') * F('quantity'))
+        )
+        .order_by('-total_qty')[:10]
+    )
+
+    # ── Top 10 Categories ────────────────────────────────────────────────────
+    top_categories = (
+        OrderItem.objects
+        .filter(status__in=['Delivered', 'Processing', 'Shipped', 'On_the_Way'])
+        .values(cat_name=F('product_variant__product__category__name'))
+        .annotate(
+            total_qty=Sum('quantity'),
+            total_rev=Sum(F('price') * F('quantity'))
+        )
+        .order_by('-total_qty')[:10]
+    )
+
+    # ── Top 10 Brands ────────────────────────────────────────────────────────
+    top_brands = (
+        OrderItem.objects
+        .filter(status__in=['Delivered', 'Processing', 'Shipped', 'On_the_Way'])
+        .values(brand_name=F('product_variant__product__brand__name'))
+        .annotate(
+            total_qty=Sum('quantity'),
+            total_rev=Sum(F('price') * F('quantity'))
+        )
+        .order_by('-total_qty')[:10]
+    )
+
+    # ── Recent Orders ────────────────────────────────────────────────────────
+    recent_orders = (
+        Order.objects.select_related('user')
+        .order_by('-created_at')[:8]
+    )
+    # convert for template compatibility with old field name
+    recent_sales = [
+        {
+            'customer_name': o.user.name,
+            'created_at':    o.created_at,
+            'total_amount':  o.total_amount,
+            'order_number':  o.order_number,
+            'id': o.id,
+        }
+        for o in recent_orders
+    ]
+
+    # ── Bar chart colours for top-N lists ───────────────────────────────────
+    top_product_labels  = json.dumps([p['product_name']  for p in top_products])
+    top_product_data    = json.dumps([float(p['total_qty']) for p in top_products])
+    top_category_labels = json.dumps([c['cat_name']       for c in top_categories])
+    top_category_data   = json.dumps([float(c['total_qty']) for c in top_categories])
+    top_brand_labels    = json.dumps([b['brand_name']      for b in top_brands])
+    top_brand_data      = json.dumps([float(b['total_qty']) for b in top_brands])
+
+    context = {
+        'period': period,
+        # KPIs
+        'total_revenue':  total_revenue,
+        'total_orders':   total_orders,
+        'total_users':    total_users,
+        'new_users':      new_users,
+        'pending_orders': pending_orders,
+        'total_products': total_products,
+        # Chart
+        'chart_labels': json.dumps(chart_labels),
+        'chart_data':   json.dumps(chart_data),
+        # Top lists
+        'top_products':  top_products,
+        'top_categories': top_categories,
+        'top_brands':    top_brands,
+        'top_product_labels':  top_product_labels,
+        'top_product_data':    top_product_data,
+        'top_category_labels': top_category_labels,
+        'top_category_data':   top_category_data,
+        'top_brand_labels':    top_brand_labels,
+        'top_brand_data':      top_brand_data,
+        # Recent
+        'recent_sales': recent_sales,
+        'first_name': request.user.name.title(),
+    }
+    return render(request, 'dashboard.html', context)
+
+
+@login_required
+@admin_required
+def download_ledger(request):
+    """Generate a ledger book PDF for the selected period."""
+    from django.db.models import Sum, F
+    from django.utils import timezone as tz
+    from datetime import timedelta
+    from decimal import Decimal
+    from io import BytesIO
+    import calendar
+
+    period = request.GET.get('period', 'monthly')
+    local_now = tz.localtime(tz.now())
+    today = local_now.date()
+
+    if period == 'daily':
+        start = today
+        period_label = f"Daily – {today.strftime('%d %b %Y')}"
+    elif period == 'weekly':
+        start = today - timedelta(days=6)
+        period_label = f"Weekly – {start.strftime('%d %b')} to {today.strftime('%d %b %Y')}"
+    elif period == 'yearly':
+        start = today.replace(month=1, day=1)
+        period_label = f"Yearly – {today.year}"
+    else:
+        start = today.replace(day=1)
+        period_label = f"Monthly – {today.strftime('%B %Y')}"
+
+    start_dt = tz.make_aware(datetime.combine(start, datetime.min.time()))
+    end_dt   = tz.make_aware(datetime.combine(today, datetime.max.time()))
+
+    from orders.models import Order, OrderItem
+    from wallet.models import WalletTransaction
+
+    orders = Order.objects.filter(
+        created_at__range=(start_dt, end_dt)
+    ).select_related('user').prefetch_related('items__product_variant__product').order_by('created_at')
+
+    wallet_txns = WalletTransaction.objects.filter(
+        created_at__range=(start_dt, end_dt)
+    ).select_related('wallet__user').order_by('created_at')
+
+    # Build PDF
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="Walkoria_Ledger_{period}.pdf"'
+
+    buf = BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=landscape(letter),
+                            rightMargin=25, leftMargin=25,
+                            topMargin=25, bottomMargin=25)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    title_style = ParagraphStyle('T', parent=styles['Heading1'],
+                                  fontSize=18, alignment=TA_CENTER,
+                                  textColor=colors.HexColor('#2c3e50'), spaceAfter=4)
+    sub_style   = ParagraphStyle('S', parent=styles['Normal'],
+                                  fontSize=10, alignment=TA_CENTER,
+                                  textColor=colors.HexColor('#7f8c8d'), spaceAfter=2)
+    hdr_style   = ParagraphStyle('H', parent=styles['Normal'],
+                                  fontSize=8, fontName='Helvetica-Bold',
+                                  alignment=TA_CENTER, textColor=colors.white)
+    cell_style  = ParagraphStyle('C', parent=styles['Normal'],
+                                  fontSize=7, alignment=TA_CENTER)
+    section_style = ParagraphStyle('Sec', parent=styles['Heading2'],
+                                    fontSize=12, spaceAfter=8, spaceBefore=16,
+                                    textColor=colors.HexColor('#2c3e50'))
+
+    elements.append(Paragraph("WALKORIA — Ledger Book", title_style))
+    elements.append(Paragraph(period_label, sub_style))
+    elements.append(Paragraph(f"Generated: {local_now.strftime('%d %b %Y, %I:%M %p')}", sub_style))
+    elements.append(Spacer(1, 14))
+
+    # ── Section 1: Orders ───────────────────────────────────────────────────
+    elements.append(Paragraph("SECTION 1 — Order Transactions", section_style))
+
+    hdr = ['Date', 'Order #', 'Customer', 'Payment', 'Subtotal', 'Discount', 'Shipping', 'Total', 'Status']
+    table_data = [[Paragraph(h, hdr_style) for h in hdr]]
+
+    total_ord_amount = Decimal('0')
+    for o in orders:
+        status = o.get_overall_status()
+        row = [
+            Paragraph(o.created_at.strftime('%d/%m/%y'), cell_style),
+            Paragraph(str(o.order_number), cell_style),
+            Paragraph(o.user.name[:20], cell_style),
+            Paragraph(o.get_payment_method_display(), cell_style),
+            Paragraph(f"Rs.{o.subtotal:,.2f}", cell_style),
+            Paragraph(f"Rs.{o.discount:,.2f}", cell_style),
+            Paragraph(f"Rs.{o.shipping_cost:,.2f}", cell_style),
+            Paragraph(f"Rs.{o.total_amount:,.2f}", cell_style),
+            Paragraph(status, cell_style),
+        ]
+        table_data.append(row)
+        total_ord_amount += o.total_amount
+
+    # Totals row
+    table_data.append([
+        Paragraph('', cell_style), Paragraph('', cell_style),
+        Paragraph('', cell_style), Paragraph('TOTAL', hdr_style),
+        Paragraph('', cell_style), Paragraph('', cell_style),
+        Paragraph('', cell_style),
+        Paragraph(f"Rs.{total_ord_amount:,.2f}", ParagraphStyle('Bold',
+            parent=cell_style, fontName='Helvetica-Bold', textColor=colors.HexColor('#27ae60'))),
+        Paragraph('', cell_style),
+    ])
+
+    col_w = [55, 70, 90, 65, 70, 65, 65, 70, 65]
+    t = Table(table_data, colWidths=col_w, repeatRows=1)
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2c3e50')),
+        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#eafaf1')),
+        ('ROWBACKGROUNDS', (0,1), (-1,-2), [colors.white, colors.HexColor('#f8f9fa')]),
+        ('GRID', (0,0), (-1,-1), 0.4, colors.HexColor('#dee2e6')),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ROWHEIGHT', (0,0), (-1,-1), 18),
+    ]))
+    elements.append(t)
+    elements.append(Spacer(1, 20))
+
+    # ── Section 2: Wallet Ledger ─────────────────────────────────────────────
+    elements.append(Paragraph("SECTION 2 — Wallet Transactions", section_style))
+
+    hdr2 = ['Date', 'Transaction ID', 'User', 'Type', 'Amount', 'Status', 'Description']
+    table_data2 = [[Paragraph(h, hdr_style) for h in hdr2]]
+
+    total_credits = Decimal('0')
+    total_debits  = Decimal('0')
+    for txn in wallet_txns:
+        row = [
+            Paragraph(txn.created_at.strftime('%d/%m/%y'), cell_style),
+            Paragraph(str(txn.transaction_id or '—'), cell_style),
+            Paragraph(txn.wallet.user.name[:20], cell_style),
+            Paragraph('Credit' if txn.transaction_type == 'Cr' else 'Debit', cell_style),
+            Paragraph(f"Rs.{txn.amount:,.2f}", cell_style),
+            Paragraph(txn.status, cell_style),
+            Paragraph((txn.description or '—')[:40], cell_style),
+        ]
+        table_data2.append(row)
+        if txn.transaction_type == 'Cr':
+            total_credits += txn.amount
+        else:
+            total_debits += txn.amount
+
+    table_data2.append([
+        Paragraph('', cell_style), Paragraph('', cell_style),
+        Paragraph('', cell_style), Paragraph('TOTAL', hdr_style),
+        Paragraph(f"Cr: Rs.{total_credits:,.2f} | Dr: Rs.{total_debits:,.2f}",
+                  ParagraphStyle('Bold', parent=cell_style, fontName='Helvetica-Bold')),
+        Paragraph('', cell_style), Paragraph('', cell_style),
+    ])
+
+    col_w2 = [50, 90, 90, 50, 100, 65, 120]
+    t2 = Table(table_data2, colWidths=col_w2, repeatRows=1)
+    t2.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2c3e50')),
+        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#fdf0f0')),
+        ('ROWBACKGROUNDS', (0,1), (-1,-2), [colors.white, colors.HexColor('#f8f9fa')]),
+        ('GRID', (0,0), (-1,-1), 0.4, colors.HexColor('#dee2e6')),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ROWHEIGHT', (0,0), (-1,-1), 18),
+    ]))
+    elements.append(t2)
+
+    doc.build(elements)
+    buf.seek(0)
+    response.write(buf.read())
+    return response
+
+
 
 
 #customers view
@@ -244,6 +611,8 @@ def handle_return_request(request, request_id, action):
                             transaction_type="Cr",
                             amount=refund_decimal,
                             status="Completed",
+                            description=f"Return approved refund - Order #{order.order_number}",
+                            order=order,
                             transaction_id="RT" + str(int(time.time()))[-6:] + uuid.uuid4().hex[:4].upper(),
                         )
 
@@ -368,6 +737,26 @@ def update_order_item(request, item_id):
         item.is_cancelled = 'True'
         item.save()
 
+        if request.POST.get('status') == 'Delivered':
+            try:
+                referral = Referral.objects.get(referred_user=order.user)
+                # Check if rewards not yet given
+                if not referral.reward_given_to_referred or not referral.reward_given_to_referrer:
+                    # Find the offer that was active when the referral was created
+                    offer = ReferralOffer.objects.filter(
+                        valid_from__lte=referral.created_at
+                    ).filter(
+                        Q(valid_until__gte=referral.created_at) | Q(valid_until__isnull=True)
+                    ).first()
+                    
+                    if offer:
+                        give_referral_rewards(referral, offer)
+                        messages.success(request, 'Referral rewards distributed successfully.')
+            except Referral.DoesNotExist:
+                pass
+            except Exception as e:
+                print(f"Error giving referral rewards: {e}")
+
         if request.POST.get('status') == 'Returned' and order_item.item_payment_status == 'Paid':
             # refund by proportion
             total_item_price = order_item.price * order_item.quantity
@@ -392,6 +781,8 @@ def update_order_item(request, item_id):
                                 transaction_type="Cr",
                                 amount=refund_decimal,
                                 status="Completed",
+                                description=f"Return refund - Order #{order.order_number}",
+                                order=order,
                                 transaction_id="RT" + str(int(time.time()))[-6:] + uuid.uuid4().hex[:4].upper(),
                             )
                 order_item.item_payment_status = 'Refunded'
@@ -853,3 +1244,136 @@ def download_report_pdf(request):
     
     doc.build(elements)
     return response
+
+
+# Wallet Management Views
+
+@login_required
+@admin_required
+@cache_control(no_cache=True, must_revalidate=True, no_store=True)
+def admin_wallet_transactions(request):
+    """View all wallet transactions across all users"""
+    transactions = WalletTransaction.objects.select_related(
+        'wallet__user', 'order'
+    ).order_by('-created_at')
+
+    search_query = request.GET.get('search', '').strip()
+    type_filter = request.GET.get('type', '')
+    status_filter = request.GET.get('status', '')
+
+    if search_query:
+        transactions = transactions.filter(
+            Q(transaction_id__icontains=search_query) |
+            Q(wallet__user__name__icontains=search_query) |
+            Q(wallet__user__email__icontains=search_query) |
+            Q(description__icontains=search_query)
+        )
+
+    if type_filter:
+        transactions = transactions.filter(transaction_type=type_filter)
+
+    if status_filter:
+        transactions = transactions.filter(status=status_filter)
+
+    # Summary stats
+    from django.db.models import Sum
+    total_credits = WalletTransaction.objects.filter(
+        transaction_type='Cr', status='Completed'
+    ).aggregate(total=Sum('amount'))['total'] or 0
+    total_debits = WalletTransaction.objects.filter(
+        transaction_type='Dr', status='Completed'
+    ).aggregate(total=Sum('amount'))['total'] or 0
+    total_transactions = WalletTransaction.objects.count()
+
+    # Pagination
+    page = request.GET.get('page', 1)
+    paginator = Paginator(transactions, 10)
+    try:
+        transactions_page = paginator.page(page)
+    except PageNotAnInteger:
+        transactions_page = paginator.page(1)
+    except EmptyPage:
+        transactions_page = paginator.page(paginator.num_pages)
+
+    context = {
+        'transactions': transactions_page,
+        'search_query': search_query,
+        'type_filter': type_filter,
+        'status_filter': status_filter,
+        'total_credits': total_credits,
+        'total_debits': total_debits,
+        'total_transactions': total_transactions,
+        'first_name': request.user.name.title(),
+    }
+    return render(request, 'admin_wallet_transactions.html', context)
+
+
+@login_required
+@admin_required
+@cache_control(no_cache=True, must_revalidate=True, no_store=True)
+def admin_wallet_transaction_detail(request, transaction_id):
+    """View detailed info of a single wallet transaction"""
+    txn = get_object_or_404(
+        WalletTransaction.objects.select_related('wallet__user', 'order'),
+        id=transaction_id
+    )
+
+    user = txn.wallet.user
+    wallet = txn.wallet
+
+    # Determine transaction source from transaction_id prefix or description
+    source_info = _get_transaction_source(txn)
+
+    context = {
+        'txn': txn,
+        'user': user,
+        'wallet': wallet,
+        'source_info': source_info,
+        'first_name': request.user.name.title(),
+    }
+    return render(request, 'admin_wallet_transaction_detail.html', context)
+
+
+def _get_transaction_source(txn):
+    """Determine the source/reason of a wallet transaction"""
+    source = {
+        'type': 'Unknown',
+        'description': txn.description or 'No description available',
+        'has_order': False,
+        'order': None,
+    }
+
+    tid = txn.transaction_id or ''
+
+    if txn.order:
+        source['has_order'] = True
+        source['order'] = txn.order
+
+    if tid.startswith('TXN-'):
+        if txn.transaction_type == 'Cr':
+            source['type'] = 'Wallet Topup'
+            source['icon'] = 'fa-plus-circle'
+            source['color'] = '#28a745'
+        else:
+            source['type'] = 'Order Payment'
+            source['icon'] = 'fa-shopping-bag'
+            source['color'] = '#dc3545'
+    elif tid.startswith('RF'):
+        source['type'] = 'Cancellation Refund'
+        source['icon'] = 'fa-undo-alt'
+        source['color'] = '#ffc107'
+    elif tid.startswith('RT'):
+        source['type'] = 'Return Refund'
+        source['icon'] = 'fa-exchange-alt'
+        source['color'] = '#17a2b8'
+    elif tid.startswith('REF'):
+        source['type'] = 'Referral Reward'
+        source['icon'] = 'fa-user-friends'
+        source['color'] = '#6f42c1'
+    else:
+        source['type'] = 'Other'
+        source['icon'] = 'fa-wallet'
+        source['color'] = '#6c757d'
+
+    return source
+

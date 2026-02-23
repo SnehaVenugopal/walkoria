@@ -13,10 +13,25 @@ from product.models import Product, ProductVariant
 from userpanel.models import Wishlist
 from django.db.models import Prefetch
 from coupon.models import Coupon, UserCoupon
+from homepage.views import get_best_offer
 import logging
 
 
 logger = logging.getLogger(__name__)
+
+
+def _annotate_offers(products):
+    """Annotate a product queryset/list with offer_percentage and offer_price."""
+    result = list(products)
+    for product in result:
+        product.offer_percentage, product.offer_type = get_best_offer(product)
+        variant = product.variants.first()
+        if variant and product.offer_percentage > 0:
+            discount = (variant.sale_price * product.offer_percentage) / 100
+            product.offer_price = round(variant.sale_price - discount, 2)
+        else:
+            product.offer_price = None
+    return result
 
 @login_required
 @cache_control(no_cache=True, must_revalidate=True, no_store=True)
@@ -34,6 +49,7 @@ def view_cart(request):
     total_sale_price = sum(item.variant.sale_price * item.quantity for item in cart_items)
     total_normal_discount = total_actual_price - total_sale_price
     total_offer_discount = sum(item.get_offer_discount() for item in cart_items)
+    has_any_offer = total_offer_discount > 0
     
     # Calculate final total after all discounts
     total_after_discounts = total_sale_price - total_offer_discount
@@ -47,30 +63,67 @@ def view_cart(request):
     cart.delivery_charge = delivery_charge
     cart.save()
 
-    # Get coupon if any
+    # Get coupon if any — and RECALCULATE discount based on current cart total
     coupon = request.session.get('coupon', {})
     coupon_id = coupon.get('coupon_id')
-    discount_amount = Decimal(coupon.get('discount_amount', '0'))
+    discount_amount = Decimal('0')
     coupon_code = None
-    
-    if coupon:
-            try:
-                coupon_code = Coupon.objects.get(id=coupon_id, is_deleted=False, active=True)
-            except Coupon.DoesNotExist:
-                logger.warning(f"Coupon with ID {coupon_id} not found or inactive.")
-                messages.error(request, 'The coupon you applied earlier is no longer available. It has been removed from your cart.')
+
+    if coupon and coupon_id:
+        try:
+            coupon_code = Coupon.objects.get(id=coupon_id, is_deleted=False, active=True)
+
+            # Auto-remove if cart total dropped below min_cart_value
+            if final_total < coupon_code.min_cart_value:
                 del request.session['coupon']
-                return redirect('view_cart')
-   
+                request.session.modified = True
+                messages.warning(
+                    request,
+                    f'Coupon "{coupon_code.code}" removed: your cart total is now below '
+                    f'the minimum required ₹{coupon_code.min_cart_value}.'
+                )
+                coupon_code = None
+            else:
+                # Recalculate discount on the current effective price (strip delivery charge for %)
+                effective_price = Decimal(str(final_total - delivery_charge))  # product total only
+
+                if coupon_code.discount_type == 'fixed':
+                    new_discount = Decimal(str(coupon_code.discount_value))
+                else:
+                    new_discount = (effective_price * Decimal(str(coupon_code.discount_value))) / Decimal('100')
+
+                # Safety: never let coupon exceed the payable amount
+                max_allowed = effective_price - Decimal('1')
+                if new_discount > max_allowed:
+                    new_discount = max_allowed
+
+                discount_amount = new_discount.quantize(Decimal('0.01'))
+
+                # Persist updated amount back to session so checkout sees correct value
+                request.session['coupon']['discount_amount'] = float(discount_amount)
+                request.session.modified = True
+
+        except Coupon.DoesNotExist:
+            logger.warning(f"Coupon with ID {coupon_id} not found or inactive.")
+            messages.error(request, 'The coupon you applied earlier is no longer available. It has been removed from your cart.')
+            del request.session['coupon']
+            return redirect('view_cart')
+
     # Final total after coupon
     total_after_coupon = final_total - discount_amount if discount_amount > 0 else final_total
+
 
     # Check if any cart item quantity exceeds available stock or product is blocked
     cart_exceeds_stock = False
     blocked_items = []
-    # Add remaining stock info to each cart item
+    # Add remaining stock info and line totals to each cart item
     for item in cart_items:
         item.remaining_stock = item.variant.quantity - item.quantity
+        item.total_sale_price = item.variant.sale_price * item.quantity
+        item.total_actual_price = item.variant.actual_price * item.quantity
+        item.total_final_price = item.get_final_price()
+        item.offer_details = item.get_offer_details()
+        item.has_offer = item.offer_details is not None
         
     for item in cart_items:
         # Check if product or category is blocked/unlisted
@@ -102,13 +155,17 @@ def view_cart(request):
         'cart': cart,
         'cart_items': cart_items,
         'total_actual_price': total_actual_price,
+        'total_sale_price': total_sale_price,
         'total_normal_discount': total_normal_discount,
         'total_offer_discount': total_offer_discount,
+        'has_any_offer': has_any_offer,
         'delivery_charge': delivery_charge,
         'coupon_code': coupon_code,
         'discount_amount': discount_amount,
         'total_after_coupon': total_after_coupon,
-        'latest_products': Product.objects.filter(is_deleted=False, is_listed=True).order_by('-created_at')[:5],
+        'latest_products': _annotate_offers(
+            Product.objects.filter(is_deleted=False, is_listed=True).order_by('-created_at')[:6]
+        ),
         'max_quantity': 5,
         'cart_exceeds_stock': cart_exceeds_stock,
         'cart_count': cart_count,
@@ -175,27 +232,57 @@ def update_cart_item(request, item_id):
             cart.delivery_charge = delivery_charge
             cart.save()
 
-            # Get coupon if any
-            coupon = request.session.get('coupon', {})
-            discount_amount = Decimal(coupon.get('discount_amount', '0'))
+            # Recalculate coupon discount based on the NEW cart total
+            coupon_session = request.session.get('coupon', {})
+            coupon_id = coupon_session.get('coupon_id')
+            discount_amount = Decimal('0')
+            if coupon_session and coupon_id:
+                try:
+                    applied_coupon = Coupon.objects.get(id=coupon_id, is_deleted=False, active=True)
+                    if final_total >= applied_coupon.min_cart_value:
+                        effective_price = Decimal(str(final_total - delivery_charge))
+                        if applied_coupon.discount_type == 'fixed':
+                            discount_amount = Decimal(str(applied_coupon.discount_value))
+                        else:
+                            discount_amount = (effective_price * Decimal(str(applied_coupon.discount_value))) / Decimal('100')
+                        max_allowed = effective_price - Decimal('1')
+                        if discount_amount > max_allowed:
+                            discount_amount = max_allowed
+                        discount_amount = discount_amount.quantize(Decimal('0.01'))
+                        # Keep session in sync
+                        request.session['coupon']['discount_amount'] = float(discount_amount)
+                        request.session.modified = True
+                    else:
+                        # Cart dropped below min — clear coupon
+                        del request.session['coupon']
+                        request.session.modified = True
+                except Coupon.DoesNotExist:
+                    pass
             total_after_coupon = final_total - discount_amount if discount_amount > 0 else final_total
 
             # Get item specific totals
             item_sale_total = cart_item.variant.sale_price * cart_item.quantity
+            item_actual_total = cart_item.variant.actual_price * cart_item.quantity
             item_offer_discount = cart_item.get_offer_discount()
             item_final_price = cart_item.get_final_price()
+            item_has_offer = item_offer_discount > 0
             
             return JsonResponse({
                 'success': True,
                 'total_actual_price': float(total_actual_price),
+                'total_sale_price': float(total_sale_price),
                 'total_normal_discount': float(total_normal_discount),
                 'total_offer_discount': float(total_offer_discount),
+                'has_any_offer': total_offer_discount > 0,
                 'total_after_discounts': float(total_after_discounts),
                 'delivery_charge': delivery_charge,
                 'total_after_coupon': float(total_after_coupon),
+                'coupon_discount_amount': float(discount_amount),
                 'item_sale_total': float(item_sale_total),
+                'item_actual_total': float(item_actual_total),
                 'item_offer_discount': float(item_offer_discount),
                 'item_final_price': float(item_final_price),
+                'item_has_offer': item_has_offer,
                 'items_count': cart.items.count(),
                 'is_free_delivery': total_after_discounts > 4999,
                 'max_stock': cart_item.variant.quantity,
@@ -228,10 +315,64 @@ def remove_from_cart(request, item_id):
                 request.session.modified = True
         
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            # Recalculate totals
+            cart.refresh_from_db()
+            cart_items = cart.items.all()
+            
+            total_actual_price = sum(item.variant.actual_price * item.quantity for item in cart_items)
+            total_sale_price = sum(item.variant.sale_price * item.quantity for item in cart_items)
+            total_normal_discount = total_actual_price - total_sale_price
+            total_offer_discount = sum(item.get_offer_discount() for item in cart_items)
+            
+            total_after_discounts = total_sale_price - total_offer_discount
+            
+            delivery_charge = 0 if total_after_discounts > 4999 else 99
+            final_total = total_after_discounts + delivery_charge
+            
+            cart.total_price = final_total
+            cart.delivery_charge = delivery_charge
+            cart.save()
+
+            # Recalculate coupon discount based on the NEW cart total
+            coupon_session = request.session.get('coupon', {})
+            coupon_id_r = coupon_session.get('coupon_id')
+            discount_amount = Decimal('0')
+            if coupon_session and coupon_id_r:
+                try:
+                    applied_coupon = Coupon.objects.get(id=coupon_id_r, is_deleted=False, active=True)
+                    if final_total >= applied_coupon.min_cart_value:
+                        effective_price = Decimal(str(final_total - delivery_charge))
+                        if applied_coupon.discount_type == 'fixed':
+                            discount_amount = Decimal(str(applied_coupon.discount_value))
+                        else:
+                            discount_amount = (effective_price * Decimal(str(applied_coupon.discount_value))) / Decimal('100')
+                        max_allowed = effective_price - Decimal('1')
+                        if discount_amount > max_allowed:
+                            discount_amount = max_allowed
+                        discount_amount = discount_amount.quantize(Decimal('0.01'))
+                        request.session['coupon']['discount_amount'] = float(discount_amount)
+                        request.session.modified = True
+                    else:
+                        del request.session['coupon']
+                        request.session.modified = True
+                except Coupon.DoesNotExist:
+                    pass
+            total_after_coupon = final_total - discount_amount if discount_amount > 0 else final_total
+
             return JsonResponse({
-                'success': True, 
+                'success': True,
                 'cart_total': float(cart.total_price),
-                'items_count': cart.items.count()
+                'items_count': cart.items.count(),
+                'total_actual_price': float(total_actual_price),
+                'total_sale_price': float(total_sale_price),
+                'total_normal_discount': float(total_normal_discount),
+                'total_offer_discount': float(total_offer_discount),
+                'has_any_offer': total_offer_discount > 0,
+                'total_after_discounts': float(total_after_discounts),
+                'delivery_charge': delivery_charge,
+                'total_after_coupon': float(total_after_coupon),
+                'coupon_discount_amount': float(discount_amount),
+                'is_free_delivery': total_after_discounts > 4999,
             })
     
     return redirect('view_cart')
