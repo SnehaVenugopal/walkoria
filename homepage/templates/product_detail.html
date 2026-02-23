@@ -271,7 +271,7 @@
     .related-product-card {
         border: 1px solid #e9ecef;
         border-radius: 12px;
-        overflow: hidden;
+        overflow: visible;
         transition: all 0.3s ease;
         height: 100%;
     }
@@ -285,6 +285,8 @@
     .related-product-card .card-img-top {
         height: 200px;
         object-fit: cover;
+        border-radius: 12px 12px 0 0;
+        overflow: hidden;
     }
     
     .related-product-card .card-body {
@@ -374,8 +376,99 @@
             height: 60px;
         }
     }
+
+    /* ── Offer Badge for related products (same as home page) ── */
+    @keyframes flower-pop {
+        0%, 100% { transform: scale(1); }
+        15%      { transform: scale(1.12); }
+        30%      { transform: scale(1); }
+    }
+
+    .flower-petal {
+        position: absolute;
+        width: 24px;
+        height: 28px;
+        background: linear-gradient(135deg, #ff429d 0%, #ff6fb5 100%);
+        border-radius: 50%;
+        left: 50%;
+        bottom: 50%;
+        margin-left: -12px;
+        transform-origin: center bottom;
+    }
+    .flower-petal:nth-child(1) { transform: rotate(0deg); }
+    .flower-petal:nth-child(2) { transform: rotate(72deg); }
+    .flower-petal:nth-child(3) { transform: rotate(144deg); }
+    .flower-petal:nth-child(4) { transform: rotate(216deg); }
+    .flower-petal:nth-child(5) { transform: rotate(288deg); }
+
+    .offer-text {
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 5;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+    }
+    .offer-pct {
+        color: #fff;
+        font-weight: 800;
+        font-size: 0.65rem;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    }
+    .offer-off {
+        color: #fff;
+        font-weight: 800;
+        font-size: 0.35rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .comet-orbit {
+        position: absolute;
+        width: 100%; height: 100%;
+        top: 0; left: 0;
+        animation: comet-spin 3s linear infinite, comet-fade 3s ease-in-out infinite;
+        pointer-events: none;
+    }
+    .comet-orbit::before {
+        content: '';
+        position: absolute;
+        width: 100%; height: 100%;
+        border-radius: 50%;
+        background: conic-gradient(from 295deg at 50% 50%, transparent 0deg, rgba(200,200,220,0.04) 10deg, rgba(200,200,220,0.12) 25deg, rgba(255,255,255,0.35) 42deg, rgba(255,255,255,0.7) 56deg, transparent 64deg, transparent 360deg);
+        -webkit-mask: radial-gradient(circle, transparent 56%, black 64%);
+        mask: radial-gradient(circle, transparent 56%, black 64%);
+    }
+    .comet {
+        position: absolute;
+        top: -3px; left: 50%;
+        width: 6px; height: 6px;
+        margin-left: -3px;
+        background: radial-gradient(circle, #ffffff 30%, rgba(220,220,240,0.6) 70%, transparent 100%);
+        border-radius: 50%;
+        box-shadow: 0 0 4px 1px rgba(255,255,255,0.9), 0 0 8px 2px rgba(220,220,255,0.6);
+    }
+    @keyframes comet-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes comet-fade { 0%,100% { opacity: 0.7; } 50% { opacity: 1; } }
+
+    .related-product-card .sale-price {
+        font-size: 1.1rem;
+        font-weight: bold;
+        color: var(--primary-color);
+        margin-left: 6px;
+    }
+    .related-product-card .original-price {
+        font-size: 0.9rem;
+        color: #999;
+        text-decoration: line-through;
+        margin-bottom: 0;
+    }
 </style>
 {% endblock %}
+
 
 {% block content %}
 <div class="container mt-4">
@@ -483,22 +576,50 @@
             <div class="col">
                 <div class="card related-product-card h-100">
                     <a href="{% url 'product_detail' related_product.id %}" class="text-decoration-none">
-                        <img src="{{ related_product.images.first.image }}" class="card-img-top" alt="{{ related_product.name }}">
+                        <!-- Image wrapper with offer badge -->
+                        <div style="position:relative; overflow:visible;">
+                            {% if related_product.offer_percentage > 0 %}
+                            <div class="offer-badge" style="position:absolute;top:-6px;right:-6px;z-index:10;width:48px;height:48px;pointer-events:none;filter:drop-shadow(0 0 6px rgba(255,255,255,0.7));animation:flower-pop 2s ease-in-out infinite;">
+                                <div class="flower-petal"></div>
+                                <div class="flower-petal"></div>
+                                <div class="flower-petal"></div>
+                                <div class="flower-petal"></div>
+                                <div class="flower-petal"></div>
+                                <div class="offer-text">
+                                    <span class="offer-pct">{{ related_product.offer_percentage }}%</span>
+                                    <span class="offer-off">OFF</span>
+                                </div>
+                                <div class="comet-orbit"><div class="comet"></div></div>
+                            </div>
+                            {% endif %}
+                            <img src="{{ related_product.images.first.image }}" class="card-img-top" alt="{{ related_product.name }}">
+                        </div>
                         <div class="card-body">
                             <h5 class="card-title">{{ related_product.name|truncatechars:20 }}</h5>
                             <div class="product-rating">
-                                <!-- Dummy 3-star rating -->
-                                <span class="star">★</span>
-                                <span class="star">★</span>
-                                <span class="star">★</span>
-                                <span class="star empty">☆</span>
-                                <span class="star empty">☆</span>
-                                <span class="review-count">({{ related_product.review_count|default:15 }})</span>
+                                {% with ''|center:5 as range %}
+                                {% for _ in range %}
+                                    {% if forloop.counter <= related_product.avg_rating %}
+                                        <span class="star">★</span>
+                                    {% else %}
+                                        <span class="star empty">☆</span>
+                                    {% endif %}
+                                {% endfor %}
+                                {% endwith %}
+                                <span class="review-count">({{ related_product.review_count|default:0 }})</span>
                             </div>
-                            <div class="d-flex align-items-center">
-                                <span class="original-price">₹{{ related_product.variants.first.actual_price }}</span>
-                                <span class="sale-price">₹{{ related_product.variants.first.sale_price }}</span>
+                            <!-- Price display matching home page -->
+                            {% with variant=related_product.variants.first %}
+                            <div class="d-flex align-items-center mt-2">
+                                {% if related_product.offer_price %}
+                                    <span class="original-price">₹{{ variant.sale_price }}</span>
+                                    <span class="sale-price">₹{{ related_product.offer_price }}</span>
+                                {% else %}
+                                    <span class="original-price">₹{{ variant.actual_price }}</span>
+                                    <span class="sale-price">₹{{ variant.sale_price }}</span>
+                                {% endif %}
                             </div>
+                            {% endwith %}
                         </div>
                     </a>
                 </div>
@@ -507,6 +628,7 @@
         </div>
     </section>
 
+
     <!-- Customer Reviews Section -->
     <section class="reviews-section">
         <h2>Customer Reviews</h2>
@@ -514,7 +636,14 @@
             {% for review in reviews %}
                 <div class="review-item">
                     <div class="review-header">
-                        <span class="review-author">{{ review.user.first_name }} {{ review.user.last_name }}</span>
+                        <span class="review-author">
+                            {% if user.is_authenticated and review.user == user %}
+                                You
+                                <span style="font-size:0.75rem; color:#28a745; font-weight:600; background:#e8f5e9; padding:2px 8px; border-radius:12px; margin-left:6px;">Your Review</span>
+                            {% else %}
+                                {{ review.user.name|default:review.user.username|default:"Anonymous" }}
+                            {% endif %}
+                        </span>
                         <span class="review-date">{{ review.created_at|date:"F d, Y" }}</span>
                     </div>
                     <div class="review-rating">
@@ -527,6 +656,7 @@
                             {% endif %}
                         {% endfor %}
                         {% endwith %}
+                        <span style="font-size:0.85rem; color:#666; margin-left:5px;">({{ review.rating }}/5)</span>
                     </div>
                     {% if review.title %}
                         <h5 class="review-title">{{ review.title }}</h5>

@@ -11,7 +11,6 @@ class Order(models.Model):
         ('RP', 'Razor Pay'),
         ('WP', 'Wallet Pay'),
         ('COD', 'Cash on Delivery'),
-        ('PP', 'PayPal'), 
     ]
     
 
@@ -184,6 +183,25 @@ class OrderItem(models.Model):
             return self.price
         except Exception:
             return self.price
+
+    def get_refund_amount(self):
+        """
+        Calculate the actual amount credited to wallet on return/cancellation.
+        = (effective price × qty) − proportional share of coupon discount.
+        Mirrors the formula used in both admin refund handlers.
+        """
+        try:
+            effective_total = self.get_effective_price() * self.quantity
+            order = self.order
+            order_total_before_coupon = order.total_amount + order.discount
+            if order_total_before_coupon > 0 and order.discount > 0:
+                proportion = effective_total / order_total_before_coupon
+                coupon_share = Decimal(str(order.discount)) * proportion
+                refund = effective_total - coupon_share
+                return round(max(refund, Decimal('0')), 2)
+            return round(effective_total, 2)
+        except Exception:
+            return round(self.get_effective_price() * self.quantity, 2)
 
     def save(self, *args, **kwargs):
         if self.status == 'Delivered':

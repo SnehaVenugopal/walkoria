@@ -34,6 +34,20 @@
                                 <img src="/placeholder.svg?height=200&width=200" alt="{{ item.variant.product.name }}" class="product-image">
                             {% endif %}
                         </a>
+                        {% if item.offer_percentage > 0 %}
+                        <div class="offer-badge">
+                            <div class="flower-petal"></div>
+                            <div class="flower-petal"></div>
+                            <div class="flower-petal"></div>
+                            <div class="flower-petal"></div>
+                            <div class="flower-petal"></div>
+                            <div class="offer-text">
+                                <span class="offer-pct">{{ item.offer_percentage }}%</span>
+                                <span class="offer-off">OFF</span>
+                            </div>
+                            <div class="comet-orbit"><div class="comet"></div></div>
+                        </div>
+                        {% endif %}
                         <button class="remove-btn" onclick="removeFromWishlist({{ item.variant.product.id }}, '{{ item.variant.size }}')" title="Remove from wishlist">
                             <i class="fas fa-times"></i>
                         </button>
@@ -51,13 +65,15 @@
                         </div>
                         
                         <div class="price-section">
-                            <span class="current-price">₹{{ item.variant.sale_price }}</span>
-                            {% if item.variant.original_price > item.variant.sale_price %}
-                                <span class="original-price">₹{{ item.variant.original_price }}</span>
-                                <span class="discount">
-                                    {% widthratio item.variant.sale_price item.variant.original_price 100 as discount_percent %}
-                                    {{ discount_percent|floatformat:0 }}% off
-                                </span>
+                            {% if item.offer_price %}
+                                <span class="current-price">₹{{ item.offer_price }}</span>
+                                <span class="original-price">₹{{ item.variant.sale_price }}</span>
+                                <span class="discount">{{ item.offer_percentage }}% off</span>
+                            {% else %}
+                                <span class="current-price">₹{{ item.variant.sale_price }}</span>
+                                {% if item.variant.actual_price != item.variant.sale_price %}
+                                    <span class="original-price">₹{{ item.variant.actual_price }}</span>
+                                {% endif %}
                             {% endif %}
                         </div>
                         
@@ -131,7 +147,7 @@
     background: #fff;
     border: 1px solid #e0e0e0;
     border-radius: 12px;
-    overflow: hidden;
+    overflow: visible;
     transition: all 0.3s ease;
     position: relative;
 }
@@ -143,6 +159,12 @@
 
 .product-image-container {
     position: relative;
+    overflow: visible;
+    border-radius: 12px 12px 0 0;
+}
+
+.product-image-container .product-image {
+    border-radius: 12px 12px 0 0;
     overflow: hidden;
 }
 
@@ -241,12 +263,70 @@
     margin-left: 8px;
 }
 
-.discount {
-    font-size: 0.8rem;
-    color: #28a745;
-    font-weight: 500;
-    margin-left: 8px;
+/* Offer badge – same as home page */
+.offer-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    z-index: 10;
+    width: 48px;
+    height: 48px;
+    pointer-events: none;
+    filter: drop-shadow(0 0 6px rgba(255,255,255,0.7)) drop-shadow(0 0 14px rgba(255,200,230,0.4));
+    animation: flower-pop 2s ease-in-out infinite;
 }
+@keyframes flower-pop {
+    0%, 100% { transform: scale(1); }
+    15%      { transform: scale(1.12); }
+    30%      { transform: scale(1); }
+}
+.flower-petal {
+    position: absolute;
+    width: 24px;
+    height: 28px;
+    background: linear-gradient(135deg, #ff429d 0%, #ff6fb5 100%);
+    border-radius: 50%;
+    left: 50%; bottom: 50%;
+    margin-left: -12px;
+    transform-origin: center bottom;
+}
+.flower-petal:nth-child(1) { transform: rotate(0deg); }
+.flower-petal:nth-child(2) { transform: rotate(72deg); }
+.flower-petal:nth-child(3) { transform: rotate(144deg); }
+.flower-petal:nth-child(4) { transform: rotate(216deg); }
+.flower-petal:nth-child(5) { transform: rotate(288deg); }
+.offer-text {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+.offer-pct { color:#fff; font-weight:800; font-size:0.65rem; text-shadow:0 1px 2px rgba(0,0,0,0.25); }
+.offer-off { color:#fff; font-weight:800; font-size:0.35rem; text-transform:uppercase; letter-spacing:1px; text-shadow:0 1px 2px rgba(0,0,0,0.25); }
+.comet-orbit {
+    position: absolute;
+    width: 100%; height: 100%;
+    top: 0; left: 0;
+    animation: comet-spin 3s linear infinite, comet-fade 3s ease-in-out infinite;
+    pointer-events: none;
+}
+.comet {
+    position: absolute;
+    top: -3px; left: 50%;
+    width: 6px; height: 6px;
+    margin-left: -3px;
+    background: radial-gradient(circle, #fff 30%, rgba(220,220,240,0.6) 70%, transparent 100%);
+    border-radius: 50%;
+    box-shadow: 0 0 4px 1px rgba(255,255,255,0.9), 0 0 8px 2px rgba(220,220,255,0.6);
+}
+@keyframes comet-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes comet-fade { 0%,100% { opacity: 0.7; } 50% { opacity: 1; } }
+
 
 .product-actions {
     display: flex;

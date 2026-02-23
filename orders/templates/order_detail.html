@@ -402,7 +402,14 @@
                         </span>
                     </p>
                     {% endcomment %}
-                    <p><strong>Total Amount:</strong> ₹{{ order.subtotal }}</p>
+                    <p><strong>Total Amount:</strong> ₹{{ order.total_amount|floatformat:2 }}</p>
+                    {% if order.discount and order.discount > 0 %}
+                    <p style="color: #28a745; font-weight: 600; margin-top: -6px;">
+                        <i class="fas fa-tag me-1"></i>
+                        Coupon Discount{% if order.coupon %} ({{ order.coupon.code }}){% endif %}:
+                        <span style="font-size: 1.05rem;">−₹{{ order.discount|floatformat:2 }}</span>
+                    </p>
+                    {% endif %}
                     {% for item in order.items.all %}
                     {% if item.status == 'Returned' and item.item_payment_status == 'Refunded' and order.payment_method == 'COD' %}
 
@@ -657,7 +664,7 @@
                     </div>
                     <div>
                         <h6 class="mb-1">Refund Credited</h6>
-                        <p class="text-muted mb-0">₹{{ item.get_effective_price|floatformat:2 }} credited to wallet</p>
+                        <p class="text-muted mb-0">₹{{ item.get_refund_amount|floatformat:2 }} credited to wallet</p>
                     </div>
                 </div>
                 {% endif %}
@@ -681,7 +688,7 @@
                     </div>
                     <div>
                         <h6 class="mb-1">Refund Credited</h6>
-                        <p class="text-muted mb-0">₹{{ item.get_effective_price|floatformat:2 }} credited to wallet</p>
+                        <p class="text-muted mb-0">₹{{ item.get_refund_amount|floatformat:2 }} credited to wallet</p>
                     </div>
                 </div>
                 {% endif %}

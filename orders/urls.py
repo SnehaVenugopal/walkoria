@@ -12,12 +12,6 @@ urlpatterns = [
     path('cancel-product/<int:item_id>/', views.cancel_product, name='cancel_product'),
     path('return-product/<int:item_id>/', views.return_product, name='return_product'),
     path('download-invoice/<int:item_id>/', views.download_invoice, name='download_invoice'),
-    path('paypal-checkout/<int:order_id>/', views.paypal_checkout, name='paypal_checkout'),
-    path('paypal/create/', views.create_paypal_payment, name='create_paypal_payment'),
-    path('paypal/capture/', views.capture_paypal_payment, name='capture_paypal_payment'),
-    
-    
-    
     path('razorpay/create/', views.create_razorpay_order, name='create_razorpay_order'),
     path('razorpay/verify/', views.verify_razorpay_payment, name='verify_razorpay_payment'),
 ]

@@ -25,6 +25,7 @@ from django.conf import settings
 # from orders.models import Order, OrderItem, ReturnRequest
 from cart.models import Cart
 from userpanel.models import Address
+from homepage.views import get_best_offer
 # from .invoice_utils import generate_invoice_pdf
 
 
@@ -245,13 +246,29 @@ def set_default_address(request, address_id):
 @login_required
 @cache_control(no_cache=True, must_revalidate=True, no_store=True)
 def wishlist(request):
-    wishlist_items = Wishlist.objects.filter(
-        user=request.user
-    ).select_related('variant__product', 'variant__product__brand').prefetch_related(
+    wishlist_items = list(
+        Wishlist.objects.filter(
+            user=request.user
+        ).select_related(
+            'variant__product', 'variant__product__brand', 'variant__product__category'
+        ).prefetch_related(
             'variant__images',
         ).order_by('-added_at')
-    
-    # Pagination - 6 items per page (3x2 grid)
+    )
+
+    # Annotate each wishlist item with offer data
+    for item in wishlist_items:
+        product = item.variant.product
+        offer_pct, _ = get_best_offer(product)
+        item.offer_percentage = offer_pct
+        if offer_pct and offer_pct > 0:
+            from decimal import Decimal
+            discount = item.variant.sale_price * Decimal(str(offer_pct)) / 100
+            item.offer_price = round(item.variant.sale_price - discount, 2)
+        else:
+            item.offer_price = None
+
+    # Pagination
     page = request.GET.get('page', 1)
     paginator = Paginator(wishlist_items, 6)
     try:
@@ -260,7 +277,7 @@ def wishlist(request):
         wishlist_items = paginator.page(1)
     except EmptyPage:
         wishlist_items = paginator.page(paginator.num_pages)
-    
+
     return render(request, 'wishlist.html', {'wishlist_items': wishlist_items})
 
 

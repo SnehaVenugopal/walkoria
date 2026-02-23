@@ -110,61 +110,10 @@ def checkout(request):
                             messages.error(request, 'Insufficient balance in your wallet. Please choose a different payment method.')
                             return redirect('checkout')
                         
-                # PayPal Validation and Creation
-                if payment_method == 'PP':
-                    # Create the Order object first
-                    order = Order.objects.create(
-                        user=request.user,
-                        order_number=uuid.uuid4().hex[:12].upper(),
-                        coupon=coupon_code,
-                        discount=discount_amount,
-                        payment_method=payment_method,
-                        payment_status=False, # PayPal payment is pending
-                        subtotal=subtotal, # Variable 'subtotal' calculated at line 82
-                        total_amount=total_amount, # Variable 'total_amount' calculated at line 50/55
-                        shipping_address=address,
-                        shipping_cost=cart.delivery_charge or 0,
-                    )
-                    
-                    # Create Order Items and Reduce Stock
-                    for item in cart.items.all():
-                        OrderItem.objects.create(
-                            order=order,
-                            product_variant=item.variant,
-                            quantity=item.quantity,
-                            price=item.price,
-                            item_payment_status='Unpaid',
-                            original_price=item.variant.actual_price,
-                        )
-                        # Reduce stock
-                        item.variant.quantity -= item.quantity
-                        item.variant.save()
-                    
-                    # Handle Coupon Usage
-                    if coupon_code:
-                        UserCoupon.objects.create(
-                            user=request.user,
-                            coupon=coupon_code,
-                            order=order,
-                        )
-                    
-                    # Clear Cart
-                    cart.delete()
-                    if 'coupon' in request.session:
-                        del request.session['coupon']
-                        request.session.modified = True
-                    
-                    # Redirect to the new PayPal checkout page
-                    return redirect('paypal_checkout', order_id=order.id)
-                
-                
-                
                 # Razorpay validation (static for now)
                 if payment_method == 'RP':
-                    # messages.info(request, 'Online payment is currently under maintenance. Please choose Cash on Delivery.')
-                    # return redirect('checkout')
                     pass
-                print(subtotal, 'subbbbbbbbbbbbbbbbb')
+
                 # Create order
                 order = Order.objects.create(
                     user=request.user,
@@ -274,6 +223,9 @@ def checkout(request):
         total_normal_discount = total_actual_price - total_sale_price_before_offer
         total_offer_discount = sum(item.get_offer_discount() for item in cart.items.all())
         
+        # Subtotal = sale price minus offer discounts (mirrors cart "Subtotal" row)
+        subtotal_after_offers = sum(item.get_final_price() for item in cart.items.all())
+        
         # Calculate total discount for display (Normal + Offer + Coupon)
         total_discount = total_normal_discount + total_offer_discount + discount_amount
         
@@ -282,10 +234,11 @@ def checkout(request):
             'addresses': addresses,
             'total_amount': total_amount,
             'total_discount': total_discount,
-            'total_actual_price': total_actual_price, # MRP
-            'total_sale_price_before_offer': total_sale_price_before_offer, # Sale Price
-            'total_normal_discount': total_normal_discount, # Regular Discount
-            'total_offer_discount': total_offer_discount, # Offer Discount
+            'subtotal_after_offers': subtotal_after_offers,
+            'total_actual_price': total_actual_price,
+            'total_sale_price_before_offer': total_sale_price_before_offer,
+            'total_normal_discount': total_normal_discount,
+            'total_offer_discount': total_offer_discount,
             'payment_methods': Order.PAYMENT_METHOD_CHOICES,
             'coupon_code': coupon_code,
             'discount_amount': discount_amount,
@@ -717,8 +670,9 @@ def download_invoice(request, item_id):
     address =Address.objects.get(id=order_item.order.shipping_address_id)
     try:
         pdf = generate_invoice_pdf(order_item, address)
+        inv_label = order_item.invoice_number or f"ORD-{order_item.order.order_number}-{order_item.id}"
         response = HttpResponse(pdf, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="invoice_{order_item.invoice_number}.pdf"'
+        response['Content-Disposition'] = f'attachment; filename="invoice_{inv_label}.pdf"'
         return response
     except Exception as e:
         messages.error(request, "Error generating invoice. Please try again.")
@@ -727,122 +681,6 @@ def download_invoice(request, item_id):
     
     
     
-# Helper function to get PayPal Token given credentials in settings
-def get_paypal_access_token():
-    client_id = settings.PAYPAL_CLIENT_ID
-    print(f"this is id {client_id}")
-    secret = settings.PAYPAL_SECRET_KEY
-    print("humma humma")
-    url = f"{settings.PAYPAL_API_BASE_URL}/v1/oauth2/token"
-    
-    auth_response = requests.post(
-        url,
-        auth=(client_id, secret),
-        headers={'Content-Type': 'application/x-www-form-urlencoded'},
-        data={'grant_type': 'client_credentials'}
-    )
-    
-    if auth_response.status_code == 200:
-        return auth_response.json()['access_token']
-    return None
-
-
-@login_required
-def paypal_checkout(request, order_id):
-    order = get_object_or_404(Order, id=order_id, user=request.user)
-    
-    # checking in order model if the payment_status mdodel is Ture which measn order has been placed
-    if order.payment_status:
-        messages.info(request, "This order is already paid.")
-        return redirect('order_detail', order.id)
-    context = {
-        'order': order,
-        'paypal_client_id': settings.PAYPAL_CLIENT_ID
-    }
-    return render(request, 'paypal_checkout.html', context)
-@csrf_exempt
-def create_paypal_payment(request):
-    if request.method == "POST":
-        data = json.loads(request.body)
-        order_id = data.get('order_id')
-        order = get_object_or_404(Order, id=order_id)
-        
-        token = get_paypal_access_token()
-        if not token:
-            return JsonResponse({'error': 'Unable to authenticate with PayPal'}, status=500)
-            
-        headers = {
-            'Content-Type': 'application/json',
-            'Authorization': f'Bearer {token}'
-        }
-        
-        # Ensure exact decimal formatting
-        # PayPal expects string or number, but strings are safer for currency
-        amount_str = f"{order.total_amount:.2f}"
-        
-        payload = {
-            "intent": "CAPTURE",
-            "purchase_units": [{
-                "reference_id": str(order.id),
-                "amount": {
-                    "currency_code": "USD",  # Change to "INR" if your PayPal account supports it, or convert.
-                    "value": amount_str
-                }
-            }]
-        }
-        
-        response = requests.post(
-            f"{settings.PAYPAL_API_BASE_URL}/v2/checkout/orders",
-            headers=headers,
-            json=payload
-        )
-        
-        if response.status_code in [200, 201]:
-            return JsonResponse(response.json())
-        else:
-            return JsonResponse({'error': response.text}, status=400)
-    return JsonResponse({'error': 'Invalid request'}, status=400)
-@csrf_exempt
-def capture_paypal_payment(request):
-    if request.method == "POST":
-        data = json.loads(request.body)
-        paypal_order_id = data.get('orderID')
-        local_order_id = data.get('local_order_id')
-        
-        order = get_object_or_404(Order, id=local_order_id)
-        
-        token = get_paypal_access_token()
-        headers = {
-            'Content-Type': 'application/json',
-            'Authorization': f'Bearer {token}'
-        }
-        
-        response = requests.post(
-            f"{settings.PAYPAL_API_BASE_URL}/v2/checkout/orders/{paypal_order_id}/capture",
-            headers=headers
-        )
-        
-        if response.status_code in [200, 201]:
-            result = response.json()
-            if result['status'] == 'COMPLETED':
-                # Update Order
-                order.payment_status = True
-                order.payment_intent_id = paypal_order_id # Store PayPal Transaction ID here
-                order.save()
-                
-                # Update Items
-                order.items.all().update(item_payment_status='Paid')
-                
-                # Wallet logic (optional, if you have cashback etc)
-                # ...
-                
-                return JsonResponse({'success': True})
-        
-        return JsonResponse({'success': False, 'error': 'Payment not completed'}, status=400)
-    return JsonResponse({'error': 'Invalid request'}, status=400)
-
-
-
 @login_required
 @csrf_exempt
 def create_razorpay_order(request):
