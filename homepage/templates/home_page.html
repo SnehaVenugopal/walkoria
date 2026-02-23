@@ -30,17 +30,77 @@
     }
     
     .hero-title {
-        font-size: 3.5rem;
-        font-weight: bold;
+        font-size: 4rem;
+        font-weight: 800;
         color: white;
         margin-bottom: 20px;
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        font-style: italic;
+        line-height: 1.1;
+        background: linear-gradient(135deg, #ffffff 0%, #ffe0ec 40%, #ffffff 60%, #ffd6e8 100%);
+        background-size: 200% auto;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        animation: hero-shimmer 4s ease-in-out infinite;
+        filter: drop-shadow(0 2px 10px rgba(255, 255, 255, 0.25));
+    }
+
+    @keyframes hero-shimmer {
+        0%, 100% { background-position: 0% center; }
+        50%      { background-position: 200% center; }
     }
     
     .hero-subtitle {
-        font-size: 1.3rem;
-        color: rgba(255, 255, 255, 0.9);
-        margin-bottom: 30px;
+        font-size: 1.15rem;
+        color: rgba(255, 255, 255, 0.95);
+        margin-bottom: 35px;
+        line-height: 1.7;
+        letter-spacing: 0.3px;
+        max-width: 440px;
+    }
+
+    /* Shop Now button */
+    .hero-cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 38px;
+        background: linear-gradient(135deg, #ffffff, #fff0f5);
+        color: #ff429d;
+        font-size: 1.1rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        border-radius: 50px;
+        text-decoration: none;
+        box-shadow:
+            0 4px 15px rgba(255, 66, 157, 0.35),
+            0 0 30px rgba(255, 255, 255, 0.15);
+        transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        position: relative;
+        overflow: hidden;
+    }
+    .hero-cta::before {
+        content: '';
+        position: absolute;
+        top: 0; left: -100%; width: 100%; height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,66,157,0.08), transparent);
+        transition: left 0.5s;
+    }
+    .hero-cta:hover::before { left: 100%; }
+    .hero-cta:hover {
+        transform: translateY(-3px) scale(1.03);
+        box-shadow:
+            0 8px 25px rgba(255, 66, 157, 0.45),
+            0 0 40px rgba(255, 255, 255, 0.25);
+        color: #e6357f;
+        text-decoration: none;
+    }
+    .hero-cta i {
+        transition: transform 0.3s;
+    }
+    .hero-cta:hover i {
+        transform: translateX(4px);
     }
     
     .hero-image {
@@ -179,6 +239,176 @@
         font-size: 0.8rem;
         margin-left: 5px;
     }
+
+
+    /* ── Offer Badge (Plain 5-Petal Flower + Comet) ── */
+    .product-image {
+        position: relative;
+        overflow: visible;
+    }
+
+    .offer-badge {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        z-index: 10;
+        width: 48px;
+        height: 48px;
+        pointer-events: none;
+        filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.7)) drop-shadow(0 0 14px rgba(255, 200, 230, 0.4));
+        animation: flower-pop 2s ease-in-out infinite;
+    }
+
+    @keyframes flower-pop {
+        0%, 100% { transform: scale(1); }
+        15%      { transform: scale(1.12); }
+        30%      { transform: scale(1); }
+    }
+
+    /* Petals – overlap at center to form one solid flower */
+    .flower-petal {
+        position: absolute;
+        width: 24px;
+        height: 28px;
+        background: linear-gradient(135deg, #ff429d 0%, #ff6fb5 100%);
+        border-radius: 50%;
+        left: 50%;
+        bottom: 50%;
+        margin-left: -12px;
+        transform-origin: center bottom;
+    }
+    .flower-petal:nth-child(1) { transform: rotate(0deg); }
+    .flower-petal:nth-child(2) { transform: rotate(72deg); }
+    .flower-petal:nth-child(3) { transform: rotate(144deg); }
+    .flower-petal:nth-child(4) { transform: rotate(216deg); }
+    .flower-petal:nth-child(5) { transform: rotate(288deg); }
+
+    /* Text floating on top of petals */
+    .offer-text {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 5;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+    }
+    .offer-text .offer-pct {
+        color: #fff;
+        font-weight: 800;
+        font-size: 0.65rem;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    }
+    .offer-text .offer-off {
+        color: #fff;
+        font-weight: 800;
+        font-size: 0.35rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    }
+
+    /* ── Silver comet orbiting the flower (3D) ── */
+    .comet-orbit {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        animation:
+            comet-spin 3s linear infinite,
+            comet-z   3s step-end infinite,
+            comet-fade 3s ease-in-out infinite;
+        pointer-events: none;
+    }
+
+    /* Curved arc tail (conic-gradient ring) */
+    .comet-orbit::before {
+        content: '';
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        background: conic-gradient(
+            from 295deg at 50% 50%,
+            transparent 0deg,
+            rgba(200,200,220,0.04) 10deg,
+            rgba(200,200,220,0.12) 25deg,
+            rgba(255,255,255,0.35) 42deg,
+            rgba(255,255,255,0.7) 56deg,
+            transparent 64deg,
+            transparent 360deg
+        );
+        -webkit-mask: radial-gradient(circle, transparent 56%, black 64%);
+        mask: radial-gradient(circle, transparent 56%, black 64%);
+    }
+
+    /* Comet head (bright dot) */
+    .comet {
+        position: absolute;
+        top: -3px;
+        left: 50%;
+        width: 6px;
+        height: 6px;
+        margin-left: -3px;
+        background: radial-gradient(circle, #ffffff 30%, rgba(220,220,240,0.6) 70%, transparent 100%);
+        border-radius: 50%;
+        box-shadow:
+            0 0 4px 1px rgba(255,255,255,0.9),
+            0 0 8px 3px rgba(200,200,220,0.5);
+        animation: comet-scale 3s ease-in-out infinite;
+    }
+
+    /* Spin the orbit */
+    @keyframes comet-spin {
+        from { transform: rotate(0deg); }
+        to   { transform: rotate(360deg); }
+    }
+
+    /* z-index: front (0-25%, 75-100%), behind (25-75%) */
+    @keyframes comet-z {
+        0%   { z-index: 15; }
+        25%  { z-index: -1; }
+        75%  { z-index: 15; }
+    }
+
+    /* Fade entire orbit for depth (behind = dim, front = bright) */
+    @keyframes comet-fade {
+        0%   { opacity: 1; }
+        25%  { opacity: 0.45; }
+        50%  { opacity: 0.12; }
+        75%  { opacity: 0.45; }
+        100% { opacity: 1; }
+    }
+
+    /* Scale the head dot for depth */
+    @keyframes comet-scale {
+        0%   { transform: scale(1.3); }
+        25%  { transform: scale(0.7); }
+        50%  { transform: scale(0.35); }
+        75%  { transform: scale(0.7); }
+        100% { transform: scale(1.3); }
+    }
+
+    @media (max-width: 768px) {
+        .offer-badge {
+            width: 42px;
+            height: 42px;
+            top: -5px;
+            right: -5px;
+        }
+        .flower-petal {
+            width: 20px;
+            height: 24px;
+            margin-left: -10px;
+        }
+        .offer-text .offer-pct { font-size: 0.55rem; }
+        .offer-text .offer-off { font-size: 0.3rem; }
+        .comet { width: 5px; height: 5px; margin-left: -2.5px; }
+    }
 </style>
 {% endblock %}
 
@@ -195,7 +425,7 @@
             <div class="col-lg-6 hero-content">
                 <h1 class="hero-title">Step Into Style</h1>
                 <p class="hero-subtitle">Discover our premium collection of footwear designed for comfort and elegance</p>
-                <a href="{% url 'product_listing' %}" class="btn btn-light btn-lg">Shop Now</a>
+                <a href="{% url 'product_listing' %}" class="hero-cta">Shop Now <i class="fas fa-arrow-right"></i></a>
             </div>
             <div class="col-lg-6 hero-image">
                 <img src="https://images.unsplash.com/photo-1543163521-1bf539c55dd2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2000&q=80" alt="Premium Shoe" class="hero-shoe">
@@ -217,6 +447,20 @@
                 <div class="product-card">
                     <a href="{% url 'product_detail' product.id %}" class="text-decoration-none">
                         <div class="product-image">
+                            {% if product.offer_percentage > 0 %}
+                            <div class="offer-badge">
+                                <div class="flower-petal"></div>
+                                <div class="flower-petal"></div>
+                                <div class="flower-petal"></div>
+                                <div class="flower-petal"></div>
+                                <div class="flower-petal"></div>
+                                <div class="offer-text">
+                                    <span class="offer-pct">{{ product.offer_percentage }}%</span>
+                                    <span class="offer-off">OFF</span>
+                                </div>
+                                <div class="comet-orbit"><div class="comet"></div></div>
+                            </div>
+                            {% endif %}
                             <img src="{{ product.images.first.image }}" alt="{{ product.name }}">
                         </div>
                         <div class="product-brand">{{ product.brand.name }}</div>
@@ -232,12 +476,17 @@
                         </div>
                         {% with variant=product.variants.first %}
                         <div class="d-flex align-items-center mt-2">
+                            {% if product.offer_price %}
+                            <span class="original-price">₹{{ variant.sale_price }}</span>
+                            <span class="sale-price">₹{{ product.offer_price }}</span>
+                            {% else %}
                             <span class="original-price">₹{{ variant.actual_price }}</span>
                             <span class="sale-price">₹{{ variant.sale_price }}</span>
+                            {% endif %}
                         </div>
                         {% endwith %}
                     </a>
-                    <button class="buy-btn mt-3" onclick="addToCart({{ product.id }})">Buy Now</button>
+                    <a href="{% url 'product_detail' product.id %}" class="buy-btn mt-3 text-decoration-none text-center">Buy Now</a>
                 </div>
             </div>
             {% empty %}
@@ -262,6 +511,20 @@
                 <div class="product-card">
                     <a href="{% url 'product_detail' product.id %}" class="text-decoration-none">
                         <div class="product-image">
+                            {% if product.offer_percentage > 0 %}
+                            <div class="offer-badge">
+                                <div class="flower-petal"></div>
+                                <div class="flower-petal"></div>
+                                <div class="flower-petal"></div>
+                                <div class="flower-petal"></div>
+                                <div class="flower-petal"></div>
+                                <div class="offer-text">
+                                    <span class="offer-pct">{{ product.offer_percentage }}%</span>
+                                    <span class="offer-off">OFF</span>
+                                </div>
+                                <div class="comet-orbit"><div class="comet"></div></div>
+                            </div>
+                            {% endif %}
                             <img src="{{ product.images.first.image }}" alt="{{ product.name }}">
                         </div>
                         <div class="product-brand">{{ product.brand.name }}</div>
@@ -277,12 +540,17 @@
                         </div>
                         {% with variant=product.variants.first %}
                         <div class="d-flex align-items-center mt-2">
+                            {% if product.offer_price %}
+                            <span class="original-price">₹{{ variant.sale_price }}</span>
+                            <span class="sale-price">₹{{ product.offer_price }}</span>
+                            {% else %}
                             <span class="original-price">₹{{ variant.actual_price }}</span>
                             <span class="sale-price">₹{{ variant.sale_price }}</span>
+                            {% endif %}
                         </div>
                         {% endwith %}
                     </a>
-                    <button class="buy-btn mt-3" onclick="addToCart({{ product.id }})">Buy Now</button>
+                    <a href="{% url 'product_detail' product.id %}" class="buy-btn mt-3 text-decoration-none text-center">Buy Now</a>
                 </div>
             </div>
             {% empty %}
@@ -307,6 +575,20 @@
                 <div class="product-card">
                     <a href="{% url 'product_detail' product.id %}" class="text-decoration-none">
                         <div class="product-image">
+                            {% if product.offer_percentage > 0 %}
+                            <div class="offer-badge">
+                                <div class="flower-petal"></div>
+                                <div class="flower-petal"></div>
+                                <div class="flower-petal"></div>
+                                <div class="flower-petal"></div>
+                                <div class="flower-petal"></div>
+                                <div class="offer-text">
+                                    <span class="offer-pct">{{ product.offer_percentage }}%</span>
+                                    <span class="offer-off">OFF</span>
+                                </div>
+                                <div class="comet-orbit"><div class="comet"></div></div>
+                            </div>
+                            {% endif %}
                             <img src="{{ product.images.first.image }}" alt="{{ product.name }}">
                         </div>
                         <div class="product-brand">{{ product.brand.name }}</div>
@@ -322,12 +604,17 @@
                         </div>
                         {% with variant=product.variants.first %}
                         <div class="d-flex align-items-center mt-2">
+                            {% if product.offer_price %}
+                            <span class="original-price">₹{{ variant.sale_price }}</span>
+                            <span class="sale-price">₹{{ product.offer_price }}</span>
+                            {% else %}
                             <span class="original-price">₹{{ variant.actual_price }}</span>
                             <span class="sale-price">₹{{ variant.sale_price }}</span>
+                            {% endif %}
                         </div>
                         {% endwith %}
                     </a>
-                    <button class="buy-btn mt-3" onclick="addToCart({{ product.id }})">Buy Now</button>
+                    <a href="{% url 'product_detail' product.id %}" class="buy-btn mt-3 text-decoration-none text-center">Buy Now</a>
                 </div>
             </div>
             {% empty %}
@@ -340,46 +627,4 @@
 </section>
 {% endblock %}
 
-{% block extra_scripts %}
-<script>
-    // Add to Cart Function
-    function addToCart(productId) {
-        showLoading();
-        
-        fetch(`/cart/add/${productId}/`, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                'product_id': productId,
-                'quantity': 1
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            hideLoading();
-            if (data.success) {
-                updateCartBadge(data.cart_count);
-                showNotification('Product added to cart!', 'success');
-            } else {
-                showNotification('Error adding product to cart', 'error');
-            }
-        })
-        .catch(error => {
-            hideLoading();
-            console.error('Error:', error);
-            showNotification('An error occurred', 'error');
-        });
-    }
-    
-    // Update Cart Badge
-    function updateCartBadge(count) {
-        const badge = document.querySelector('.cart-badge');
-        if (badge) {
-            badge.textContent = count;
-        }
-    }
-</script>
-{% endblock %}
+

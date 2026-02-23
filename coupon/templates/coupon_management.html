@@ -7,6 +7,22 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/coupon_management.css' %}">
+<style>
+    /* Improved form layout */
+    #couponForm {
+        padding: 20px 25px 10px;
+    }
+    .form-section-title {
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #adb5bd;
+        margin: 18px 0 10px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid #f1f1f1;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -42,7 +58,6 @@
                 <th>CODE</th>
                 <th>DISCOUNT</th>
                 <th>MIN CART</th>
-                <th>MAX DISCOUNT</th>
                 <th>VALID PERIOD</th>
                 <th>USAGE</th>
                 <th>LIST / UNLIST</th>
@@ -62,12 +77,11 @@
                     {% endif %}
                 </td>
                 <td>Rs.{{ coupon.min_cart_value|default:"0" }}</td>
-                <td>Rs.{{ coupon.max_discount|default:"0" }}</td>
                 <td>{{ coupon.start_date|date:"d M Y" }} - {{ coupon.end_date|date:"d M Y" }}</td>
                 <td>{{ coupon.max_usage }} / {{ coupon.max_usage_per_user }} per user</td>
                 <td>
                     <label class="toggle-switch">
-                        <input type="checkbox" class="toggle-input" 
+                        <input type="checkbox" class="toggle-input"
                                {% if coupon.active %}checked{% endif %}
                                data-coupon-id="{{ coupon.id }}">
                         <span class="toggle-slider"></span>
@@ -86,7 +100,7 @@
             </tr>
             {% empty %}
             <tr>
-                <td colspan="9" class="empty-message">
+                <td colspan="8" class="empty-message">
                     {% if request.GET.search %}
                         No coupons found for "{{ request.GET.search }}"
                     {% else %}
@@ -122,8 +136,8 @@
     {% endif %}
 </div>
 
-<!-- Add/Edit Coupon Modal -->
-<div id="couponModal" class="modal-overlay">
+<!-- ========= ADD / EDIT COUPON MODAL ========= -->
+<div id="couponModal" class="modal-overlay" style="display:none;">
     <div class="modal-box">
         <div class="modal-header">
             <h3 id="modalTitle">Add New Coupon</h3>
@@ -133,135 +147,138 @@
         </div>
         <form id="couponForm">
             <input type="hidden" id="couponId" name="coupon_id">
-            
+
+            <!-- Basic Info -->
+            <p class="form-section-title">Basic Information</p>
             <div class="form-row">
                 <div class="form-group">
-                    <label>Coupon Code: <span class="required">*</span></label>
-                    <input type="text" id="couponCode" name="code" placeholder="Enter coupon code" required>
+                    <label>Coupon Code <span class="required">*</span></label>
+                    <input type="text" id="couponCode" name="code" placeholder="e.g. SAVE20" required>
                 </div>
                 <div class="form-group">
-                    <label>Discount Type: <span class="required">*</span></label>
+                    <label>Discount Type <span class="required">*</span></label>
                     <select id="discountType" name="discount_type" required>
-                        <option value="percent">Percentage</option>
-                        <option value="fixed">Fixed Amount</option>
+                        <option value="percent">Percentage (%)</option>
+                        <option value="fixed">Fixed Amount (₹)</option>
                     </select>
                 </div>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
-                    <label>Discount Value: <span class="required">*</span></label>
-                    <input type="number" id="discountValue" name="discount_value" placeholder="Enter discount value" required min="1">
+                    <label>Discount Value <span class="required">*</span></label>
+                    <input type="number" id="discountValue" name="discount_value" placeholder="e.g. 10 for 10%" required min="1">
                 </div>
                 <div class="form-group">
-                    <label>Min Cart Value: <span class="required">*</span></label>
-                    <input type="number" id="minCartValue" name="min_cart_value" placeholder="Enter minimum cart value" required min="1">
-                </div>
-            </div>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Max Discount: <span class="required">*</span></label>
-                    <input type="number" id="maxDiscount" name="max_discount" placeholder="Enter maximum discount" required min="1">
-                </div>
-                <div class="form-group">
-                    <label>Max Usage: <span class="required">*</span></label>
-                    <input type="number" id="maxUsage" name="max_usage" placeholder="Total usage limit" value="1" required min="1">
+                    <label>Min Cart Value <span class="required">*</span></label>
+                    <input type="number" id="minCartValue" name="min_cart_value" placeholder="e.g. 500" required min="1">
                 </div>
             </div>
 
+            <!-- Usage Limits -->
+            <p class="form-section-title">Usage Limits</p>
             <div class="form-row">
                 <div class="form-group">
-                    <label>Max Usage Per User: <span class="required">*</span></label>
+                    <label>Max Total Uses <span class="required">*</span></label>
+                    <input type="number" id="maxUsage" name="max_usage" placeholder="Total times usable" value="1" required min="1">
+                </div>
+                <div class="form-group">
+                    <label>Max Uses Per User <span class="required">*</span></label>
                     <input type="number" id="maxUsagePerUser" name="max_usage_per_user" placeholder="Per user limit" value="1" required min="1">
                 </div>
+            </div>
+
+            <!-- Validity -->
+            <p class="form-section-title">Validity Period</p>
+            <div class="form-row">
                 <div class="form-group">
-                    <label>Start Date: <span class="required">*</span></label>
+                    <label>Start Date <span class="required">*</span></label>
                     <input type="date" id="startDate" name="start_date" required>
                 </div>
-            </div>
-
-            <div class="form-row">
                 <div class="form-group">
-                    <label>End Date: <span class="required">*</span></label>
+                    <label>End Date <span class="required">*</span></label>
                     <input type="date" id="endDate" name="end_date" required>
                 </div>
-                <div class="form-group">
-                    <label>List / Unlist:</label>
-                    <label class="toggle-switch modal-toggle">
-                        <input type="checkbox" id="couponActive" name="active" checked>
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
             </div>
 
+            <!-- Description -->
+            <p class="form-section-title">Description (Optional)</p>
             <div class="form-row">
                 <div class="form-group full-width">
-                    <label>Description:</label>
-                    <textarea id="description" name="description" placeholder="Enter coupon description (optional)" rows="3"></textarea>
+                    <textarea id="description" name="description" placeholder="Brief description shown to users (e.g. 'Get 10% off on orders above ₹500')" rows="2"></textarea>
                 </div>
             </div>
 
             <div class="modal-footer">
                 <button type="button" class="btn-cancel" onclick="closeModal()">Cancel</button>
-                <button type="submit" class="btn-save" id="submitBtn">Save</button>
+                <button type="submit" class="btn-save" id="submitBtn">Save Coupon</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- ========= DELETE CONFIRMATION MODAL ========= -->
+<div id="deleteModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; align-items:center; justify-content:center;">
+    <div style="background:white; border-radius:12px; padding:30px; min-width:380px; max-width:440px; width:90%; box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid #f1f1f1;">
+            <h3 style="margin:0; color:#dc3545; font-size:1.15rem; font-weight:600;">
+                <i class="fas fa-exclamation-triangle" style="margin-right:8px;"></i>Confirm Delete
+            </h3>
+            <button onclick="closeDeleteModal()" style="background:none; border:none; font-size:20px; cursor:pointer; color:#6c757d; line-height:1; padding:0;">&times;</button>
+        </div>
+        <p id="deleteModalMessage" style="color:#495057; font-size:15px; margin:0 0 24px; line-height:1.5;"></p>
+        <div style="display:flex; gap:12px; justify-content:flex-end;">
+            <button onclick="closeDeleteModal()" style="background:#6c757d; color:white; border:none; padding:10px 22px; border-radius:8px; cursor:pointer; font-weight:500; font-size:14px;">Cancel</button>
+            <button id="confirmDeleteBtn" style="background:#dc3545; color:white; border:none; padding:10px 22px; border-radius:8px; cursor:pointer; font-weight:500; font-size:14px;">Yes, Delete</button>
+        </div>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
+
+    // --- Date constraints ---
     const today = new Date().toISOString().split('T')[0];
     const startDateInput = document.getElementById('startDate');
-    const endDateInput = document.getElementById('endDate');
-    
+    const endDateInput   = document.getElementById('endDate');
     startDateInput.min = today;
-    endDateInput.min = today;
-    
-    startDateInput.addEventListener('change', function() {
+    endDateInput.min   = today;
+    startDateInput.addEventListener('change', function () {
         endDateInput.min = this.value;
         if (endDateInput.value && endDateInput.value < this.value) {
             endDateInput.value = this.value;
         }
     });
-    
-    // Form submission
-    document.getElementById('couponForm').addEventListener('submit', function(e) {
+
+    // --- Coupon form submit (Add / Edit) ---
+    document.getElementById('couponForm').addEventListener('submit', function (e) {
         e.preventDefault();
-        
         const couponId = document.getElementById('couponId').value;
-        const isEdit = couponId !== '';
-        
+        const isEdit   = couponId !== '';
         const formData = {
-            code: document.getElementById('couponCode').value,
-            discount_type: document.getElementById('discountType').value,
-            discount_value: document.getElementById('discountValue').value,
-            min_cart_value: document.getElementById('minCartValue').value,
-            max_discount: document.getElementById('maxDiscount').value,
-            max_usage: document.getElementById('maxUsage').value,
+            code:               document.getElementById('couponCode').value,
+            discount_type:      document.getElementById('discountType').value,
+            discount_value:     document.getElementById('discountValue').value,
+            min_cart_value:     document.getElementById('minCartValue').value,
+            max_usage:          document.getElementById('maxUsage').value,
             max_usage_per_user: document.getElementById('maxUsagePerUser').value,
-            start_date: document.getElementById('startDate').value,
-            end_date: document.getElementById('endDate').value,
-            description: document.getElementById('description').value,
-            active: document.getElementById('couponActive').checked
+            start_date:         document.getElementById('startDate').value,
+            end_date:           document.getElementById('endDate').value,
+            description:        document.getElementById('description').value,
+            active:             true
         };
-        
-        const url = isEdit 
+        const url = isEdit
             ? `{% url 'edit_coupon' coupon_id=0 %}`.replace('0', couponId)
             : '{% url "add_coupon" %}';
-        
+
         fetch(url, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
             body: JSON.stringify(formData)
         })
-        .then(response => response.json())
+        .then(r => r.json())
         .then(data => {
             if (data.success) {
                 showAlert('Success', data.message, 'success');
@@ -270,24 +287,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 showAlert('Error', data.message, 'error');
             }
         })
-        .catch(error => {
-            showAlert('Error', 'An unexpected error occurred', 'error');
-        });
+        .catch(() => showAlert('Error', 'An unexpected error occurred', 'error'));
     });
-    
-    // Toggle status
+
+    // --- Toggle list/unlist ---
     document.querySelectorAll('.toggle-input').forEach(toggle => {
-        toggle.addEventListener('change', function() {
+        toggle.addEventListener('change', function () {
             const couponId = this.dataset.couponId;
             const checkbox = this;
-            
             fetch(`{% url 'toggle_coupon_status' coupon_id=0 %}`.replace('0', couponId), {
                 method: 'POST',
-                headers: {
-                    'X-CSRFToken': '{{ csrf_token }}'
-                }
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
             })
-            .then(response => response.json())
+            .then(r => r.json())
             .then(data => {
                 if (data.success) {
                     showAlert('Success', data.message, 'success');
@@ -296,127 +308,117 @@ document.addEventListener('DOMContentLoaded', function() {
                     showAlert('Error', data.message, 'error');
                 }
             })
-            .catch(error => {
+            .catch(() => {
                 checkbox.checked = !checkbox.checked;
                 showAlert('Error', 'An unexpected error occurred', 'error');
             });
         });
     });
+
+    // --- Outside click to close ---
+    document.getElementById('couponModal').addEventListener('click', function (e) {
+        if (e.target === this) closeModal();
+    });
+    document.getElementById('deleteModal').addEventListener('click', function (e) {
+        if (e.target === this) closeDeleteModal();
+    });
+
+    // --- Escape key ---
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { closeModal(); closeDeleteModal(); }
+    });
 });
 
-// Alert function
+/* ---- Helpers ---- */
+
 function showAlert(title, message, type) {
-    const alertBox = document.createElement('div');
-    alertBox.className = `custom-alert ${type}`;
-    alertBox.innerHTML = `
+    const box = document.createElement('div');
+    box.className = `custom-alert ${type}`;
+    box.innerHTML = `
         <div class="alert-content">
             <i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i>
-            <div>
-                <strong>${title}</strong>
-                <p>${message}</p>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(alertBox);
-    
-    setTimeout(() => {
-        alertBox.classList.add('show');
-    }, 10);
-    
-    setTimeout(() => {
-        alertBox.classList.remove('show');
-        setTimeout(() => alertBox.remove(), 300);
-    }, 3000);
+            <div><strong>${title}</strong><p>${message}</p></div>
+        </div>`;
+    document.body.appendChild(box);
+    setTimeout(() => box.classList.add('show'), 10);
+    setTimeout(() => { box.classList.remove('show'); setTimeout(() => box.remove(), 300); }, 3000);
 }
 
-// Open Add Modal
 function openAddModal() {
-    document.getElementById('modalTitle').textContent = 'Add New Coupon';
-    document.getElementById('submitBtn').textContent = 'Save';
+    document.getElementById('modalTitle').textContent  = 'Add New Coupon';
+    document.getElementById('submitBtn').textContent   = 'Save Coupon';
     document.getElementById('couponForm').reset();
-    document.getElementById('couponId').value = '';
+    document.getElementById('couponId').value          = '';
     document.getElementById('couponCode').removeAttribute('readonly');
     document.getElementById('startDate').removeAttribute('readonly');
-    document.getElementById('couponActive').checked = true;
     document.getElementById('couponModal').style.display = 'flex';
 }
 
-// Edit Coupon
+function closeModal() {
+    document.getElementById('couponModal').style.display = 'none';
+}
+
 function editCoupon(couponId) {
     fetch(`{% url 'edit_coupon' coupon_id=0 %}`.replace('0', couponId))
-    .then(response => response.json())
+    .then(r => r.json())
     .then(data => {
         if (data.success) {
-            const coupon = data.coupon;
-            
+            const c = data.coupon;
             document.getElementById('modalTitle').textContent = 'Edit Coupon';
-            document.getElementById('submitBtn').textContent = 'Save';
-            document.getElementById('couponId').value = coupon.id;
-            document.getElementById('couponCode').value = coupon.code;
+            document.getElementById('submitBtn').textContent  = 'Update Coupon';
+            document.getElementById('couponId').value         = c.id;
+            document.getElementById('couponCode').value       = c.code;
             document.getElementById('couponCode').setAttribute('readonly', true);
-            document.getElementById('discountType').value = coupon.discount_type;
-            document.getElementById('discountValue').value = coupon.discount_value;
-            document.getElementById('minCartValue').value = coupon.min_cart_value || '';
-            document.getElementById('maxDiscount').value = coupon.max_discount || '';
-            document.getElementById('maxUsage').value = coupon.max_usage;
-            document.getElementById('maxUsagePerUser').value = coupon.max_usage_per_user;
-            document.getElementById('startDate').value = coupon.start_date ? coupon.start_date.split('T')[0] : '';
+            document.getElementById('discountType').value     = c.discount_type;
+            document.getElementById('discountValue').value    = c.discount_value;
+            document.getElementById('minCartValue').value     = c.min_cart_value || '';
+            document.getElementById('maxUsage').value         = c.max_usage;
+            document.getElementById('maxUsagePerUser').value  = c.max_usage_per_user;
+            document.getElementById('startDate').value        = c.start_date ? c.start_date.split('T')[0] : '';
             document.getElementById('startDate').setAttribute('readonly', true);
-            document.getElementById('endDate').value = coupon.end_date ? coupon.end_date.split('T')[0] : '';
-            document.getElementById('description').value = coupon.description || '';
-            document.getElementById('couponActive').checked = coupon.active;
-            
+            document.getElementById('endDate').value          = c.end_date   ? c.end_date.split('T')[0]   : '';
+            document.getElementById('description').value      = c.description || '';
             document.getElementById('couponModal').style.display = 'flex';
         } else {
             showAlert('Error', data.message, 'error');
         }
     })
-    .catch(error => {
-        showAlert('Error', 'An unexpected error occurred', 'error');
-    });
+    .catch(() => showAlert('Error', 'An unexpected error occurred', 'error'));
 }
 
-// Delete Coupon
+/* ---- Delete modal ---- */
+let _deleteCouponId = null;
+
 function deleteCoupon(couponId, couponCode) {
-    if (confirm(`Are you sure you want to delete coupon "${couponCode}"?`)) {
-        fetch(`{% url 'delete_coupon' coupon_id=0 %}`.replace('0', couponId), {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showAlert('Success', data.message, 'success');
-                setTimeout(() => location.reload(), 1500);
-            } else {
-                showAlert('Error', data.message, 'error');
-            }
-        })
-        .catch(error => {
-            showAlert('Error', 'An unexpected error occurred', 'error');
-        });
-    }
+    _deleteCouponId = couponId;
+    document.getElementById('deleteModalMessage').textContent =
+        `Are you sure you want to delete coupon "${couponCode}"? This action cannot be undone.`;
+    document.getElementById('confirmDeleteBtn').onclick = confirmDeleteCoupon;
+    document.getElementById('deleteModal').style.display = 'flex';
 }
 
-// Close Modal
-function closeModal() {
-    document.getElementById('couponModal').style.display = 'none';
+function confirmDeleteCoupon() {
+    if (!_deleteCouponId) return;
+    fetch(`{% url 'delete_coupon' coupon_id=0 %}`.replace('0', _deleteCouponId), {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        closeDeleteModal();
+        if (data.success) {
+            showAlert('Success', data.message, 'success');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showAlert('Error', data.message, 'error');
+        }
+    })
+    .catch(() => { closeDeleteModal(); showAlert('Error', 'An unexpected error occurred', 'error'); });
 }
 
-// Close modal when clicking outside
-document.getElementById('couponModal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeModal();
-    }
-});
-
-// Close modal with Escape key
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        closeModal();
-    }
-});
+function closeDeleteModal() {
+    document.getElementById('deleteModal').style.display = 'none';
+    _deleteCouponId = null;
+}
 </script>
 {% endblock %}

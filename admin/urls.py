@@ -18,5 +18,12 @@ urlpatterns = [
         path('sales-report/', views.sales_report, name='sales_report'),
         path('sales-report/download-pdf/', views.download_report_pdf, name='download_report_pdf'),
         path('sales-report/download-excel/', views.download_report_excel, name='download_report_excel'),
+
+        # Wallet Management
+        path('wallet-transactions/', views.admin_wallet_transactions, name='admin_wallet_transactions'),
+        path('wallet-transactions/<int:transaction_id>/', views.admin_wallet_transaction_detail, name='admin_wallet_transaction_detail'),
+
+        # Ledger Book
+        path('download-ledger/', views.download_ledger, name='download_ledger'),
     ]
 

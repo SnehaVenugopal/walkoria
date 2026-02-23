@@ -144,6 +144,7 @@ def give_referral_rewards(referral, offer):
             transaction_type='Cr',
             amount=Decimal(str(offer.referred_reward)),
             status='Completed',
+            description='Referral reward - New user bonus',
             transaction_id=txn_id
         )
         
@@ -165,6 +166,7 @@ def give_referral_rewards(referral, offer):
             transaction_type='Cr',
             amount=Decimal(str(offer.referrer_reward)),
             status='Completed',
+            description='Referral reward - Referrer bonus',
             transaction_id=txn_id
         )
         

@@ -564,6 +564,20 @@
         </form>
     </div>
 </div>
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content" style="max-width:420px;">
+        <div class="modal-header">
+            <h3 class="modal-title" style="color:#dc3545;"><i class="fas fa-exclamation-triangle" style="margin-right:8px;"></i>Confirm Delete</h3>
+            <button class="close-btn" onclick="closeDeleteModal()">&times;</button>
+        </div>
+        <p id="deleteModalMessage" style="color:#495057; font-size:15px; margin: 10px 0 20px;"></p>
+        <div class="modal-buttons">
+            <button type="button" class="cancel-btn" onclick="closeDeleteModal()">Cancel</button>
+            <button type="button" id="confirmDeleteBtn" class="save-btn" style="background:#dc3545;">Yes, Delete</button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_scripts %}
@@ -624,30 +638,48 @@
         });
     }
 
+    let _deleteBrandId = null;
+
     function deleteBrand(brandId, brandName) {
-        if (confirm(`Are you sure you want to delete "${brandName}"?`)) {
-            fetch(`/brand/delete/${brandId}/`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showToast('Brand deleted successfully', 'success');
-                    setTimeout(() => {
-                        location.reload();
-                    }, 1000);
-                } else {
-                    showToast('Error deleting brand', 'danger');
-                }
-            })
-            .catch(error => {
-                showToast('Error deleting brand', 'danger');
-            });
-        }
+        _deleteBrandId = brandId;
+        document.getElementById('deleteModalMessage').textContent =
+            `Are you sure you want to delete "${brandName}"? This action cannot be undone.`;
+        document.getElementById('confirmDeleteBtn').onclick = confirmDeleteBrand;
+        document.getElementById('deleteModal').style.display = 'block';
     }
+
+    function confirmDeleteBrand() {
+        if (!_deleteBrandId) return;
+        fetch(`/brand/delete/${_deleteBrandId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            closeDeleteModal();
+            if (data.success) {
+                showToast('Brand deleted successfully', 'success');
+                setTimeout(() => { location.reload(); }, 1000);
+            } else {
+                showToast('Error deleting brand', 'danger');
+            }
+        })
+        .catch(error => {
+            closeDeleteModal();
+            showToast('Error deleting brand', 'danger');
+        });
+    }
+
+    function closeDeleteModal() {
+        document.getElementById('deleteModal').style.display = 'none';
+        _deleteBrandId = null;
+    }
+
+    document.getElementById('deleteModal').addEventListener('click', function(e) {
+        if (e.target === this) closeDeleteModal();
+    });
 
     // Handle form submission
     document.getElementById('brandForm').addEventListener('submit', function(e) {

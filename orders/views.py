@@ -93,9 +93,9 @@ def checkout(request):
                 
                 subtotal = sum(item.price * item.quantity for item in cart.items.all())
                 
-                # COD limit check
-                if payment_method == 'COD' and subtotal > 10000:
-                    messages.error(request, 'COD not available on orders above ₹10,000.')
+                # COD limit check (based on total payable amount after discounts)
+                if payment_method == 'COD' and total_amount > 1000:
+                    messages.error(request, 'Cash on Delivery is not available for orders above ₹1,000. Please choose an online payment method.')
                     return redirect('checkout')
                 
                 # Wallet payment validation
@@ -221,6 +221,8 @@ def checkout(request):
                                 transaction_type="Dr",
                                 amount=Decimal(str(total_amount)),
                                 status="Completed",
+                                description=f"Payment for Order #{order.order_number}",
+                                order=order,
                                 transaction_id="TXN-" + str(int(time.time())) + uuid.uuid4().hex[:4].upper(),
                             )
                         order.items.update(item_payment_status='Paid')
@@ -229,36 +231,38 @@ def checkout(request):
                         
 
                 # Check if this is the user's first order and give referral rewards
-                from referral.models import Referral, ReferralOffer
-                from referral.views import give_referral_rewards
-                from django.utils import timezone
-                from django.db.models import Q
+                # MOVED TO ADMIN/VIEWS.PY (Rewards given on Delivery)
+                # from referral.models import Referral, ReferralOffer
+                # from referral.views import give_referral_rewards
+                # from django.utils import timezone
+                # from django.db.models import Q
                 
-                # Check if this is the first successful order by this user
-                previous_orders = Order.objects.filter(user=request.user, payment_status=True).exclude(id=order.id).count()
+                # # Check if this is the first successful order by this user
+                # previous_orders = Order.objects.filter(user=request.user, payment_status=True).exclude(id=order.id).count()
                 
-                if previous_orders == 0:  # This is the first successful order
-                    # Check if user was referred
-                    try:
-                        referral = Referral.objects.get(referred_user=request.user, is_used=True)
+                # if previous_orders == 0:  # This is the first successful order
+                #     # Check if user was referred
+                #     try:
+                #         referral = Referral.objects.get(referred_user=request.user, is_used=True)
                         
-                        # Check if rewards haven't been given yet
-                        if not referral.reward_given_to_referred or not referral.reward_given_to_referrer:
-                            # Get active offer
-                            active_offer = ReferralOffer.objects.filter(
-                                is_active=True,
-                                valid_from__lte=timezone.now()
-                            ).filter(
-                                Q(valid_until__gte=timezone.now()) | Q(valid_until__isnull=True)
-                            ).first()
+                #         # Check if rewards haven't been given yet
+                #         if not referral.reward_given_to_referred or not referral.reward_given_to_referrer:
+                #             # Get active offer
+                #             active_offer = ReferralOffer.objects.filter(
+                #                 is_active=True,
+                #                 valid_from__lte=timezone.now()
+                #             ).filter(
+                #                 Q(valid_until__gte=timezone.now()) | Q(valid_until__isnull=True)
+                #             ).first()
                             
-                            if active_offer:
-                                # Give rewards to both users
-                                give_referral_rewards(referral, active_offer)
-                                logger.info(f"Referral rewards given for user {request.user.id} after first purchase")
-                    except Referral.DoesNotExist:
-                        # User wasn't referred, do nothing
-                        pass
+                #             if active_offer:
+                #                 # Give rewards to both users
+                #                 # give_referral_rewards(referral, active_offer)
+                #                 # logger.info(f"Referral rewards given for user {request.user.id} after first purchase")
+                #                 pass
+                #     except Referral.DoesNotExist:
+                #         # User wasn't referred, do nothing
+                #         pass
 
                 
                 messages.success(request, f"Order placed successfully. Your order number is {order.order_number}")
@@ -637,6 +641,8 @@ def cancel_product(request, item_id):
                     transaction_type="Cr",
                     amount=refund_decimal,
                     status="Completed",
+                    description=f"Refund for cancelled product - Order #{order.order_number}",
+                    order=order,
                     transaction_id="RF" + str(int(time.time()))[-5:] + uuid.uuid4().hex[:4].upper(),
                 )
                 order_item.item_payment_status = 'Refunded'

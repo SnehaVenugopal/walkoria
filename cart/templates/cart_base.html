@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <title>{% block title %}Shopping Cart - Walkoria{% endblock %}</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -212,6 +213,31 @@
             transform: scale(1.1);
         }
 
+        .dropdown-menu {
+            border: none;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            padding: 0.5rem 0;
+            margin-top: 0.5rem;
+        }
+
+        .dropdown-item {
+            padding: 0.75rem 1.5rem;
+            color: #333;
+            transition: all 0.3s ease;
+        }
+
+        .dropdown-item:hover,
+        .dropdown-item:focus {
+            background: #fff0f6 !important;
+            color: #ff429d !important;
+        }
+
+        .dropdown-item:hover i,
+        .dropdown-item:focus i {
+            color: #ff429d !important;
+        }
+
         .auth-buttons .btn {
             border-radius: 25px;
             padding: 8px 20px;
@@ -389,15 +415,15 @@
                             {% endif %}
                          </div>
                         <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="{% url 'profile' %}">Profile</a></li>
-                            <li><a class="dropdown-item" href="{% url 'my_orders' %}">My Orders</a></li>
-                            <li><a class="dropdown-item" href="{% url 'wishlist' %}">Wishlist</a></li>
+                            <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="far fa-user me-2"></i>Profile</a></li>
+                            <li><a class="dropdown-item" href="{% url 'my_orders' %}"><i class="far fa-rectangle-list me-2"></i>My Orders</a></li>
+                            <li><a class="dropdown-item" href="{% url 'wishlist' %}"><i class="far fa-heart me-2"></i>Wishlist</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li>
                                 <form action="{% url 'logout_account' %}" method="post" class="px-2">
                                     {% csrf_token %}
                                     <button type="submit" class="dropdown-item text-danger">
-                                        <i class="fas fa-sign-out-alt me-2"></i>Logout
+                                        <i class="fas fa-right-from-bracket me-2"></i>Logout
                                     </button>
                                 </form>
                             </li>

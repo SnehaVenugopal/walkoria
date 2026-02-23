@@ -135,7 +135,7 @@ def verify_wallet_payment(request):
                 'razorpay_payment_id': razorpay_payment_id,
                 'razorpay_signature': razorpay_signature
             }
-            
+            #payment reallycame from razorpay
             try:
                 razorpay_client.utility.verify_payment_signature(params)
             except razorpay.errors.SignatureVerificationError:
@@ -165,6 +165,7 @@ def verify_wallet_payment(request):
                     amount=topup.amount,
                     transaction_type='Cr',
                     status='Completed',
+                    description='Wallet Topup via Razorpay',
                     transaction_id="TXN-" + str(int(time.time())) + uuid.uuid4().hex[:4].upper()
                 )
                 

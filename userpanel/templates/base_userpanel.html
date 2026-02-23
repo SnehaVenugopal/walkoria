@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <title>{% block title %}User Panel - Walkoria{% endblock %}</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -121,11 +122,18 @@
         .dropdown-item {
             color: white !important;
             transition: all 0.3s ease;
+            padding: 0.65rem 1.25rem;
         }
         
-        .dropdown-item:hover {
-            background-color: rgba(255, 66, 157, 0.2);
-            color: var(--light-color) !important;
+        .dropdown-item:hover,
+        .dropdown-item:focus {
+            background-color: rgba(255, 66, 157, 0.25) !important;
+            color: #ffd1e6 !important;
+        }
+
+        .dropdown-item:hover i,
+        .dropdown-item:focus i {
+            color: #ffd1e6 !important;
         }
         
         /* Fixed Side Navigation */
@@ -468,13 +476,21 @@
                     </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="fas fa-user me-1"></i> {{ user.name.split.0|default:"User"|title }}
+                            <i class="far fa-user me-1"></i> {{ user.name.split.0|default:"User"|title }}
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="fas fa-user me-2"></i>Profile</a></li>
-                            <li><a class="dropdown-item" href="{% url 'wishlist' %}"><i class="fas fa-heart me-2"></i>Wishlist</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item text-danger" href="{% url 'logout_account' %}"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
+                            <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="far fa-user me-2"></i>Profile</a></li>
+                            <li><a class="dropdown-item" href="{% url 'my_orders' %}"><i class="far fa-rectangle-list me-2"></i>My Orders</a></li>
+                            <li><a class="dropdown-item" href="{% url 'wishlist' %}"><i class="far fa-heart me-2"></i>Wishlist</a></li>
+                            <li><hr class="dropdown-divider" style="border-color: rgba(255,255,255,0.1);"></li>
+                            <li>
+                                <form action="{% url 'logout_account' %}" method="post" class="px-2">
+                                    {% csrf_token %}
+                                    <button type="submit" class="dropdown-item text-danger">
+                                        <i class="fas fa-right-from-bracket me-2"></i>Logout
+                                    </button>
+                                </form>
+                            </li>
                         </ul>
                     </li>
                 </ul>
@@ -498,29 +514,32 @@
         
         <nav class="side-nav">
             <a href="{% url 'profile' %}" class="side-nav-item {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
-                <i class="fas fa-user"></i> My Profile
+                <i class="far fa-user"></i> My Profile
             </a>
-            <a href="{% url 'my_orders' %}"  class="side-nav-item  {% if request.resolver_match.url_name == 'my_orders' %}active{% endif %}" >
-                <i class="fas fa-box"></i> My Orders
+            <a href="{% url 'my_orders' %}"  class="side-nav-item  {% if request.resolver_match.url_name == 'my_orders' %}active{% endif %}">
+                <i class="far fa-rectangle-list"></i> My Orders
             </a>
             <a href="{% url 'manage_address' %}" class="side-nav-item {% if 'address' in request.resolver_match.url_name %}active{% endif %}">
-                <i class="fas fa-map-marker-alt"></i> Manage Address
+                <i class="far fa-map"></i> Manage Address
             </a>
             <a href="{% url 'change_password' %}" class="side-nav-item {% if request.resolver_match.url_name == 'change_password' %}active{% endif %}">
-                <i class="fas fa-key"></i> Change Password
+                <i class="fas fa-lock"></i> Change Password
             </a>
             <a href="{% url 'wishlist' %}" class="side-nav-item {% if request.resolver_match.url_name == 'wishlist' %}active{% endif %}">
-                <i class="fas fa-heart"></i> Wishlist
+                <i class="far fa-heart"></i> Wishlist
             </a>
             <a href="{%url 'wallet'%}" class="side-nav-item">
-                <i class="fas fa-wallet"></i> Wallet
+                <i class="far fa-credit-card"></i> Wallet
             </a>
             <a href="{% url 'referral:my_referrals' %}" class="side-nav-item {% if 'referral' in request.resolver_match.url_name %}active{% endif %}">
-                <i class="fas fa-gift"></i> Refer & Earn
+                <i class="fas fa-gift"></i> Refer &amp; Earn
             </a>
-            <a href="{% url 'logout_account' %}" class="side-nav-item text-danger">
-                <i class="fas fa-sign-out-alt"></i> Logout
-            </a>
+            <div class="side-nav-item text-danger" style="cursor:pointer;" onclick="document.getElementById('sidebar-logout-form').submit();">
+                <i class="fas fa-right-from-bracket"></i> Logout
+            </div>
+            <form id="sidebar-logout-form" action="{% url 'logout_account' %}" method="post" style="display:none;">
+                {% csrf_token %}
+            </form>
         </nav>
     </div>
 
