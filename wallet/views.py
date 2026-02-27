@@ -29,6 +29,11 @@ def wallet_view(request):
         wallet, _ = Wallet.objects.get_or_create(user=request.user)
         transactions = WalletTransaction.objects.filter(wallet=wallet).order_by('-created_at')
         
+        # Search
+        search_query = request.GET.get('search', '').strip()
+        if search_query:
+            transactions = transactions.filter(transaction_id__icontains=search_query)
+
         # Pagination
         page = request.GET.get('page', 1)
         paginator = Paginator(transactions, 5)
@@ -42,6 +47,7 @@ def wallet_view(request):
         data = {
             'wallet': wallet,
             'transactions': transactions,
+            'search_query': search_query,
         }
     except Exception as e:
         logger.error(f"Error in wallet_view for user {request.user.id}: {e}")
@@ -49,6 +55,7 @@ def wallet_view(request):
         data = {
             'wallet': None,
             'transactions': [],
+            'search_query': '',
         }
     return render(request, 'wallet.html', data)
 

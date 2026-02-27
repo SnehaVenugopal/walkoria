@@ -496,57 +496,17 @@ def cancel_product(request, item_id):
         product_variant.quantity += order_item.quantity
         product_variant.save()
 
-        from wallet.models import Offer
-        from django.db.models import Q
-        
-        # Calculate active offer discount at the time of order
-        active_offer = Offer.objects.filter(
-            (Q(offer_type='Product', product=order_item.product_variant.product) | 
-             Q(offer_type='Category', category=order_item.product_variant.product.category)),
-            start_date__lte=order.created_at,
-            end_date__gte=order.created_at
-        ).order_by('-discount_percentage').first()
-        
-        # Fallback: Loose match if strict date match fails (consistent with admin view)
-        if not active_offer:
-             active_offer = Offer.objects.filter(
-                (Q(offer_type='Product', product=order_item.product_variant.product) | 
-                 Q(offer_type='Category', category=order_item.product_variant.product.category))
-            ).order_by('-discount_percentage').first()
-
-        item_offer_discount = Decimal('0')
-        if active_offer:
-            p = active_offer.discount_percentage
-            # Calculate offer amount based on Base Sale Price
-            item_offer_discount = (Order.objects.get(id=order.id).items.get(id=order_item.id).price * order_item.quantity) * (Decimal(str(p)) / Decimal('100'))
-            
-        # Effective Price User Paid for this item (before coupon)
-        # Use price from DB to be safe
+        # Use the exact refund calculation that correctly handles the snapshotted item price
+        # and proportional coupon allocation.
         db_item = OrderItem.objects.get(id=order_item.id)
-        base_total_price = db_item.price * db_item.quantity
-        effective_item_price = base_total_price - item_offer_discount
+        effective_item_price = db_item.price * db_item.quantity
         
-        # Calculate total product value of the order (excluding shipping, as coupon doesn't apply to shipping)
-        # We need this to allocate coupon discount proportionally
-        total_order_product_value = order.total_amount + order.discount - order.shipping_cost
-        
-        # Avoid division by zero
-        if total_order_product_value > 0:
-            proportion = effective_item_price / total_order_product_value
-        else:
-            proportion = Decimal('0')
-            
-        allocated_coupon_discount = order.discount * proportion
-        refund_amount = effective_item_price - allocated_coupon_discount
-
-        # Ensure refund amount is not negative (safety)
-        if refund_amount < 0:
-            refund_amount = Decimal('0')
+        refund_amount = order_item.get_refund_amount()
         
         # After updating subtotal
-        # Note: order.subtotal is likely storing the Base Sale Price total (high value) based on checkout logic.
-        # We should deduct the Base value from subtotal, but refund the effective value.
-        order.subtotal -= base_total_price
+        # Note: order.subtotal stores the sum of item.price * quantity.
+        # We should deduct the effective value from subtotal.
+        order.subtotal -= effective_item_price
         
         # Recalculate delivery charge handling:
         if order.subtotal <= 0:  

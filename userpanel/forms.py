@@ -23,12 +23,12 @@ class ProfileUpdateForm(forms.ModelForm):
     
     last_name = forms.CharField(
         max_length=50,
+        required=False,
         widget=forms.TextInput(attrs={
             'class': 'form-control',
-            'placeholder': 'Enter your last name'
+            'placeholder': 'Enter your last name (optional)'
         }),
         error_messages={
-            'required': 'Last name is required.',
             'max_length': 'Last name cannot exceed 50 characters.'
         }
     )
@@ -82,10 +82,10 @@ class ProfileUpdateForm(forms.ModelForm):
         return first_name.title()
 
     def clean_last_name(self):
-        last_name = self.cleaned_data.get('last_name')
-        if not re.match(r"^[A-Za-z]{2,}$", last_name):
+        last_name = self.cleaned_data.get('last_name', '').strip()
+        if last_name and not re.match(r"^[A-Za-z]{2,}$", last_name):
             raise ValidationError("Last name must contain only letters and be at least 2 characters long.")
-        return last_name.title()
+        return last_name.title() if last_name else ''
 
     def clean_email(self):
         email = self.cleaned_data.get('email').lower()

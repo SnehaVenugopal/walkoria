@@ -15,10 +15,10 @@
 {% block content %}
 <div class="content-card">
     <h2 class="page-title">Edit Profile</h2>
-    
-    <form method="POST" enctype="multipart/form-data" novalidate>
+
+    <form id="profileForm" method="POST" enctype="multipart/form-data" novalidate>
         {% csrf_token %}
-        
+
         <div class="row">
             <div class="col-md-4 text-center mb-4">
                 <div class="profile-image-container">
@@ -40,7 +40,7 @@
                     <div class="error-message">{{ form.profile_image.errors.0 }}</div>
                 {% endif %}
             </div>
-            
+
             <div class="col-md-8">
                 <div class="row mb-3">
                     <div class="col-md-6">
@@ -58,7 +58,7 @@
                         {% endif %}
                     </div>
                 </div>
-                
+
                 <div class="mb-3">
                     <label for="{{ form.email.id_for_label }}" class="form-label">Email Address</label>
                     {{ form.email }}
@@ -69,7 +69,7 @@
                         <i class="fas fa-info-circle"></i> Changing email will require verification via OTP
                     </small>
                 </div>
-                
+
                 <div class="mb-3">
                     <label for="{{ form.mobile_no.id_for_label }}" class="form-label">Mobile Number</label>
                     {{ form.mobile_no }}
@@ -79,9 +79,9 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="form-actions mt-4">
-            <button type="submit" class="btn btn-primary me-2">
+            <button type="submit" class="btn btn-primary me-2" id="saveBtn">
                 <i class="fas fa-save"></i> Save Changes
             </button>
             <a href="{% url 'profile' %}" class="btn btn-secondary">
@@ -91,12 +91,59 @@
     </form>
 </div>
 
+<!-- ===== OTP Verification Modal ===== -->
+<div id="otpModalOverlay" class="otp-overlay" style="display:none;">
+    <div class="otp-modal">
+        <!-- Header -->
+        <div class="otp-modal-header">
+            <div class="otp-icon-wrap">
+                <i class="fas fa-envelope-open-text"></i>
+            </div>
+            <h3>Verify Your Email</h3>
+            <p id="otpSubtitle">We've sent a 6-digit OTP to your new email address.<br>Please enter it below to confirm the change.</p>
+        </div>
+
+        <!-- OTP Inputs -->
+        <div class="otp-inputs-row" id="otpInputsRow">
+            <input type="text" class="otp-box" maxlength="1" id="ob1" autocomplete="off">
+            <input type="text" class="otp-box" maxlength="1" id="ob2" autocomplete="off">
+            <input type="text" class="otp-box" maxlength="1" id="ob3" autocomplete="off">
+            <input type="text" class="otp-box" maxlength="1" id="ob4" autocomplete="off">
+            <input type="text" class="otp-box" maxlength="1" id="ob5" autocomplete="off">
+            <input type="text" class="otp-box" maxlength="1" id="ob6" autocomplete="off">
+        </div>
+
+        <!-- Error / Success Message -->
+        <div id="otpMsg" class="otp-msg" style="display:none;"></div>
+
+        <!-- Timer -->
+        <div class="otp-timer-row">
+            <i class="fas fa-clock"></i>
+            <span id="otpTimerLabel">OTP expires in <strong id="otpTimerDisplay">1:00</strong></span>
+        </div>
+
+        <!-- Actions -->
+        <div class="otp-actions">
+            <button id="verifyOtpBtn" class="btn otp-verify-btn">
+                <span id="verifyBtnText"><i class="fas fa-check-circle me-1"></i> Verify OTP</span>
+                <span id="verifyBtnSpinner" style="display:none;"><i class="fas fa-spinner fa-spin me-1"></i> Verifying...</span>
+            </button>
+            <button id="resendOtpBtn" class="btn otp-resend-btn" disabled>
+                <i class="fas fa-redo me-1"></i> Resend OTP
+            </button>
+            <button id="cancelOtpBtn" class="btn otp-cancel-btn">
+                <i class="fas fa-times me-1"></i> Cancel
+            </button>
+        </div>
+    </div>
+</div>
+
 <style>
+/* ── Profile image ── */
 .profile-image-container {
     position: relative;
     display: inline-block;
 }
-
 .profile-image {
     width: 150px;
     height: 150px;
@@ -104,7 +151,6 @@
     object-fit: cover;
     border: 4px solid var(--primary-color);
 }
-
 .profile-placeholder {
     width: 150px;
     height: 150px;
@@ -117,35 +163,458 @@
     color: white;
     margin: 0 auto;
 }
-
 .image-upload-overlay {
     position: absolute;
     bottom: 0;
     left: 50%;
     transform: translateX(-50%);
 }
-
-.image-upload-overlay input[type="file"] {
-    display: none;
-}
-
+.image-upload-overlay input[type="file"] { display: none; }
 .form-actions {
     border-top: 1px solid #eee;
     padding-top: 20px;
 }
+
+/* ── OTP Overlay ── */
+.otp-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.55);
+    backdrop-filter: blur(4px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: otp-fade-in .25s ease;
+}
+@keyframes otp-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.otp-modal {
+    background: #fff;
+    border-radius: 20px;
+    padding: 36px 32px 28px;
+    width: 100%;
+    max-width: 440px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.25);
+    text-align: center;
+    animation: otp-slide-up .3s ease;
+}
+@keyframes otp-slide-up {
+    from { transform: translateY(30px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* Header */
+.otp-modal-header .otp-icon-wrap {
+    width: 68px; height: 68px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ff429d, #ff7eb3);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px;
+    font-size: 26px;
+    color: #fff;
+    box-shadow: 0 6px 20px rgba(255,66,157,.35);
+}
+.otp-modal-header h3 {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #222;
+    margin-bottom: 8px;
+}
+.otp-modal-header p {
+    font-size: .88rem;
+    color: #666;
+    margin-bottom: 0;
+    line-height: 1.55;
+}
+
+/* OTP Boxes */
+.otp-inputs-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin: 24px 0 10px;
+}
+.otp-box {
+    width: 48px; height: 56px;
+    border: 2px solid #ddd;
+    border-radius: 10px;
+    text-align: center;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #222;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s, transform .15s;
+    background: #fafafa;
+}
+.otp-box:focus {
+    border-color: #ff429d;
+    box-shadow: 0 0 0 3px rgba(255,66,157,.15);
+    background: #fff;
+    transform: scale(1.06);
+}
+.otp-box.otp-box-filled {
+    border-color: #ff429d;
+    background: #fff5fa;
+}
+.otp-box.otp-box-error {
+    border-color: #dc3545;
+    background: #fff5f5;
+    animation: otp-shake .3s ease;
+}
+@keyframes otp-shake {
+    0%,100% { transform: translateX(0); }
+    25%      { transform: translateX(-4px); }
+    75%      { transform: translateX(4px); }
+}
+
+/* Message */
+.otp-msg {
+    font-size: .85rem;
+    padding: 8px 14px;
+    border-radius: 8px;
+    margin: 6px 0 4px;
+}
+.otp-msg.success { background: #d4edda; color: #155724; }
+.otp-msg.error   { background: #f8d7da; color: #721c24; }
+
+/* Timer */
+.otp-timer-row {
+    font-size: .85rem;
+    color: #888;
+    margin: 10px 0 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+.otp-timer-row strong {
+    color: #ff429d;
+    font-weight: 700;
+}
+.otp-timer-row.expired strong { color: #dc3545; }
+
+/* Action Buttons */
+.otp-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.otp-verify-btn {
+    background: linear-gradient(135deg, #ff429d, #ff7eb3);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 12px;
+    font-size: .95rem;
+    font-weight: 600;
+    letter-spacing: .3px;
+    transition: opacity .2s, transform .15s;
+    box-shadow: 0 4px 14px rgba(255,66,157,.3);
+}
+.otp-verify-btn:hover  { opacity: .9; transform: translateY(-1px); color: #fff; }
+.otp-verify-btn:active { transform: translateY(0); }
+
+.otp-resend-btn {
+    background: transparent;
+    border: 2px solid #ff429d;
+    color: #ff429d;
+    border-radius: 10px;
+    padding: 10px;
+    font-size: .9rem;
+    font-weight: 600;
+    transition: background .2s, color .2s;
+}
+.otp-resend-btn:hover:not(:disabled) { background: #ff429d; color: #fff; }
+.otp-resend-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+.otp-cancel-btn {
+    background: transparent;
+    border: 2px solid #aaa;
+    color: #666;
+    border-radius: 10px;
+    padding: 10px;
+    font-size: .88rem;
+    transition: border-color .2s, color .2s;
+}
+.otp-cancel-btn:hover { border-color: #555; color: #333; }
 </style>
 
 <script>
+const CSRF = '{{ csrf_token }}';
+const SEND_OTP_URL   = "{% url 'send_email_otp' %}";
+const VERIFY_OTP_URL = "{% url 'verify_email_otp' %}";
+
+/* ── Profile image preview ── */
 document.getElementById('{{ form.profile_image.id_for_label }}').addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (file) {
         const reader = new FileReader();
         reader.onload = function(e) {
-            const preview = document.getElementById('profilePreview');
-            preview.innerHTML = `<img src="${e.target.result}" alt="Profile Picture" class="profile-image">`;
+            document.getElementById('profilePreview').innerHTML =
+                `<img src="${e.target.result}" alt="Profile Picture" class="profile-image">`;
         };
         reader.readAsDataURL(file);
     }
 });
+
+/* ── OTP Modal State ── */
+let otpTimerInterval = null;
+let otpSecondsLeft   = 60;
+
+/* ── AJAX form submit ── */
+document.getElementById('profileForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const form  = e.target;
+    const saveBtn = document.getElementById('saveBtn');
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Saving...';
+
+    const formData = new FormData(form);
+    try {
+        const res  = await fetch(form.action || window.location.href, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: formData
+        });
+        const data = await res.json();
+
+        if (data.email_change) {
+            // Save succeeded in storing session, now trigger OTP
+            openOtpModal(data.new_email);
+        } else if (data.success) {
+            window.location.href = data.redirect || '/userpanel/profile/';
+        } else {
+            const errs = data.errors || ['An unexpected error occurred.'];
+            errs.forEach(msg => showToast(msg, 'error'));
+        }
+    } catch(err) {
+        showToast('Something went wrong. Please try again.', 'error');
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Changes';
+    }
+});
+
+/* ── OTP Modal open / close ── */
+function openOtpModal(newEmail) {
+    document.getElementById('otpSubtitle').innerHTML =
+        `We've sent a 6-digit OTP to <strong>${newEmail}</strong>.<br>Please enter it below to confirm the change.`;
+    clearOtpInputs();
+    hideOtpMsg();
+    showOverlay(true);
+    startOtpTimer();
+    // Trigger sending OTP
+    sendOtp();
+    document.getElementById('ob1').focus();
+}
+
+function closeOtpModal() {
+    showOverlay(false);
+    stopOtpTimer();
+}
+
+document.getElementById('cancelOtpBtn').addEventListener('click', closeOtpModal);
+
+function showOverlay(show) {
+    document.getElementById('otpModalOverlay').style.display = show ? 'flex' : 'none';
+}
+
+/* ── OTP Timer ── */
+function startOtpTimer() {
+    stopOtpTimer();
+    otpSecondsLeft = 60;
+    updateTimerDisplay();
+    const resendBtn = document.getElementById('resendOtpBtn');
+    resendBtn.disabled = true;
+
+    const timerRow = document.querySelector('.otp-timer-row');
+    timerRow.classList.remove('expired');
+
+    otpTimerInterval = setInterval(() => {
+        otpSecondsLeft--;
+        updateTimerDisplay();
+        if (otpSecondsLeft <= 0) {
+            stopOtpTimer();
+            resendBtn.disabled = false;
+            timerRow.classList.add('expired');
+            document.getElementById('otpTimerDisplay').textContent = 'Expired';
+            document.getElementById('otpTimerLabel').innerHTML =
+                '<span style="color:#dc3545;">OTP expired. Please resend a new one.</span>';
+        }
+    }, 1000);
+}
+
+function stopOtpTimer() {
+    if (otpTimerInterval) {
+        clearInterval(otpTimerInterval);
+        otpTimerInterval = null;
+    }
+}
+
+function updateTimerDisplay() {
+    const mins = Math.floor(otpSecondsLeft / 60);
+    const secs = otpSecondsLeft % 60;
+    document.getElementById('otpTimerDisplay').textContent =
+        `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+/* ── OTP Box auto-jump ── */
+document.querySelectorAll('.otp-box').forEach((box, idx, boxes) => {
+    box.addEventListener('input', function() {
+        this.value = this.value.replace(/\D/, '');
+        if (this.value) {
+            this.classList.add('otp-box-filled');
+            this.classList.remove('otp-box-error');
+            if (idx < boxes.length - 1) boxes[idx + 1].focus();
+        } else {
+            this.classList.remove('otp-box-filled');
+        }
+    });
+    box.addEventListener('keydown', function(e) {
+        if (e.key === 'Backspace' && !this.value && idx > 0) {
+            boxes[idx - 1].focus();
+        }
+        if (e.key === 'Enter') {
+            document.getElementById('verifyOtpBtn').click();
+        }
+    });
+    box.addEventListener('paste', function(e) {
+        e.preventDefault();
+        const pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 6);
+        [...pasted].forEach((ch, i) => {
+            if (boxes[i]) {
+                boxes[i].value = ch;
+                boxes[i].classList.add('otp-box-filled');
+                boxes[i].classList.remove('otp-box-error');
+            }
+        });
+        const nextEmpty = [...boxes].findIndex(b => !b.value);
+        if (nextEmpty !== -1) boxes[nextEmpty].focus();
+        else boxes[5].focus();
+    });
+});
+
+function getOtpValue() {
+    return [...document.querySelectorAll('.otp-box')].map(b => b.value).join('');
+}
+
+function clearOtpInputs() {
+    document.querySelectorAll('.otp-box').forEach(b => {
+        b.value = '';
+        b.classList.remove('otp-box-filled', 'otp-box-error');
+    });
+}
+
+function markOtpError() {
+    document.querySelectorAll('.otp-box').forEach(b => b.classList.add('otp-box-error'));
+}
+
+/* ── Show OTP message below input ── */
+function showOtpMsg(text, type) {
+    const el = document.getElementById('otpMsg');
+    el.textContent = text;
+    el.className = `otp-msg ${type}`;
+    el.style.display = 'block';
+}
+function hideOtpMsg() {
+    document.getElementById('otpMsg').style.display = 'none';
+}
+
+/* ── Send OTP (called on modal open & resend) ── */
+async function sendOtp() {
+    hideOtpMsg();
+    try {
+        const res  = await fetch(SEND_OTP_URL, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': CSRF, 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const data = await res.json();
+        if (!data.success) {
+            showOtpMsg(data.message || 'Failed to send OTP.', 'error');
+        }
+    } catch {
+        showOtpMsg('Network error while sending OTP. Please try again.', 'error');
+    }
+}
+
+/* ── Resend OTP ── */
+document.getElementById('resendOtpBtn').addEventListener('click', async function() {
+    this.disabled = true;
+    clearOtpInputs();
+    hideOtpMsg();
+    document.getElementById('ob1').focus();
+
+    // Reset timer display label
+    document.getElementById('otpTimerLabel').innerHTML =
+        'OTP expires in <strong id="otpTimerDisplay">1:00</strong>';
+
+    await sendOtp();
+    startOtpTimer();
+    showOtpMsg('A new OTP has been sent to your email.', 'success');
+});
+
+/* ── Verify OTP ── */
+document.getElementById('verifyOtpBtn').addEventListener('click', async function() {
+    const otp = getOtpValue();
+    if (otp.length < 6) {
+        showOtpMsg('Please enter all 6 digits of the OTP.', 'error');
+        markOtpError();
+        return;
+    }
+
+    const verifyBtn       = this;
+    const verifyBtnText   = document.getElementById('verifyBtnText');
+    const verifyBtnSpinner= document.getElementById('verifyBtnSpinner');
+    verifyBtn.disabled    = true;
+    verifyBtnText.style.display   = 'none';
+    verifyBtnSpinner.style.display= 'inline';
+
+    try {
+        const res  = await fetch(VERIFY_OTP_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': CSRF,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ otp })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            stopOtpTimer();
+            showOtpMsg('✅ Email verified! Updating your profile...', 'success');
+            setTimeout(() => { window.location.href = data.redirect || '/userpanel/profile/'; }, 1200);
+        } else {
+            markOtpError();
+            showOtpMsg(data.message || 'Invalid OTP.', 'error');
+            if (data.reason === 'expired') {
+                document.getElementById('resendOtpBtn').disabled = false;
+            }
+            verifyBtn.disabled = false;
+            verifyBtnText.style.display    = 'inline';
+            verifyBtnSpinner.style.display = 'none';
+        }
+    } catch {
+        showOtpMsg('Network error. Please try again.', 'error');
+        verifyBtn.disabled = false;
+        verifyBtnText.style.display    = 'inline';
+        verifyBtnSpinner.style.display = 'none';
+    }
+});
+
+/* ── Simple toast (for form errors) ── */
+function showToast(msg, type) {
+    const t = document.createElement('div');
+    t.className = `otp-msg ${type}`;
+    t.textContent = msg;
+    t.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99999;padding:12px 20px;border-radius:10px;font-size:.9rem;';
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 4000);
+}
 </script>
 {% endblock %}

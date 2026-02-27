@@ -5,6 +5,8 @@ urlpatterns = [
     # Profile URLs
     path('profile/', views.user_profile, name='profile'),
     path('update-profile/', views.update_profile, name='update_profile'),
+    path('send-email-otp/', views.send_email_otp, name='send_email_otp'),
+    path('verify-email-otp/', views.verify_email_otp, name='verify_email_otp'),
     path('cancel/', views.cancel_profile_update, name='cancel_profile_update'),
     
     # Password URLs

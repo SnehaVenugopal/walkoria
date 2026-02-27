@@ -101,31 +101,42 @@ class SignUpForm(forms.Form):
 
 class ResetPasswordForm(forms.Form):
     password = forms.CharField(
-        widget=forms.PasswordInput(attrs={'placeholder': 'Enter new password'}),
-        label='Password'
+        min_length=8,
+        widget=forms.PasswordInput(attrs={'placeholder': 'Enter new password (min 8 characters)'}),
+        label='Password',
+        error_messages={
+            'required': 'New password is required.',
+            'min_length': 'Password must be at least 8 characters long.',
+        }
     )
     confirm_password = forms.CharField(
         widget=forms.PasswordInput(attrs={'placeholder': 'Confirm new password'}),
-        label='Confirm Password'
+        label='Confirm Password',
+        error_messages={
+            'required': 'Please confirm your password.',
+        }
     )
 
     def clean_password(self):
-        password = self.cleaned_data.get('password')
-        confirm_password = self.cleaned_data.get('confirm_password')
-        if " " in password:
-            raise ValidationError("Password should not contain spaces.")
-        elif (password and re.search(r"\s", password)) or (confirm_password and re.search(r"\s", confirm_password)):
-            raise ValidationError("Password should not contain spaces or blank characters.")
-        elif len(password) < 8:
-            raise ValidationError('Password length should be at least 8 characters.')
+        password = self.cleaned_data.get('password', '')
+        if re.search(r'\s', password):
+            raise ValidationError('Password must not contain spaces or blank characters.')
+        if len(password) < 8:
+            raise ValidationError('Password must be at least 8 characters long.')
         return password
 
     def clean(self):
         cleaned_data = super().clean()
-        password = cleaned_data.get('password')
-        confirm_password = cleaned_data.get('confirm_password')
+        password        = cleaned_data.get('password', '')
+        confirm_password = cleaned_data.get('confirm_password', '')
+
+        if confirm_password and re.search(r'\s', confirm_password):
+            self.add_error('confirm_password', 'Password must not contain spaces or blank characters.')
+
         if password and confirm_password and password != confirm_password:
-            self.add_error('confirm_password', "Passwords do not match.")
+            self.add_error('confirm_password', 'Passwords do not match.')
+
+        return cleaned_data
             
             
 #login part validation
