@@ -321,9 +321,15 @@
 <!-- Order Header with title and return requests button -->
 <div class="order-header">
     <h2 style="margin: 0; color: #2c3e50;">Order Management</h2>
-    <button type="button" class="return-requests-btn" data-bs-toggle="modal" data-bs-target="#returnRequestsModal">
+    <button type="button" class="return-requests-btn position-relative" data-bs-toggle="modal" data-bs-target="#returnRequestsModal">
         <i class="fas fa-undo"></i>
         View Return Requests
+        {% if return_requests %}
+        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+            {{ return_requests|length }}
+            <span class="visually-hidden">pending return requests</span>
+        </span>
+        {% endif %}
     </button>
 </div>
 
@@ -382,7 +388,7 @@
                 <td>{{ forloop.counter0|add:order_items.start_index }}</td>
                 <td><strong>{{ item.order.order_number }}</strong></td>
                 <td>{{ item.order.shipping_address.full_name }}</td>
-                <td><strong>₹{{ item.price }}</strong></td>
+                <td><strong>₹{{ item.get_effective_price|floatformat:2 }}</strong> <small class="text-muted">× {{ item.quantity }}</small></td>
                 <td>{{ item.order.get_payment_method_display }}</td>
                 <td>
                     <span class="status-badge 
@@ -504,7 +510,7 @@
                                 <td>{{ item.order.order_number }}</td>
                                 <td>{{ order.user.first_name }} {{ order.user.last_name }}</td>
                                 <td>{{ item.product_variant.product.name }}</td>
-                                <td>₹{{ item.price }}</td>
+                                <td>₹{{ item.get_effective_price|floatformat:2 }} <small class="text-muted">× {{ item.quantity }}</small></td>
                                 <td>
                                     <div class="btn-group" role="group">
                                         <form method="post" action="{% url 'handle_return_request' item.id 'approve' %}" class="d-inline">

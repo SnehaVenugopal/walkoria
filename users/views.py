@@ -325,6 +325,7 @@ def forgot_password_view(request):
 
     return render(request, 'forgot_password.html')
 
+
 @cache_control(no_cache=True, must_revalidate=True, no_store=True)
 def reset_password_view(request):
     email = request.session.get('reset_email')
@@ -335,10 +336,9 @@ def reset_password_view(request):
         messages.error(request, 'Session expired. Please request a new OTP.')
         return redirect('forgot_password')
 
-    remaining_seconds = _otp_remaining_seconds(created_at, minutes=1)
-
     if request.method == 'POST':
-        # Build user-entered OTP from 6 inputs
+        # Recalculate fresh – the value from GET is stale by submission time
+        remaining_seconds = _otp_remaining_seconds(created_at, minutes=1)
         user_otp = ''.join([request.POST.get(f'otp{i}', '') for i in range(1, 7)])
         form = ResetPasswordForm(request.POST)
 
@@ -347,7 +347,8 @@ def reset_password_view(request):
             return redirect('forgot_password')
 
         if user_otp != otp_in_session:
-            messages.error(request, 'Invalid OTP.')
+            messages.error(request, 'Invalid OTP. Please check and try again.')
+            remaining_seconds = _otp_remaining_seconds(created_at, minutes=1)
             return render(request, 'reset_password.html', {'form': form, 'remaining_seconds': remaining_seconds})
 
         if form.is_valid():
@@ -361,17 +362,19 @@ def reset_password_view(request):
             user.password = make_password(new_password)
             user.save()
 
-            # Clear session
             for key in ['reset_email', 'reset_otp', 'reset_otp_created_at']:
                 request.session.pop(key, None)
 
             messages.success(request, 'Password reset successful. You can now log in.')
             return redirect('login')
         else:
+            remaining_seconds = _otp_remaining_seconds(created_at, minutes=1)
             return render(request, 'reset_password.html', {'form': form, 'remaining_seconds': remaining_seconds})
 
+    remaining_seconds = _otp_remaining_seconds(created_at, minutes=1)
     form = ResetPasswordForm()
     return render(request, 'reset_password.html', {'form': form, 'remaining_seconds': remaining_seconds})
+
 
 @require_POST
 @cache_control(no_cache=True, must_revalidate=True, no_store=True)

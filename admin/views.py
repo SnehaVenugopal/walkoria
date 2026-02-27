@@ -656,7 +656,7 @@ def admin_order_overview(request, order_id):
     other_orders = Order.objects.filter(user=order.user).exclude(id=order_id)
     status_choices = OrderItem.STATUS_CHOICES
     
-    # Calculate totals and identify offers
+    # Calculate totals using stored prices (snapshotted at checkout time)
     items = order.items.all().select_related('product_variant__product__category')
     enhanced_items = []
     
@@ -666,57 +666,31 @@ def admin_order_overview(request, order_id):
     total_final_price_calculated = 0
 
     for item in items:
-        # Based on user feedback: item.price is the "Sale Price" (4900), not the final sold price (2450).
-        # We must apply the offer on top of item.price.
-        
-        mrp = item.original_price * item.quantity
-        sale_price = item.price * item.quantity # This is the "Price" to display
-        
+        mrp = item.original_price * item.quantity      # MRP at time of order
+        sale_price = item.price * item.quantity         # The actual price paid (offer already applied at checkout)
+
         total_mrp += mrp
         total_base_sale_price += sale_price
-        
-        item_offer_disc = 0
-        offer_details = None
-        
-        # Check active offers at order time
-        active_offer = Offer.objects.filter(
-            (Q(offer_type='Product', product=item.product_variant.product) | 
-             Q(offer_type='Category', category=item.product_variant.product.category)),
-            start_date__lte=order.created_at,
-            end_date__gte=order.created_at
-        ).order_by('-discount_percentage').first()
-        
-        # Fallback: Loose Match if strict fails
-        if not active_offer:
-             active_offer = Offer.objects.filter(
-                (Q(offer_type='Product', product=item.product_variant.product) | 
-                 Q(offer_type='Category', category=item.product_variant.product.category))
-            ).order_by('-discount_percentage').first()
 
-        if active_offer:
-             p = active_offer.discount_percentage
-             # Calculate offer amount based on the Sale Price
-             item_offer_disc = sale_price * (Decimal(p) / Decimal(100))
-             
-             offer_details = {
-                'name': active_offer.name,
-                'type': active_offer.offer_type,
-                'percentage': active_offer.discount_percentage
-             }
-        
+        # Offer discount = MRP - price_paid  (already baked into item.price at checkout)
+        # We don't re-query the Offer table — the offer may be expired now and
+        # the fallback would apply any random offer, producing wrong numbers.
+        item_offer_disc = mrp - sale_price
+        if item_offer_disc < 0:
+            item_offer_disc = 0
+
         total_offer_discount += item_offer_disc
-        total_final_price_calculated += (sale_price - item_offer_disc)
+        total_final_price_calculated += sale_price
 
-        item.offer_details = offer_details
-        item.final_price_display = sale_price - item_offer_disc
+        item.offer_details = None        # No live offer lookup needed
+        item.final_price_display = sale_price
         enhanced_items.append(item)
 
-    # Use the calculated final price as the effective "Sold Price" (Subtotal)
+    # Sold price = sum of item.price × qty (already post-offer)
     total_sold_price = total_final_price_calculated
 
-    # Calculate Normal Discount (MRP - Sale Price)
-    total_normal_discount = total_mrp - total_base_sale_price
-    if total_normal_discount < 0: total_normal_discount = 0
+    # Normal discount not shown separately (it's part of offer discount now)
+    total_normal_discount = 0
 
     data = {
         'first_name': first_name,

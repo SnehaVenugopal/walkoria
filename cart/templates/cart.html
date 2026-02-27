@@ -636,12 +636,12 @@
             {% for item in cart_items %}
             <div class="cart-item" data-item-id="{{ item.id }}">
                 <div class="d-flex">
-                    <a href="{% url 'product_detail' item.product.id %}">
+                    <a href="{% url 'product_detail' item.product.id %}?color={{ item.variant.color|urlencode }}&size={{ item.variant.size|urlencode }}">
                         <img src="{% if item.variant.images.first %}{{ item.variant.images.first.image }}{% elif item.product.images.first %}{{ item.product.images.first.image }}{% else %}/placeholder.svg?height=120&width=120{% endif %}" 
                             alt="{{ item.product.name }}" class="item-image">
                     </a>
                     <div class="item-details">
-                        <a href="{% url 'product_detail' item.product.id %}" style="text-decoration: none;">
+                        <a href="{% url 'product_detail' item.product.id %}?color={{ item.variant.color|urlencode }}&size={{ item.variant.size|urlencode }}" style="text-decoration: none;">
                             <h3 class="item-name">{{ item.product.name }}</h3>
                         </a>
                         <p class="item-variant">

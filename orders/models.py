@@ -145,53 +145,28 @@ class OrderItem(models.Model):
 
     def get_effective_price(self):
         """
-        Calculate the effective price paid for this item (Base Price - Offer Discount).
-        Does NOT include Coupon discount as that is applied to total.
+        Return the price actually paid per unit for this item.
+
+        item.price is saved at checkout with any active offer already applied,
+        so we just return it directly.  We must NOT re-query the Offer table
+        here because:
+          1) The offer may have since expired — a fallback would then pick ANY
+             offer regardless of dates, giving a wrong (too-low) price.
+          2) Even a date-bounded query could mis-fire if the offer window was
+             later edited.
+
+        The snapshot in item.price is the single source of truth.
         """
-        try:
-            from wallet.models import Offer
-            from django.db.models import Q
-            from decimal import Decimal
-            
-            # Find the offer that was active when order was placed
-            # Note: This is an estimation since we don't store the exact offer ID on OrderItem
-            created_at = self.order.created_at
-            
-            active_offer = Offer.objects.filter(
-                (Q(offer_type='Product', product=self.product_variant.product) | 
-                 Q(offer_type='Category', category=self.product_variant.product.category)),
-                start_date__lte=created_at,
-                end_date__gte=created_at
-            ).order_by('-discount_percentage').first()
-            
-            # Fallback
-            if not active_offer:
-                 active_offer = Offer.objects.filter(
-                    (Q(offer_type='Product', product=self.product_variant.product) | 
-                     Q(offer_type='Category', category=self.product_variant.product.category))
-                ).order_by('-discount_percentage').first()
-            
-            offer_discount = 0
-            if active_offer:
-                p = active_offer.discount_percentage
-                # item.price is the Base Sale Price per unit
-                offer_discount = self.price * (Decimal(p) / Decimal(100))
-                
-            return self.price - offer_discount
-            
-        except ImportError:
-            return self.price
-        except Exception:
-            return self.price
+        return self.price
 
     def get_refund_amount(self):
         """
         Calculate the actual amount credited to wallet on return/cancellation.
-        = (effective price × qty) − proportional share of coupon discount.
-        Mirrors the formula used in both admin refund handlers.
+        = (price × qty) − proportional share of coupon discount.
         """
+        from decimal import Decimal
         try:
-            effective_total = self.get_effective_price() * self.quantity
+            effective_total = self.price * self.quantity
             order = self.order
             order_total_before_coupon = order.total_amount + order.discount
             if order_total_before_coupon > 0 and order.discount > 0:
@@ -201,7 +176,7 @@ class OrderItem(models.Model):
                 return round(max(refund, Decimal('0')), 2)
             return round(effective_total, 2)
         except Exception:
-            return round(self.get_effective_price() * self.quantity, 2)
+            return round(self.price * self.quantity, 2)
 
     def save(self, *args, **kwargs):
         if self.status == 'Delivered':

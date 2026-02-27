@@ -388,8 +388,9 @@
                     <div class="info-value">
                         {% if item.original_price > item.price %}
                             <span style="text-decoration: line-through; color: #999; margin-right: 5px;">₹{{ item.original_price|floatformat:2 }}</span>
-                            <span style="color: #d63384; font-weight: 600;">₹{{ item.price|floatformat:2 }}</span>
-                            
+                            <span style="text-decoration: line-through; color: #bbb; margin-right: 5px;">₹{{ item.price|floatformat:2 }}</span>
+                            <span style="color: #d63384; font-weight: 600;">₹{{ item.get_effective_price|floatformat:2 }}</span>
+
                             {% if item.offer_details %}
                                 <div style="margin-top: 4px;">
                                     <span class="badge bg-success" style="font-size: 0.75em;">
@@ -401,17 +402,15 @@
                                     </span>
                                     {% endif %}
                                 </div>
-                            {% else %}
-                                <span class="badge bg-success" style="font-size: 0.75em; margin-left: 5px;">Offer Applied</span>
                             {% endif %}
                         {% else %}
-                            ₹{{ item.price|floatformat:2 }}
+                            ₹{{ item.get_effective_price|floatformat:2 }}
                         {% endif %}
                     </div>
                 </div>
                 <div class="info-group">
                      <div class="info-label">Item Total</div>
-                     <div class="info-value"><strong>₹{{ item.total_price|floatformat:2 }}</strong></div>
+                     <div class="info-value"><strong>₹{{ item.final_price_display|floatformat:2 }}</strong></div>
                 </div>
             </div>
             <div>
