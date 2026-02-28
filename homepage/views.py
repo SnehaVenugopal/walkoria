@@ -18,6 +18,15 @@ from wallet.models import Offer
 
 # Create your views here.
 
+def about_us(request):
+    cart_items_count = 0
+    if request.user.is_authenticated:
+        from cart.models import Cart
+        cart = Cart.objects.filter(user=request.user).first()
+        if cart:
+            cart_items_count = cart.items.count()
+    return render(request, 'about_us.html', {'cart_items_count': cart_items_count})
+
 def custom_404(request, exception):
     """Custom 404 error page"""
     return render(request, '404.html', status=404)

@@ -1,0 +1,339 @@
+{% extends 'home_base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    .about-header {
+        background: linear-gradient(135deg, rgba(255, 66, 157, 0.9), rgba(108, 92, 231, 0.9));
+        padding: 80px 0;
+        color: white;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .about-header h1 {
+        font-weight: 800;
+        font-size: 3.5rem;
+        margin-bottom: 20px;
+        position: relative;
+        z-index: 2;
+    }
+    
+    .about-header p {
+        font-size: 1.2rem;
+        opacity: 0.9;
+        max-width: 600px;
+        margin: 0 auto;
+        position: relative;
+        z-index: 2;
+    }
+    
+    .about-header::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: url('https://www.transparenttextures.com/patterns/cubes.png');
+        opacity: 0.2;
+        z-index: 1;
+    }
+
+    .ceo-section {
+        padding: 80px 0;
+        background-color: #f8f9fa;
+    }
+    
+    .ceo-card {
+        background: white;
+        border-radius: 20px;
+        padding: 40px;
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.05);
+        display: flex;
+        align-items: center;
+        gap: 40px;
+        max-width: 900px;
+        margin: 0 auto;
+        transition: transform 0.3s ease;
+    }
+    
+    .ceo-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .ceo-image {
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 5px solid white;
+        box-shadow: 0 10px 25px rgba(255, 66, 157, 0.3);
+        flex-shrink: 0;
+        filter: grayscale(100%);
+    }
+    
+    .ceo-info h3 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--text-dark);
+        margin-bottom: 5px;
+    }
+    
+    .ceo-info h5 {
+        color: var(--primary-color);
+        font-weight: 600;
+        margin-bottom: 20px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        font-size: 0.9rem;
+    }
+    
+    .ceo-info p {
+        color: var(--text-light);
+        line-height: 1.8;
+        font-size: 1.05rem;
+    }
+
+    .story-section {
+        padding: 80px 0;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .story-content {
+        max-width: 800px;
+        margin: 0 auto;
+        text-align: center;
+        position: relative;
+        z-index: 2;
+    }
+    
+    .story-title {
+        color: white;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        margin-bottom: 15px;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .contact-section .story-title {
+        color: #333;
+        text-shadow: none;
+    }
+    
+    .story-text {
+        font-size: 1.15rem;
+        color: rgba(255, 255, 255, 0.95);
+        line-height: 1.9;
+        margin-bottom: 30px;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Floating Bubbles Animation */
+    .bubbles {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+        overflow: hidden;
+        pointer-events: none;
+    }
+
+    .bubble {
+        position: absolute;
+        bottom: -100px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        animation: float 10s infinite ease-in;
+    }
+
+    .bubble:nth-child(1) { width: 40px; height: 40px; left: 10%; animation-duration: 8s; }
+    .bubble:nth-child(2) { width: 80px; height: 80px; left: 20%; animation-duration: 12s; animation-delay: 2s; }
+    .bubble:nth-child(3) { width: 50px; height: 50px; left: 35%; animation-duration: 7s; animation-delay: 4s; }
+    .bubble:nth-child(4) { width: 60px; height: 60px; left: 50%; animation-duration: 11s; }
+    .bubble:nth-child(5) { width: 90px; height: 90px; left: 65%; animation-duration: 10s; animation-delay: 1s; }
+    .bubble:nth-child(6) { width: 45px; height: 45px; left: 80%; animation-duration: 8s; animation-delay: 3s; }
+    .bubble:nth-child(7) { width: 70px; height: 70px; left: 90%; animation-duration: 12s; animation-delay: 2s; }
+
+    @keyframes float {
+        0% { transform: translateY(0) scale(1); opacity: 0; }
+        10% { opacity: 1; }
+        90% { opacity: 1; }
+        100% { transform: translateY(-1000px) scale(1.5); opacity: 0; }
+    }
+    
+    .contact-section {
+        background: white;
+        padding: 80px 0;
+        position: relative;
+    }
+    
+    .contact-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 30px;
+        margin-top: 50px;
+    }
+    
+    .contact-card {
+        background: #f8f9fa;
+        padding: 40px 30px;
+        border-radius: 15px;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+    
+    .contact-card:hover {
+        background: white;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
+        transform: translateY(-5px);
+    }
+    
+    .contact-icon-wrapper {
+        width: 70px;
+        height: 70px;
+        background: linear-gradient(135deg, rgba(255, 66, 157, 0.1), rgba(108, 92, 231, 0.1));
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+    }
+    
+    .contact-icon-wrapper i {
+        font-size: 1.8rem;
+        color: var(--primary-color);
+    }
+    
+    .contact-card h4 {
+        font-weight: 700;
+        margin-bottom: 15px;
+        color: #333;
+    }
+    
+    .contact-card p {
+        color: #666;
+        line-height: 1.6;
+        margin-bottom: 0;
+    }
+
+    @media (max-width: 768px) {
+        .ceo-card {
+            flex-direction: column;
+            text-align: center;
+            padding: 30px 20px;
+        }
+        
+        .about-header h1 {
+            font-size: 2.5rem;
+        }
+    }
+</style>
+
+<!-- About Header -->
+<div class="about-header">
+    <div class="container">
+        <h1>About Walkoria</h1>
+        <p>Your premier destination for elegant, empowered, and trend-setting women's footwear.</p>
+    </div>
+</div>
+
+<!-- Story Section -->
+<div class="story-section">
+    <!-- Floating Bubbles -->
+    <div class="bubbles">
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+    </div>
+    
+    <div class="container">
+        <div class="story-content">
+            <h4 class="story-title">Our Story</h4>
+            <h2 class="mb-4 fw-bold text-white">Walking The Talk</h2>
+            <p class="story-text">
+                Welcome to Walkoria, your number one source for premium women's branded shoes. We are dedicated to providing you the very best of women's footwear, with an emphasis on unmatched luxury, durability, and trend-setting feminine designs that stand out.
+            </p>
+            <p class="story-text">
+                Founded with a bold vision to revolutionize the online footwear shopping experience specifically for women, Walkoria has grown from a dream into a premier destination for branded footwear. Our relentless passion for empowering women through eco-friendly, stylish, and high-performance shoes drove us to establish a curated collection that perfectly blends modern chic with irresistible comfort. Today, we proudly serve empowered women all around the world!
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- CEO Section -->
+<div class="ceo-section">
+    <div class="container">
+        <div class="ceo-card">
+            <!-- Using the black & white photo of the CEO -->
+            <img src="{% static 'assets/my_pic2.jpg' %}" alt="Sneha Venugopal" class="ceo-image">
+            <div class="ceo-info">
+                <h3>Sneha Venugopal</h3>
+                <h5>Founder & CEO</h5>
+                <p>
+                    "I started Walkoria because I believe that the right pair of shoes can empower you to conquer anything. 
+                    Fashion should not compromise comfort, and luxury should not be unattainable. 
+                    Every pair in our collection is curated with love, keeping your journey in mind."
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Contact Section -->
+<div id="contact-section" class="contact-section">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h4 class="story-title">Get In Touch</h4>
+            <h2 class="fw-bold">We're Here To Help</h2>
+        </div>
+        
+        <div class="contact-grid">
+            <div class="contact-card">
+                <div class="contact-icon-wrapper">
+                    <i class="fas fa-map-marker-alt"></i>
+                </div>
+                <h4>Our Location</h4>
+                <p>123 Fashion Street, Style City<br>Walkoria Headquarters<br>New York, NY 10001</p>
+            </div>
+            
+            <div class="contact-card">
+                <div class="contact-icon-wrapper">
+                    <i class="fas fa-envelope"></i>
+                </div>
+                <h4>Email Us</h4>
+                <p>info@walkoria.com<br>support@walkoria.com</p>
+            </div>
+            
+            <div class="contact-card">
+                <div class="contact-icon-wrapper">
+                    <i class="fas fa-phone"></i>
+                </div>
+                <h4>Call Us</h4>
+                <p>+1 555-123-4567<br>Mon - Fri, 9am - 6pm EST</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // If the URL has #contact-section, scroll to it on load
+    document.addEventListener("DOMContentLoaded", function() {
+        if(window.location.hash === "#contact-section") {
+            setTimeout(function() {
+                var element = document.getElementById("contact-section");
+                if(element) {
+                    var y = element.getBoundingClientRect().top + window.scrollY - 100; // 100px offset for fixed navbar
+                    window.scrollTo({top: y, behavior: 'smooth'});
+                }
+            }, 500);
+        }
+    });
+</script>
+{% endblock %}
