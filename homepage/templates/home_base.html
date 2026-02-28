@@ -625,10 +625,10 @@
                         <a class="nav-link" href="{% url 'product_listing' %}">Products</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#">About Us</a>
+                        <a class="nav-link" href="{% url 'about_us' %}">About Us</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#">Contact</a>
+                        <a class="nav-link" href="{% url 'about_us' %}#contact-section">Contact</a>
                     </li>
                 </ul>
                 
@@ -749,7 +749,7 @@
             <div class="row">
                 <div class="col-lg-3 col-md-6 mb-4">
                     <h5 class="footer-title">CUSTOMER SERVICE</h5>
-                    <a href="#" class="footer-link">Contact us</a>
+                    <a href="{% url 'about_us' %}#contact-section" class="footer-link">Contact us</a>
                     <a href="#" class="footer-link">Shipping & Returns</a>
                     <a href="#" class="footer-link">Terms & Conditions</a>
                     <a href="#" class="footer-link">Delivery</a>
@@ -757,7 +757,7 @@
                 
                 <div class="col-lg-3 col-md-6 mb-4">
                     <h5 class="footer-title">INFORMATION</h5>
-                    <a href="#" class="footer-link">About</a>
+                    <a href="{% url 'about_us' %}" class="footer-link">About</a>
                     <a href="#" class="footer-link">Payments</a>
                     <a href="#" class="footer-link">Size guide</a>
                     <a href="#" class="footer-link">Administrator</a>
