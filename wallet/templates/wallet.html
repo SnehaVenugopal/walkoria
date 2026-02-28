@@ -790,6 +790,7 @@
                         description: 'Add Money to Wallet',
                         order_id: data.razorpay_order_id,
                         callback_url: window.location.origin + '{% url "verify_wallet_payment" %}',
+                        redirect: true,
                         prefill: {
                             name: '{{ request.user.name }}',
                             email: '{{ request.user.email }}'

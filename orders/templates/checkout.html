@@ -1295,6 +1295,7 @@ function initiateRazorpayPayment() {
             order_id: data.razorpay_order_id,
             // callback_url with order_id for redirect-based payments (Netbanking, etc.)
             callback_url: window.location.origin + '{% url "verify_razorpay_payment" %}' + '?order_id=' + data.order_id,
+            redirect: true,
             prefill: {
                 name: '{{ user.name }}',
                 email: '{{ user.email }}',

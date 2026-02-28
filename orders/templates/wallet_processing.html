@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Processing Payment - Walkoria</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-color: #ff429d;
+            --secondary-color: #6c5ce7;
+            --success-color: #00b894;
+            --text-dark: #2d3436;
+            --text-light: #636e72;
+            --bg-light: #f8f9fa;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: var(--text-dark);
+            overflow: hidden; /* Prevent scrolling during processing */
+        }
+
+        /* Navigation Styles */
+        .navbar {
+            background: white;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            padding: 15px 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .navbar-brand {
+            font-weight: bold;
+            color: var(--primary-color) !important;
+            font-size: 2rem;
+            letter-spacing: 1px;
+            text-decoration: none;
+        }
+
+        .nav-link {
+            color: #333 !important;
+            font-weight: 500;
+            margin: 0 15px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            letter-spacing: 0.5px;
+        }
+
+        .main-content {
+            padding: 3rem 0;
+            min-height: calc(100vh - 80px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .processing-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 4rem 3rem;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+            max-width: 500px;
+            width: 100%;
+            margin: 0 auto;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+        }
+
+        .wallet-animation-container {
+            position: relative;
+            width: 150px;
+            height: 150px;
+            margin: 0 auto 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .wallet-icon-wrapper {
+            position: relative;
+            z-index: 2;
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 25px rgba(255, 66, 157, 0.4);
+            animation: bounce 2s infinite ease-in-out;
+        }
+
+        .wallet-icon-wrapper i {
+            font-size: 2.5rem;
+            color: white;
+        }
+
+        /* Spinning Rings */
+        .ring {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            border: 3px solid transparent;
+            z-index: 1;
+        }
+
+        .ring-1 {
+            width: 110px;
+            height: 110px;
+            border-top-color: var(--primary-color);
+            border-bottom-color: var(--secondary-color);
+            animation: spin 2s linear infinite;
+            opacity: 0.6;
+        }
+
+        .ring-2 {
+            width: 130px;
+            height: 130px;
+            border-left-color: var(--success-color);
+            border-right-color: var(--primary-color);
+            animation: spin-reverse 3s linear infinite;
+            opacity: 0.4;
+        }
+        
+        .ring-3 {
+            width: 150px;
+            height: 150px;
+            border-top-color: #f1c40f;
+            animation: spin 4s linear infinite;
+            opacity: 0.2;
+        }
+
+        .processing-title {
+            color: var(--text-dark);
+            font-weight: 700;
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .processing-message {
+            color: var(--text-light);
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .amount-display {
+            background: var(--bg-light);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: inline-block;
+        }
+        
+        .amount-label {
+            font-size: 0.85rem;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.2rem;
+        }
+        
+        .amount-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin: 0;
+        }
+        
+        /* Floating particles */
+        .particle {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background-color: var(--primary-color);
+            border-radius: 50%;
+            opacity: 0;
+            animation: float-up 2s ease-in-out infinite;
+        }
+        
+        .p1 { left: 20%; top: 70%; animation-delay: 0s; background-color: var(--success-color); }
+        .p2 { left: 80%; top: 60%; animation-delay: 0.5s; background-color: var(--secondary-color); }
+        .p3 { left: 30%; top: 30%; animation-delay: 1s; width: 6px; height: 6px; }
+        .p4 { left: 70%; top: 80%; animation-delay: 1.5s; width: 10px; height: 10px; }
+
+        @keyframes spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        @keyframes spin-reverse {
+            0% { transform: translate(-50%, -50%) rotate(360deg); }
+            100% { transform: translate(-50%, -50%) rotate(0deg); }
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        @keyframes float-up {
+            0% { transform: translateY(0) scale(1); opacity: 0; }
+            50% { opacity: 0.6; }
+            100% { transform: translateY(-40px) scale(0); opacity: 0; }
+        }
+        
+        .progress-container {
+            width: 100%;
+            height: 6px;
+            background: #e9ecef;
+            border-radius: 10px;
+            margin-top: 2rem;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+            width: 0%;
+            border-radius: 10px;
+            transition: width 2.5s ease-out;
+        }
+
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'home' %}">Walkoria</a>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <!-- Keep Navbar Simple during processing to avoid distraction -->
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="container">
+            <div class="processing-container">
+                <div class="particle p1"></div>
+                <div class="particle p2"></div>
+                <div class="particle p3"></div>
+                <div class="particle p4"></div>
+                
+                <div class="wallet-animation-container">
+                    <div class="ring ring-1"></div>
+                    <div class="ring ring-2"></div>
+                    <div class="ring ring-3"></div>
+                    <div class="wallet-icon-wrapper">
+                        <i class="fas fa-wallet"></i>
+                    </div>
+                </div>
+                
+                <h1 class="processing-title">Processing Payment</h1>
+                <p class="processing-message">Please wait while we securely process your wallet transaction. Do not close or refresh this page.</p>
+                
+                <div class="amount-display">
+                    <div class="amount-label">Paying from Wallet</div>
+                    <h2 class="amount-value">₹{{ order.total_amount }}</h2>
+                </div>
+                
+                <div class="progress-container">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Animate progress bar
+            setTimeout(function() {
+                document.getElementById('progressBar').style.width = '100%';
+            }, 100);
+            
+            // Redirect after 2.5 seconds
+            setTimeout(function() {
+                window.location.href = "{% url 'order_success' order.id %}";
+            }, 2500);
+        });
+    </script>
+</body>
+</html>
