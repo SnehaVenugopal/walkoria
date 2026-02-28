@@ -213,6 +213,9 @@ def checkout(request):
                 #         # User wasn't referred, do nothing
                 #         pass
 
+                if payment_method == 'WP':
+                    messages.success(request, f"Order placed successfully. Your order number is {order.order_number}")
+                    return render(request, 'wallet_processing.html', {'order': order})
                 
                 messages.success(request, f"Order placed successfully. Your order number is {order.order_number}")
                 return redirect('order_success', order_id=order.id)
