@@ -174,7 +174,7 @@ def checkout(request):
                                 order=order,
                                 transaction_id="TXN-" + str(int(time.time())) + uuid.uuid4().hex[:4].upper(),
                             )
-                        order.items.update(item_payment_status='Paid')
+                        order.items.update(status='Processing', item_payment_status='Paid')
                         order.payment_status = True
                         order.save()
                         
@@ -624,9 +624,7 @@ def download_invoice(request, item_id):
     """Generate and download invoice PDF"""
     order_item = get_object_or_404(OrderItem, id=item_id, order__user=request.user)
     
-    # if order_item.status != 'Delivered':
-    #     messages.error(request, "Invoice not available for this item")
-    #     return redirect('order_detail', order_id=order_item.order.id)
+    
     
     if not order_item.invoice_number:
         order_item.save()  # This will trigger invoice number generation

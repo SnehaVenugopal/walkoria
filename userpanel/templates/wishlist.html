@@ -576,8 +576,31 @@ function moveToCart(productId, productSize) {
             .then(response => response.json())
             .then(cartData => {
                 if (cartData.success) {
-                    // Redirect directly to cart page (Django messages handles the notification)
-                    window.location.href = "{% url 'view_cart' %}";
+                    // Animate out the wishlist card
+                    const wishlistCard = document.querySelector(`.wishlist-card[data-product-id="${productId}"][data-product-size="${productSize}"]`);
+                    if (wishlistCard) {
+                        wishlistCard.style.animation = 'fadeOut 0.3s ease-out';
+                        setTimeout(() => {
+                            wishlistCard.remove();
+                            
+                            // Update item count badge
+                            const badge = document.querySelector('.badge.bg-primary');
+                            if (badge) {
+                                const currentCount = parseInt(badge.textContent) - 1;
+                                if (currentCount > 0) {
+                                    badge.textContent = `${currentCount} item${currentCount > 1 ? 's' : ''}`;
+                                } else {
+                                    badge.remove();
+                                }
+                            }
+                        }, 300);
+                    }
+                    
+                    // Show success message and redirect to cart
+                    showCustomAlert('Product moved to cart successfully!');
+                    setTimeout(() => {
+                        window.location.href = "{% url 'view_cart' %}";
+                    }, 1000);
                 } else {
                     showCustomAlert('Error: ' + (cartData.message || 'Could not add to cart'));
                 }

@@ -175,17 +175,53 @@ def generate_invoice_pdf(order_item, address):
     elements.append(Spacer(1, 4 * mm))
 
     # ── Totals Section ───────────────────────────────────────────────────────
+    # Calculate proportional delivery charge for this item
+    # If there are multiple items, split delivery proportionally by item value
+    all_items = list(order.items.all())
+    total_items_value = sum(i.get_effective_price() * i.quantity for i in all_items)
+    shipping_cost = order.shipping_cost or Decimal('0')
+
+    if len(all_items) == 1:
+        item_delivery_charge = shipping_cost
+    elif total_items_value > 0:
+        proportion = (item_subtotal_val / total_items_value)
+        item_delivery_charge = round(shipping_cost * proportion, 2)
+    else:
+        item_delivery_charge = Decimal('0')
+
+    # Calculate proportional coupon discount for this item
+    coupon_discount = order.discount or Decimal('0')
+    if coupon_discount > 0 and total_items_value > 0:
+        coupon_proportion = item_subtotal_val / total_items_value
+        item_coupon_discount = round(coupon_discount * coupon_proportion, 2)
+    else:
+        item_coupon_discount = Decimal('0')
+
+    # Grand total for this item = subtotal + delivery - coupon discount
+    grand_total = item_subtotal_val + item_delivery_charge - item_coupon_discount
+
     totals_data = [
-        ["Grand Total:", f"₹{item_subtotal_val:,.2f}"],
+        ["Subtotal:", f"₹{item_subtotal_val:,.2f}"],
     ]
+
+    if item_delivery_charge > 0:
+        totals_data.append(["Delivery Charge:", f"₹{item_delivery_charge:,.2f}"])
+
+    if item_coupon_discount > 0:
+        totals_data.append(["Coupon Discount:", f"- ₹{item_coupon_discount:,.2f}"])
+
+    totals_data.append(["Grand Total:", f"₹{grand_total:,.2f}"])
 
     totals_table = Table(totals_data, colWidths=[38 * mm, 32 * mm])
     totals_table.setStyle(TableStyle([
         ('ALIGN',      (0, 0), (0, -1), 'LEFT'),
         ('ALIGN',      (1, 0), (1, -1), 'RIGHT'),
         ('FONTNAME',   (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('FONTSIZE',   (0, 0), (-1, -1), 9),
         ('LINEABOVE',  (0, -1), (-1, -1), 1, colors.black),
         ('TOPPADDING', (0, -1), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING',    (0, 0), (-1, -1), 4),
     ]))
 
     layout_t = Table([["", totals_table]], colWidths=[110 * mm, 70 * mm])

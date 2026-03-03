@@ -455,11 +455,9 @@ def add_to_cart(request, product_id):
             cart_item.quantity = new_quantity
             cart_item.save()
             
-            # try:
-            #     wishlist_item = Wishlist.objects.get(user=request.user, product=product)
-            #     wishlist_item.delete()
-            # except Wishlist.DoesNotExist:
-            #     pass
+            # Remove from wishlist if it exists there
+            from userpanel.models import Wishlist
+            Wishlist.objects.filter(user=request.user, variant=variant).delete()
             
             messages.success(request, 'Product added to cart successfully')
             
