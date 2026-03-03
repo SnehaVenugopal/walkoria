@@ -103,8 +103,7 @@ def apply_referral_code(request):
             referral.used_at = timezone.now()
             referral.save()
             
-            # DON'T give rewards immediately - they will be given after first purchase
-            # give_referral_rewards(referral, active_offer)
+            
             
             return JsonResponse({
                 'success': True,

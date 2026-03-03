@@ -454,7 +454,10 @@
                 <div class="row align-items-center">
                     <div class="col-md-2 col-sm-3 mb-3 mb-md-0">
                         <a href="{% url 'product_detail' item.product_variant.product.id %}?color={{ item.product_variant.color|urlencode }}&size={{ item.product_variant.size|urlencode }}">
-                            {% if item.product_variant.product.images.first %}
+                            {% if item.product_variant.images.first %}
+                            <img src="{{ item.product_variant.images.first.image }}"
+                                alt="{{ item.product_variant.product.name }}" class="product-image">
+                            {% elif item.product_variant.product.images.first %}
                             <img src="{{ item.product_variant.product.images.first.image }}"
                                 alt="{{ item.product_variant.product.name }}" class="product-image">
                             {% else %}
@@ -533,7 +536,7 @@
                             </a>
                             {% endif %}
                             <button type="button" class="btn btn-custom btn-cancel" 
-                                onclick="openCancelModal({{ item.id }}, '{{ item.product_variant.product.name }}', '{{ item.product_variant.color|default:"N/A" }}', '{{ item.product_variant.size|default:"N/A" }}', {{ item.quantity }}, {{ item.get_effective_price|floatformat:2 }}, '{{ item.order.order_number }}', '{{ item.product_variant.product.images.first.image|default:"" }}')">
+                                onclick="openCancelModal({{ item.id }}, '{{ item.product_variant.product.name }}', '{{ item.product_variant.color|default:"N/A" }}', '{{ item.product_variant.size|default:"N/A" }}', {{ item.quantity }}, {{ item.get_effective_price|floatformat:2 }}, '{{ item.order.order_number }}', '{% if item.product_variant.images.first %}{{ item.product_variant.images.first.image }}{% elif item.product_variant.product.images.first %}{{ item.product_variant.product.images.first.image }}{% endif %}')">
                                 <i class="fas fa-times me-2"></i>Cancel Item
                             </button>
                             {% elif item.status == 'Cancelled' %}

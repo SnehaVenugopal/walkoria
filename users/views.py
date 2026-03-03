@@ -140,9 +140,6 @@ def verify_otp_view(request):
         messages.error(request, "OTP expired. Please sign up again.")
         return redirect('signup')
 
-    # return render(request, 'verify_otp.html', {
-    #     'otp_expiry': expiry_time.isoformat()
-    # })
 
     now = timezone.now()
     remaining_seconds = max(0, int((expiry_time - now).total_seconds()))

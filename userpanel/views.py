@@ -40,10 +40,7 @@ def user_profile(request):
 @cache_control(no_cache=True, must_revalidate=True, no_store=True)
 def update_profile(request):
     if request.method == 'POST':
-        # ⚠️ Snapshot the ORIGINAL email BEFORE form validation, because
-        # Django ModelForm._post_clean() mutates the instance (request.user)
-        # in place during is_valid(), so request.user.email is overwritten
-        # before we can compare. We read from DB to be 100% safe.
+        
         from users.models import CustomUser
         original_email = CustomUser.objects.get(pk=request.user.pk).email.strip().lower()
 
@@ -61,8 +58,7 @@ def update_profile(request):
                     'mobile_no':  str(form.cleaned_data.get('mobile_no', '')),
                 }
                 request.session.modified = True
-                # Restore the original email on the in-memory instance so it
-                # doesn't accidentally get saved by something else
+                
                 request.user.email = original_email
                 return JsonResponse({'email_change': True, 'new_email': new_email})
 

@@ -672,9 +672,7 @@ def admin_order_overview(request, order_id):
         total_mrp += mrp
         total_base_sale_price += sale_price
 
-        # Offer discount = MRP - price_paid  (already baked into item.price at checkout)
-        # We don't re-query the Offer table — the offer may be expired now and
-        # the fallback would apply any random offer, producing wrong numbers.
+        
         item_offer_disc = mrp - sale_price
         if item_offer_disc < 0:
             item_offer_disc = 0
@@ -823,14 +821,13 @@ def sales_report(request):
             start_date = today
             end_date = today
 
-    # Create aware datetimes for the range to be precise
-    # Start of start_date (00:00:00)
+  
     start_datetime = timezone.make_aware(datetime.combine(start_date, datetime.min.time()))
-    # End of end_date (23:59:59.999999)
+    
     end_datetime = timezone.make_aware(datetime.combine(end_date, datetime.max.time()))
 
     # Filter orders
-    # Exclude Cancelled orders for a valid "Sales" report
+    
     orders = Order.objects.filter(
         created_at__range=(start_datetime, end_datetime)
     ).exclude(items__status='Cancelled').distinct().select_related('user').annotate(
@@ -887,13 +884,13 @@ def download_report_excel(request):
     local_now = timezone.localtime(timezone.now())
     today = local_now.date()
     
-    # Priority 1: Use specific dates if provided (from URL or Custom filter)
+    
     if start_date_str and end_date_str:
         try:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
         except ValueError:
-            # Fallback if invalid format
+            
             start_date = today
             end_date = today
     # Priority 2: Use Report Type Logic
@@ -914,7 +911,7 @@ def download_report_excel(request):
             start_date = today
             end_date = today
 
-    # Create aware datetimes for the range to be precise
+   
     start_datetime = timezone.make_aware(datetime.combine(start_date, datetime.min.time()))
     end_datetime = timezone.make_aware(datetime.combine(end_date, datetime.max.time()))
 
@@ -1222,9 +1219,7 @@ def download_report_pdf(request):
             bg_color = colors.white
         table_style.add('BACKGROUND', (0, i), (-1, i), bg_color)
 
-    # Column Widths for Landscape 
-    # Adjusted for Coupon column
-    # Date: 55, Order: 65, Cust: 80, Prod: 140, MRP: 45, Sold: 45, Qty: 25, Disc: 45, Cpn: 45, Total: 55, Status: 60
+    
     col_widths = [55, 65, 80, 140, 45, 45, 25, 45, 45, 55, 60]
     
     t = Table(table_data, colWidths=col_widths, repeatRows=1)
