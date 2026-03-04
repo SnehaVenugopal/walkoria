@@ -11,7 +11,7 @@ import re
 def validate_category_name(value):
     if not value.strip():
         raise ValidationError("Category name cannot be empty or just spaces")
-    if not re.match("^[a-zA-Z\s]+$", value):
+    if not re.match(r"^[a-zA-Z\s]+$", value):
         raise ValidationError("Category name can only contain letters and spaces")
 
 

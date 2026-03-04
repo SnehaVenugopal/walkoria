@@ -9,7 +9,7 @@ import re
 def validate_brand_name(value):
     if not value.strip():
         raise ValidationError("Brand name cannot be empty or just spaces")
-    if not re.match("^[a-zA-Z\s]+$", value):
+    if not re.match(r"^[a-zA-Z\s]+$", value):
         raise ValidationError("Brand name can only contain letters and spaces")
 
 
