@@ -38,7 +38,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'cloudinary',
-    'cloudinary_storage',
     'django.contrib.staticfiles',
     'users',
     'social_django',
@@ -57,6 +56,11 @@ INSTALLED_APPS = [
     
   
 ]
+
+# Load cloudinary_storage only when Cloudinary is configured
+if config("CLOUDINARY_NAME", default=""):
+    INSTALLED_APPS.append("cloudinary_storage")
+
 
 
 
