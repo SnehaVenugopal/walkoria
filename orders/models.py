@@ -136,6 +136,8 @@ class OrderItem(models.Model):
     is_cancelled = models.BooleanField(default=False)
     is_bill_generated = models.BooleanField(default=False)
     invoice_number = models.CharField(max_length=50, blank=True, null=True, unique=True)
+    # Effective (after-offer) unit price saved at checkout — survives cancellation zeroing
+    effective_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     def generate_bill(self):
         if self.status == 'Delivered' and not self.is_bill_generated:
@@ -159,24 +161,137 @@ class OrderItem(models.Model):
         """
         return self.price
 
-    def get_refund_amount(self):
+    def get_effective_item_subtotal(self):
         """
-        Calculate the actual amount credited to wallet on return/cancellation.
-        = (price × qty) − proportional share of coupon discount.
+        Return what was actually paid for this item after offer discounts
+        (before coupon and delivery).
+
+        Primary source: self.effective_price (saved at checkout, persists after
+        cancellation even when order totals are zeroed out).
+        Fallback: derived proportionally from live order totals (works for
+        active orders; may show sale price for old cancelled orders).
         """
         from decimal import Decimal
         try:
-            effective_total = self.price * self.quantity
+            # Use saved effective price if available (set at checkout)
+            if self.effective_price is not None:
+                return round(self.effective_price * self.quantity, 2)
+
+            # Fallback: compute from order totals (won't work after cancellation zeroes them)
             order = self.order
-            order_total_before_coupon = order.total_amount + order.discount
-            if order_total_before_coupon > 0 and order.discount > 0:
-                proportion = effective_total / order_total_before_coupon
-                coupon_share = Decimal(str(order.discount)) * proportion
-                refund = effective_total - coupon_share
-                return round(max(refund, Decimal('0')), 2)
-            return round(effective_total, 2)
+            shipping = order.shipping_cost or Decimal('0')
+            coupon   = order.discount      or Decimal('0')
+            items_total_after_offers = order.total_amount + coupon - shipping
+            item_sale_value = self.price * self.quantity
+            all_sale_value  = order.subtotal
+            if all_sale_value > 0 and items_total_after_offers > 0:
+                return round((item_sale_value / all_sale_value) * items_total_after_offers, 2)
+            return round(item_sale_value, 2)
         except Exception:
             return round(self.price * self.quantity, 2)
+
+    def get_effective_unit_price(self):
+        """Return the effective (after-offer) price per unit."""
+        subtotal = self.get_effective_item_subtotal()
+        return round(subtotal / self.quantity, 2) if self.quantity else subtotal
+
+    def get_refund_amount(self):
+        """
+        Calculate the actual amount credited to wallet on return/cancellation.
+
+        Refund = item's effective (after-offer) value
+                 − proportional coupon share
+                 + delivery refund (ONLY if this is the last active item)
+
+        The order stores:
+          - total_amount  : items_after_offers + shipping - coupon
+          - discount      : coupon amount
+          - shipping_cost : delivery charge
+          - subtotal      : raw sale_price × qty (NO offer applied)
+
+        items_total_after_offers = total_amount + discount - shipping_cost
+
+        ⚠️ IMPORTANT: This method is called AFTER the item's status is already
+        saved as 'Cancelled' in the DB (order_item.save() runs before this call
+        in cancel_product). So we must use exclude(pk=self.pk) — NOT
+        exclude(status='Cancelled') — to determine whether other active items
+        still remain. Using status='Cancelled' would incorrectly exclude the
+        current item and give a wrong (too-high) delivery share in multi-item orders.
+        """
+        from decimal import Decimal
+        try:
+            order = self.order
+            shipping = order.shipping_cost or Decimal('0')
+            coupon   = order.discount      or Decimal('0')
+
+            # True items-only total after offers, before coupon & delivery
+            items_total_after_offers = order.total_amount + coupon - shipping
+
+            # This item's sale-price weight
+            item_sale_value = self.price * self.quantity
+            all_sale_value  = order.subtotal  # sum of item.price * qty (no offer)
+
+            # Derive this item's effective (after-offer) value
+            if all_sale_value > 0:
+                item_effective_value = (item_sale_value / all_sale_value) * items_total_after_offers
+            else:
+                item_effective_value = item_sale_value
+
+            # Proportional coupon share for this item
+            if items_total_after_offers > 0 and coupon > 0:
+                coupon_proportion = item_effective_value / items_total_after_offers
+                coupon_share = coupon * coupon_proportion
+            else:
+                coupon_share = Decimal('0')
+
+            # Delivery refund:
+            # Use exclude(pk=self.pk) — NOT exclude(status='Cancelled') — because
+            # this item is ALREADY saved as 'Cancelled' in DB when this runs,
+            # so checking status would always make len=1 in a 2-item order.
+            # We check for other items that are still active (not cancelled/returned).
+            other_active_items = order.items.exclude(pk=self.pk).exclude(
+                status__in=['Cancelled', 'Returned', 'Payment_Failed', 'Refunded']
+            )
+            is_last_active_item = not other_active_items.exists()
+
+            if is_last_active_item:
+                # Truly the last item — refund the full delivery charge too
+                item_delivery_share = shipping
+            else:
+                # Partial cancellation — delivery still needed for remaining items
+                # Do NOT refund delivery
+                item_delivery_share = Decimal('0')
+
+            refund = item_effective_value - coupon_share + item_delivery_share
+            return round(max(refund, Decimal('0')), 2)
+        except Exception:
+            return round(self.price * self.quantity, 2)
+
+    def get_actual_refund_credited(self):
+        """
+        Return the actual refund amount that was credited to the wallet for
+        this item's order cancellation/return by looking up the WalletTransaction.
+        This is used in the Order Timeline so we show the real credited amount
+        rather than recalculating (which returns 0 after order totals are zeroed).
+        """
+        try:
+            from wallet.models import WalletTransaction
+            txn = (
+                WalletTransaction.objects
+                .filter(
+                    order=self.order,
+                    transaction_type='Cr',
+                    status='Completed',
+                    description__icontains='Refund'
+                )
+                .order_by('-created_at')
+                .first()
+            )
+            if txn:
+                return txn.amount
+            return None
+        except Exception:
+            return None
 
     def save(self, *args, **kwargs):
         if self.status == 'Delivered':

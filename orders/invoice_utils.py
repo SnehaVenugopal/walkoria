@@ -124,10 +124,40 @@ def generate_invoice_pdf(order_item, address):
     elements.append(Spacer(1, 10 * mm))
 
     # ── Line Items Table ─────────────────────────────────────────────────────
-    # Use get_effective_price() — same as the order detail page shows
-    unit_price        = order_item.get_effective_price()
-    qty               = order_item.quantity
-    item_subtotal_val = unit_price * qty
+    #
+    # order.subtotal      = sum(item.price * qty)  — sale price, NO offer applied
+    # order.total_amount  = items_after_offers + shipping - coupon
+    # order.shipping_cost = delivery charge
+    # order.discount      = coupon amount
+    #
+    # True items-only total after offers (before coupon & delivery):
+    #   items_total_after_offers = order.total_amount + order.discount - order.shipping_cost
+    #
+    # Each item's effective (after-offer) value is derived proportionally:
+    #   item_effective = (item.price * qty / order.subtotal) * items_total_after_offers
+
+    all_items         = list(order.items.all())
+    shipping_cost     = order.shipping_cost or Decimal('0')
+    coupon_discount   = order.discount      or Decimal('0')
+    order_subtotal_all = order.subtotal  # sum of sale prices (no offer)
+
+    # Total items value after offers, before coupon/delivery
+    items_total_after_offers = order.total_amount + coupon_discount - shipping_cost
+
+    # This item's sale price weight
+    qty            = order_item.quantity
+    unit_sale_price = order_item.price   # sale price (snapshot, no offer)
+    item_sale_value = unit_sale_price * qty
+
+    # This item's effective (after-offer) subtotal
+    if order_subtotal_all > 0:
+        item_subtotal_val = (item_sale_value / order_subtotal_all) * items_total_after_offers
+    else:
+        item_subtotal_val = item_sale_value
+    item_subtotal_val = round(item_subtotal_val, 2)
+
+    # Effective unit price shown in line (after offer)
+    unit_price = round(item_subtotal_val / qty, 2) if qty else item_sale_value
 
     # Variant details
     variant = order_item.product_variant
@@ -175,30 +205,23 @@ def generate_invoice_pdf(order_item, address):
     elements.append(Spacer(1, 4 * mm))
 
     # ── Totals Section ───────────────────────────────────────────────────────
-    # Calculate proportional delivery charge for this item
-    # If there are multiple items, split delivery proportionally by item value
-    all_items = list(order.items.all())
-    total_items_value = sum(i.get_effective_price() * i.quantity for i in all_items)
-    shipping_cost = order.shipping_cost or Decimal('0')
+    # Proportionally split delivery and coupon across items (by sale-price weight)
+    total_sale_all = order_subtotal_all  # same as order.subtotal
 
     if len(all_items) == 1:
+        # Single item: take everything directly from the order
         item_delivery_charge = shipping_cost
-    elif total_items_value > 0:
-        proportion = (item_subtotal_val / total_items_value)
-        item_delivery_charge = round(shipping_cost * proportion, 2)
+        item_coupon_discount = coupon_discount
+        grand_total          = order.total_amount  # exact — no rounding drift
+    elif total_sale_all > 0:
+        proportion           = item_sale_value / total_sale_all
+        item_delivery_charge = round(shipping_cost   * proportion, 2)
+        item_coupon_discount = round(coupon_discount * proportion, 2)
+        grand_total          = item_subtotal_val + item_delivery_charge - item_coupon_discount
     else:
         item_delivery_charge = Decimal('0')
-
-    # Calculate proportional coupon discount for this item
-    coupon_discount = order.discount or Decimal('0')
-    if coupon_discount > 0 and total_items_value > 0:
-        coupon_proportion = item_subtotal_val / total_items_value
-        item_coupon_discount = round(coupon_discount * coupon_proportion, 2)
-    else:
         item_coupon_discount = Decimal('0')
-
-    # Grand total for this item = subtotal + delivery - coupon discount
-    grand_total = item_subtotal_val + item_delivery_charge - item_coupon_discount
+        grand_total          = item_subtotal_val
 
     totals_data = [
         ["Subtotal:", f"₹{item_subtotal_val:,.2f}"],

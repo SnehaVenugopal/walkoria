@@ -386,39 +386,47 @@
                 <div class="info-card">
                     <h6><i class="fas fa-credit-card me-2"></i>Payment Information</h6>
                     <p><strong>Payment Method:</strong> {{ order.get_payment_method_display }}</p>
-                    {% comment %}
-                    <p><strong>Payment Status:</strong>
-                        <span class="badge 
-                            {% if order.payment_method == 'COD' and not order.payment_status %}bg-warning
-                            {% elif order.payment_status %}bg-success
-                            {% else %}bg-secondary{% endif %}">
-                            {% if order.payment_method == 'COD' and not order.payment_status %}
-                            Cash on Delivery
-                            {% elif order.payment_status %}
-                            Paid
-                            {% else %}
-                            Pending
-                            {% endif %}
-                        </span>
-                    </p>
-                    {% endcomment %}
-                    <p><strong>Total Amount:</strong> ₹{{ order.total_amount|floatformat:2 }}</p>
+
+                    <hr style="margin: 8px 0; border-color: #f0f0f0;">
+
+                    <!-- Subtotal = items after offers, before coupon & delivery -->
+                    <div class="d-flex justify-content-between" style="margin-bottom:5px;">
+                        <span class="text-muted">Subtotal:</span>
+                        <span>&#8377;{{ order_subtotal|floatformat:2 }}</span>
+                    </div>
+
+                    <!-- Delivery Charge -->
+                    <div class="d-flex justify-content-between" style="margin-bottom:5px;">
+                        <span class="text-muted">Delivery Charge:</span>
+                        {% if order.shipping_cost and order.shipping_cost > 0 %}
+                        <span>&#8377;{{ order.shipping_cost|floatformat:2 }}</span>
+                        {% else %}
+                        <span style="color:#28a745;">Free</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Coupon Discount -->
                     {% if order.discount and order.discount > 0 %}
-                    <p style="color: #28a745; font-weight: 600; margin-top: -6px;">
-                        <i class="fas fa-tag me-1"></i>
-                        Coupon Discount{% if order.coupon %} ({{ order.coupon.code }}){% endif %}:
-                        <span style="font-size: 1.05rem;">−₹{{ order.discount|floatformat:2 }}</span>
-                    </p>
+                    <div class="d-flex justify-content-between" style="margin-bottom:5px;">
+                        <span style="color:#28a745;">
+                            <i class="fas fa-tag me-1"></i>
+                            Coupon{% if order.coupon %} ({{ order.coupon.code }}){% endif %}:
+                        </span>
+                        <span style="color:#28a745; font-weight:600;">&#8722;&#8377;{{ order.discount|floatformat:2 }}</span>
+                    </div>
                     {% endif %}
+
+                    <hr style="margin: 8px 0; border-color: #e9ecef;">
+
+                    <!-- Total -->
+                    <div class="d-flex justify-content-between" style="font-weight:700; font-size:1.05rem;">
+                        <span>Total Amount:</span>
+                        <span>&#8377;{{ order.total_amount|floatformat:2 }}</span>
+                    </div>
+
                     {% for item in order.items.all %}
                     {% if item.status == 'Returned' and item.item_payment_status == 'Refunded' and order.payment_method == 'COD' %}
-
-
-
-
-
-
-                    <p><strong>Refunded Amount:</strong> ₹{{ item.get_effective_price|floatformat:2 }}</p>
+                    <p class="mt-2"><strong>Refunded Amount:</strong> &#8377;{{ item.get_effective_price|floatformat:2 }}</p>
                     {% endif %}
                     {% endfor %}
 
@@ -432,6 +440,8 @@
                     {% endif %}
                 </div>
             </div>
+
+
 
             <div class="col-md-6">
                 <div class="info-card">
@@ -477,8 +487,19 @@
                             <p><strong>Color:</strong> {{ item.product_variant.color }}</p>
                             <p><strong>Size:</strong> {{ item.product_variant.size }}</p>
                             <p><strong>Quantity:</strong> {{ item.quantity }}</p>
-                            <p><strong>Price:</strong> ₹{{ item.get_effective_price|floatformat:2 }} each</p>
-                            <p><strong>Total:</strong> ₹{{ item.get_effective_price|multiply:item.quantity|floatformat:2 }}</p>
+                            {% with eff_unit=item.get_effective_unit_price eff_sub=item.get_effective_item_subtotal %}
+                            {% if eff_unit != item.price %}
+                            <p>
+                                <strong>Price:</strong>
+                                <span class="text-muted text-decoration-line-through me-1" style="font-size:0.9rem;">&#8377;{{ item.price|floatformat:2 }}</span>
+                                <span style="color:#e91e63; font-weight:600;">&#8377;{{ eff_unit|floatformat:2 }}</span>
+                                <span class="text-muted"> each</span>
+                            </p>
+                            {% else %}
+                            <p><strong>Price:</strong> &#8377;{{ eff_unit|floatformat:2 }} each</p>
+                            {% endif %}
+                            <p><strong>Subtotal:</strong> <span style="font-weight:600;">&#8377;{{ eff_sub|floatformat:2 }}</span></p>
+                            {% endwith %}
                             <p><strong>Order Status:</strong>
                                 <span class="status-badge status-{{ item.status|lower }}">
                                     {{ item.get_status_display }}
@@ -667,7 +688,11 @@
                     </div>
                     <div>
                         <h6 class="mb-1">Refund Credited</h6>
-                        <p class="text-muted mb-0">₹{{ item.get_refund_amount|floatformat:2 }} credited to wallet</p>
+                        {% with refunded=item.get_actual_refund_credited %}
+                        <p class="text-muted mb-0">
+                            {% if refunded %}₹{{ refunded|floatformat:2 }}{% else %}—{% endif %} credited to wallet
+                        </p>
+                        {% endwith %}
                     </div>
                 </div>
                 {% endif %}
@@ -691,7 +716,11 @@
                     </div>
                     <div>
                         <h6 class="mb-1">Refund Credited</h6>
-                        <p class="text-muted mb-0">₹{{ item.get_refund_amount|floatformat:2 }} credited to wallet</p>
+                        {% with refunded=item.get_actual_refund_credited %}
+                        <p class="text-muted mb-0">
+                            {% if refunded %}₹{{ refunded|floatformat:2 }}{% else %}—{% endif %} credited to wallet
+                        </p>
+                        {% endwith %}
                     </div>
                 </div>
                 {% endif %}

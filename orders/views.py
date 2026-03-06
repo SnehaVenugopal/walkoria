@@ -129,7 +129,14 @@ def checkout(request):
                 )
                 
                 # Create order items
+                # Compute total_sale for weighting (order.subtotal = sum of item.price * qty)
+                total_sale_all = sum(i.price * i.quantity for i in cart.items.all()) or 1
+                items_total_after_offers = total_amount + discount_amount - (cart.delivery_charge or 0)
                 for item in cart.items.all():
+                    item_sale_val = item.price * item.quantity
+                    # Effective (after-offer) unit price for this item
+                    eff_subtotal = (item_sale_val / total_sale_all) * items_total_after_offers
+                    eff_unit_price = round(eff_subtotal / item.quantity, 2) if item.quantity else item.price
                     OrderItem.objects.create(
                         order=order,
                         product_variant=item.variant,
@@ -137,6 +144,7 @@ def checkout(request):
                         price=item.price,
                         item_payment_status='Unpaid' if payment_method == 'COD' else 'Paid',
                         original_price=item.variant.actual_price,
+                        effective_price=eff_unit_price,
                     )
                     # Reduce stock
                     item.variant.quantity -= item.quantity
@@ -457,9 +465,12 @@ def order_detail(request, order_id):
         user=request.user
     )
     cancellation_reasons = OrderItem.CANCELLATION_REASON_CHOICES
+    # Subtotal = items total after offers, before coupon and delivery
+    order_subtotal = order.total_amount + order.discount - (order.shipping_cost or Decimal('0'))
     return render(request, 'order_detail.html', {
         'order': order,
-        'cancellation_reasons': cancellation_reasons
+        'cancellation_reasons': cancellation_reasons,
+        'order_subtotal': order_subtotal,
     })
 
 
@@ -718,7 +729,12 @@ def create_razorpay_order(request):
                 )
                 
                 # Create order items and reduce stock
+                total_sale_all = sum(i.price * i.quantity for i in cart.items.all()) or 1
+                items_total_after_offers = total_amount + discount_amount - (cart.delivery_charge or 0)
                 for item in cart.items.all():
+                    item_sale_val = item.price * item.quantity
+                    eff_subtotal = (item_sale_val / total_sale_all) * items_total_after_offers
+                    eff_unit_price = round(eff_subtotal / item.quantity, 2) if item.quantity else item.price
                     OrderItem.objects.create(
                         order=order,
                         product_variant=item.variant,
@@ -726,6 +742,7 @@ def create_razorpay_order(request):
                         price=item.price,
                         item_payment_status='Pending',
                         original_price=item.variant.actual_price,
+                        effective_price=eff_unit_price,
                     )
                     item.variant.quantity -= item.quantity
                     item.variant.save()
