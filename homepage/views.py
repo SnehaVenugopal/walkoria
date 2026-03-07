@@ -219,7 +219,7 @@ def product_listing(request):
             product.offer_price = None
     
     # Pagination
-    paginator = Paginator(all_products, 12)
+    paginator = Paginator(all_products, 4)
     page_number = request.GET.get('page', 1)
     products = paginator.get_page(page_number)
 

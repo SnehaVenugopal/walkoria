@@ -82,7 +82,7 @@ def add_money(request):
                 'payment_capture': 1
             })
             
-            # Store in database (like orders flow)
+            # Stores the wallet top-up request in the database with status Pending
             WalletTopup.objects.create(
                 user=request.user,
                 razorpay_order_id=razorpay_order['id'],
