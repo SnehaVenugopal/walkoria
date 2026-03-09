@@ -25,6 +25,16 @@ Walkoria is an e-commerce web application for selling ladies branded shoes.
 - Nginx
 - AWS EC2
 
+
+## Project Deployment
+
+This project is deployed using:
+
+- Docker for containerization
+- AWS EC2 for cloud hosting
+- Nginx as reverse proxy
+- Gunicorn as WSGI server
+
 ## Installation
 
 Clone the repository
