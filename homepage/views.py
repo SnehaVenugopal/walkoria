@@ -265,7 +265,20 @@ def filter_products(request):
         products = products.filter(brand_id__in=brand_ids)
 
     if ratings and ratings[0]:
-        products = products.filter(rating__gte=min(ratings))
+        try:
+            min_rating = min(int(r) for r in ratings if r.isdigit())
+            # Get IDs of products whose average review rating >= min_rating
+            from reviews.models import ProductReview
+            matching_ids = (
+                ProductReview.objects
+                .values('product_id')
+                .annotate(avg=Avg('rating'))
+                .filter(avg__gte=min_rating)
+                .values_list('product_id', flat=True)
+            )
+            products = products.filter(id__in=matching_ids)
+        except (ValueError, TypeError):
+            pass  # Invalid rating value — skip filter
 
     if min_price and max_price:
         products = products.filter(
@@ -300,7 +313,7 @@ def filter_products(request):
             product.offer_price = None
 
     # Pagination
-    paginator = Paginator(products_list, 12)
+    paginator = Paginator(products_list, 4)
     page_obj = paginator.get_page(page)
     html = render_to_string('product_grid.html', {'products': page_obj}, request=request)
 

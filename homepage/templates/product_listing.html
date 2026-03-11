@@ -838,7 +838,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
         paginationContainer.innerHTML = paginationHTML;
 
-        // Add event listeners to pagination links
+        // Re-attach click listeners to the freshly rendered links
+        bindPaginationLinks();
+    }
+
+    // Attach click listeners to all current pagination links
+    function bindPaginationLinks() {
         paginationContainer.querySelectorAll('.page-link').forEach(link => {
             link.addEventListener('click', function(e) {
                 e.preventDefault();
@@ -850,6 +855,9 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
+
+    // Wire up the server-rendered initial pagination on first load
+    bindPaginationLinks();
 
     // Debounce function
     function debounce(func, wait) {
