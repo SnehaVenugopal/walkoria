@@ -8,6 +8,7 @@ urlpatterns = [
     path('send-email-otp/', views.send_email_otp, name='send_email_otp'),
     path('verify-email-otp/', views.verify_email_otp, name='verify_email_otp'),
     path('cancel/', views.cancel_profile_update, name='cancel_profile_update'),
+    path('delete-profile-image/', views.delete_profile_image, name='delete_profile_image'),
     
     # Password URLs
     path('change-password/', views.change_password, name='change_password'),

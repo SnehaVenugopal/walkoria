@@ -36,6 +36,16 @@
                         {{ form.profile_image }}
                     </div>
                 </div>
+
+                <!-- Subtle remove link — only shown when image exists -->
+                {% if user.profile_image %}
+                <button type="button" id="deleteImageBtn" class="remove-photo-btn">
+                    <i class="fas fa-times-circle"></i> Remove Photo
+                </button>
+                {% endif %}
+
+                <p class="img-hint">Max size: 5 MB</p>
+                <div id="imageSizeError" class="error-message" style="display:none;"></div>
                 {% if form.profile_image.errors %}
                     <div class="error-message">{{ form.profile_image.errors.0 }}</div>
                 {% endif %}
@@ -138,6 +148,27 @@
     </div>
 </div>
 
+<!-- ===== Remove Photo Confirmation Modal ===== -->
+<div id="confirmDeleteOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);z-index:9999;align-items:center;justify-content:center;">
+    <div class="confirm-modal">
+        <div class="confirm-icon-wrap">
+            <i class="fas fa-trash-alt"></i>
+        </div>
+        <h4 class="confirm-title">Remove Profile Photo?</h4>
+        <p class="confirm-body">Your profile picture will be permanently removed. You can always upload a new one later.</p>
+        <div class="confirm-actions">
+            <button id="confirmDeleteYes" class="btn-confirm-yes">
+                <i class="fas fa-check me-1"></i> Yes, Remove
+            </button>
+            <button id="confirmDeleteNo" class="btn-confirm-no">
+                <i class="fas fa-times me-1"></i> Cancel
+            </button>
+        </div>
+    </div>
+</div>
+
+
+
 <style>
 /* ── Profile image ── */
 .profile-image-container {
@@ -170,6 +201,102 @@
     transform: translateX(-50%);
 }
 .image-upload-overlay input[type="file"] { display: none; }
+
+/* Remove photo link */
+.remove-photo-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 10px;
+    background: none;
+    border: none;
+    color: #999;
+    font-size: 0.78rem;
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 20px;
+    transition: color 0.2s, background 0.2s;
+    letter-spacing: 0.3px;
+}
+.remove-photo-btn:hover {
+    color: #ff429d;
+    background: rgba(255, 66, 157, 0.07);
+}
+.remove-photo-btn i {
+    font-size: 0.85rem;
+}
+
+/* Image size hint */
+.img-hint {
+    margin: 4px 0 0;
+    font-size: 0.76rem;
+    color: #bbb;
+    letter-spacing: 0.2px;
+}
+
+/* ── Confirm Delete Modal ── */
+.confirm-modal {
+    background: #fff;
+    border-radius: 20px;
+    padding: 36px 32px 28px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.25);
+    text-align: center;
+    animation: otp-slide-up .3s ease;
+}
+.confirm-icon-wrap {
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ff429d, #ff7eb3);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px;
+    font-size: 22px;
+    color: #fff;
+    box-shadow: 0 6px 20px rgba(255,66,157,.35);
+}
+.confirm-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #222;
+    margin-bottom: 10px;
+}
+.confirm-body {
+    font-size: .88rem;
+    color: #666;
+    margin-bottom: 24px;
+    line-height: 1.55;
+}
+.confirm-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.btn-confirm-yes {
+    background: linear-gradient(135deg, #ff429d, #ff7eb3);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 12px;
+    font-size: .95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity .2s;
+    box-shadow: 0 4px 14px rgba(255,66,157,.3);
+}
+.btn-confirm-yes:hover { opacity: .88; }
+.btn-confirm-no {
+    background: transparent;
+    border: 2px solid #ddd;
+    color: #666;
+    border-radius: 10px;
+    padding: 10px;
+    font-size: .9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: border-color .2s, color .2s;
+}
+.btn-confirm-no:hover { border-color: #aaa; color: #333; }
 .form-actions {
     border-top: 1px solid #eee;
     padding-top: 20px;
@@ -348,10 +475,21 @@ const CSRF = '{{ csrf_token }}';
 const SEND_OTP_URL   = "{% url 'send_email_otp' %}";
 const VERIFY_OTP_URL = "{% url 'verify_email_otp' %}";
 
-/* ── Profile image preview ── */
+/* ── Profile image preview + size check ── */
 document.getElementById('{{ form.profile_image.id_for_label }}').addEventListener('change', function(e) {
     const file = e.target.files[0];
+    const errEl = document.getElementById('imageSizeError');
+    errEl.style.display = 'none';
+    errEl.textContent = '';
     if (file) {
+        const maxBytes = 5 * 1024 * 1024; // 5 MB
+        if (file.size > maxBytes) {
+            const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+            errEl.textContent = `Image is too large (${sizeMB} MB). Maximum allowed size is 5 MB. Please compress or resize your image.`;
+            errEl.style.display = 'block';
+            this.value = ''; // Clear the input
+            return;
+        }
         const reader = new FileReader();
         reader.onload = function(e) {
             document.getElementById('profilePreview').innerHTML =
@@ -359,6 +497,58 @@ document.getElementById('{{ form.profile_image.id_for_label }}').addEventListene
         };
         reader.readAsDataURL(file);
     }
+});
+
+/* ── Delete profile image ── */
+const deleteBtn = document.getElementById('deleteImageBtn');
+const confirmOverlay = document.getElementById('confirmDeleteOverlay');
+
+function showConfirmModal() {
+    confirmOverlay.style.display = 'flex';
+}
+function hideConfirmModal() {
+    confirmOverlay.style.display = 'none';
+}
+
+if (deleteBtn) {
+    deleteBtn.addEventListener('click', showConfirmModal);
+}
+
+document.getElementById('confirmDeleteNo').addEventListener('click', hideConfirmModal);
+
+document.getElementById('confirmDeleteYes').addEventListener('click', function() {
+    hideConfirmModal();
+    if (deleteBtn) {
+        deleteBtn.disabled = true;
+        deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Removing...';
+    }
+
+    fetch("{% url 'delete_profile_image' %}", {
+        method: 'POST',
+        headers: { 'X-CSRFToken': CSRF, 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('profilePreview').innerHTML =
+                '<div class="profile-placeholder"><i class="fas fa-user"></i></div>';
+            if (deleteBtn) deleteBtn.remove();
+            showToast('Profile picture removed successfully.', 'success');
+        } else {
+            showToast(data.message || 'Failed to remove image.', 'error');
+            if (deleteBtn) {
+                deleteBtn.disabled = false;
+                deleteBtn.innerHTML = '<i class="fas fa-times-circle"></i> Remove Photo';
+            }
+        }
+    })
+    .catch(() => {
+        showToast('Network error. Please try again.', 'error');
+        if (deleteBtn) {
+            deleteBtn.disabled = false;
+            deleteBtn.innerHTML = '<i class="fas fa-times-circle"></i> Remove Photo';
+        }
+    });
 });
 
 /* ── OTP Modal State ── */

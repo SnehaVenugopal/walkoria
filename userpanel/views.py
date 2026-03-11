@@ -498,6 +498,28 @@ def get_variant_id(request, product_id, product_size):
         }, status=500)
 
 
+@login_required
+@cache_control(no_cache=True, must_revalidate=True, no_store=True)
+def delete_profile_image(request):
+    """Remove the user's profile image from Cloudinary and clear it from the DB."""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Invalid request.'}, status=400)
+
+    user = request.user
+    if user.profile_image:
+        try:
+            # Delete from Cloudinary using the stored public_id convention
+            public_id = f"user_profiles/{user.id}/profile_{user.id}"
+            cloudinary.uploader.destroy(public_id)
+        except Exception as e:
+            print(f"Cloudinary delete error (non-fatal): {e}")
+        user.profile_image = None
+        user.save()
+        return JsonResponse({'success': True, 'message': 'Profile picture removed successfully.'})
+
+    return JsonResponse({'success': False, 'message': 'No profile image to delete.'})
+
+
 # Placeholder views for future implementation
 @login_required
 @cache_control(no_cache=True, must_revalidate=True, no_store=True)

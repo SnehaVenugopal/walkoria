@@ -17,8 +17,175 @@ from django.http import JsonResponse
 import json
 
 
+# ---------------------------------------------------------------------------
+# Email helper utilities
+# ---------------------------------------------------------------------------
+
+def _build_registration_otp_email(name: str, otp: str, is_resend: bool = False):
+    """Return (subject, plain_message, html_message) for registration OTP emails.
+    Both the initial send and resend use this same template.
+    """
+    subject = 'Walkoria – Verify Your Email Address'
+    action_note = 'Here is your new verification code:' if is_resend else 'To complete your registration, enter the verification code below:'
+    plain_message = (
+        f"Hi {name},\n\n"
+        f"Welcome to Walkoria!\n\n"
+        f"{action_note}\n\n"
+        f"  OTP: {otp}\n\n"
+        f"This code expires in 1 minute. Do NOT share it with anyone.\n\n"
+        f"If you did not create a Walkoria account, please ignore this email.\n\n"
+        f"– The Walkoria Team"
+    )
+    html_message = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+    <body style="margin:0;padding:0;background:#f4f4f7;font-family:Arial,Helvetica,sans-serif;color:#333;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f7;padding:32px 0;">
+        <tr><td align="center">
+          <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08);">
+
+            <!-- Header -->
+            <tr>
+              <td style="background:linear-gradient(135deg,#ff429d,#ff6eb4);padding:32px 40px;text-align:center;">
+                <h1 style="margin:0;color:#fff;font-size:26px;letter-spacing:1px;">Walkoria</h1>
+                <p style="margin:6px 0 0;color:rgba(255,255,255,.85);font-size:13px;">Your Fashion Destination</p>
+              </td>
+            </tr>
+
+            <!-- Body -->
+            <tr>
+              <td style="padding:36px 40px;">
+                <p style="font-size:16px;margin:0 0 8px;">Hi <strong>{name.title()}</strong>,</p>
+                <p style="font-size:15px;color:#555;margin:0 0 24px;">Welcome to Walkoria! {action_note}</p>
+
+                <!-- OTP box -->
+                <div style="text-align:center;background:#fff5fa;border:2px dashed #ff429d;border-radius:10px;padding:24px 20px;margin:0 0 28px;">
+                  <p style="margin:0 0 6px;font-size:12px;color:#888;text-transform:uppercase;letter-spacing:1px;">Your One-Time Password</p>
+                  <span style="font-size:40px;font-weight:700;letter-spacing:10px;color:#ff429d;">{otp}</span>
+                  <p style="margin:12px 0 0;font-size:13px;color:#e74c3c;">⏳ Expires in <strong>1 minute</strong></p>
+                </div>
+
+                <!-- How to use -->
+                <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9f9f9;border-radius:8px;margin:0 0 24px;">
+                  <tr><td style="padding:18px 20px;">
+                    <p style="margin:0 0 8px;font-size:14px;font-weight:600;color:#333;">How to verify your account:</p>
+                    <ol style="margin:0;padding-left:18px;font-size:14px;color:#555;line-height:1.8;">
+                      <li>Return to the Walkoria registration page.</li>
+                      <li>Enter the 6-digit OTP shown above.</li>
+                      <li>Click <em>Verify</em> to activate your account.</li>
+                    </ol>
+                  </td></tr>
+                </table>
+
+                <!-- Security notice -->
+                <p style="font-size:13px;color:#888;background:#fffbe6;border-left:4px solid #f0ad4e;padding:10px 14px;border-radius:4px;margin:0 0 24px;">
+                  🔒 <strong>Security tip:</strong> Walkoria will never ask you for this code via phone, chat, or any other means. Do not share it with anyone.
+                </p>
+
+                <p style="font-size:14px;color:#555;margin:0;">If you did not create a Walkoria account, you can safely ignore this email. Your email address will not be used without verification.</p>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td style="background:#f4f4f7;padding:20px 40px;text-align:center;border-top:1px solid #eee;">
+                <p style="margin:0;font-size:12px;color:#aaa;">© 2025 Walkoria. All rights reserved.</p>
+                <p style="margin:4px 0 0;font-size:12px;color:#aaa;">This is an automated message — please do not reply.</p>
+              </td>
+            </tr>
+
+          </table>
+        </td></tr>
+      </table>
+    </body>
+    </html>
+    """
+    return subject, plain_message, html_message
 
 
+def _build_password_reset_otp_email(otp: str, is_resend: bool = False):
+    """Return (subject, plain_message, html_message) for password-reset OTP emails.
+    Both the initial send and resend use this same template.
+    """
+    subject = 'Walkoria – Password Reset OTP'
+    action_note = 'Here is your new password reset code:' if is_resend else 'We received a request to reset the password for your Walkoria account. Use the code below to proceed:'
+    plain_message = (
+        f"Password Reset Request\n\n"
+        f"{action_note}\n\n"
+        f"  OTP: {otp}\n\n"
+        f"This code expires in 1 minute. Do NOT share it with anyone.\n\n"
+        f"If you did not request a password reset, please ignore this email. Your password will remain unchanged.\n\n"
+        f"– The Walkoria Team"
+    )
+    html_message = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+    <body style="margin:0;padding:0;background:#f4f4f7;font-family:Arial,Helvetica,sans-serif;color:#333;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f7;padding:32px 0;">
+        <tr><td align="center">
+          <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:10px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08);">
+
+            <!-- Header -->
+            <tr>
+              <td style="background:linear-gradient(135deg,#ff429d,#ff6eb4);padding:32px 40px;text-align:center;">
+                <h1 style="margin:0;color:#fff;font-size:26px;letter-spacing:1px;">Walkoria</h1>
+                <p style="margin:6px 0 0;color:rgba(255,255,255,.85);font-size:13px;">Password Reset Request</p>
+              </td>
+            </tr>
+
+            <!-- Body -->
+            <tr>
+              <td style="padding:36px 40px;">
+                <p style="font-size:15px;color:#555;margin:0 0 24px;">{action_note}</p>
+
+                <!-- OTP box -->
+                <div style="text-align:center;background:#fff5fa;border:2px dashed #ff429d;border-radius:10px;padding:24px 20px;margin:0 0 28px;">
+                  <p style="margin:0 0 6px;font-size:12px;color:#888;text-transform:uppercase;letter-spacing:1px;">Your One-Time Password</p>
+                  <span style="font-size:40px;font-weight:700;letter-spacing:10px;color:#ff429d;">{otp}</span>
+                  <p style="margin:12px 0 0;font-size:13px;color:#e74c3c;">⏳ Expires in <strong>1 minute</strong></p>
+                </div>
+
+                <!-- How to use -->
+                <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9f9f9;border-radius:8px;margin:0 0 24px;">
+                  <tr><td style="padding:18px 20px;">
+                    <p style="margin:0 0 8px;font-size:14px;font-weight:600;color:#333;">How to reset your password:</p>
+                    <ol style="margin:0;padding-left:18px;font-size:14px;color:#555;line-height:1.8;">
+                      <li>Return to the Walkoria password reset page.</li>
+                      <li>Enter the 6-digit OTP shown above.</li>
+                      <li>Set your new password and click <em>Reset</em>.</li>
+                    </ol>
+                  </td></tr>
+                </table>
+
+                <!-- Security notice -->
+                <p style="font-size:13px;color:#888;background:#fffbe6;border-left:4px solid #f0ad4e;padding:10px 14px;border-radius:4px;margin:0 0 24px;">
+                  🔒 <strong>Security tip:</strong> Walkoria will never ask you for this code via phone, chat, or any other means. Do not share it with anyone.
+                </p>
+
+                <p style="font-size:14px;color:#555;margin:0;">If you did not request a password reset, you can safely ignore this email. Your password will remain unchanged.</p>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td style="background:#f4f4f7;padding:20px 40px;text-align:center;border-top:1px solid #eee;">
+                <p style="margin:0;font-size:12px;color:#aaa;">© 2025 Walkoria. All rights reserved.</p>
+                <p style="margin:4px 0 0;font-size:12px;color:#aaa;">This is an automated message — please do not reply.</p>
+              </td>
+            </tr>
+
+          </table>
+        </td></tr>
+      </table>
+    </body>
+    </html>
+    """
+    return subject, plain_message, html_message
+
+
+# ---------------------------------------------------------------------------
 #user signup view
 
 def signup_view(request):
@@ -47,9 +214,13 @@ def signup_view(request):
             request.session['signup_otp'] = otp
             request.session['otp_created_at'] = timezone.now().isoformat()
 
-            subject = 'Walkoria - Your OTP Code'
-            message = f"Hi {form.cleaned_data['name']},\n\nYour OTP is {otp}. It expires in 1 minute.\n\nThank you!"
-            send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [email])
+            subject, plain_message, html_message = _build_registration_otp_email(
+                name=form.cleaned_data['name'], otp=otp, is_resend=False
+            )
+            send_mail(
+                subject, plain_message, settings.DEFAULT_FROM_EMAIL, [email],
+                fail_silently=False, html_message=html_message
+            )
 
             return redirect('verify_otp')
         else:
@@ -176,27 +347,11 @@ def resend_otp_view(request):
         request.session['signup_otp'] = new_otp
         request.session['otp_created_at'] = timezone.now().isoformat()
 
-        # Prepare email
+        # Prepare and send email using the shared registration template
         name = temp_data.get('name', 'User')
-        subject = 'Walkoria - Your New OTP Code'
-        plain_message = f"Hi {name},\n\nYour new OTP is {new_otp}. It expires in 1 minute.\n\nThank you!"
-        html_message = f"""
-        <html>
-            <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
-                <div style="max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; padding: 20px; background-color: #f9f9f9;">
-                    <h2 style="color: #4CAF50; text-align: center;">Email Verification</h2>
-                    <p style="font-size: 16px;">Dear {name.title()},</p>
-                    <p style="font-size: 16px;">
-                        Your new OTP for verification is:
-                        <strong style="font-size: 22px; color: #ff0000;">{new_otp}</strong>
-                        <br>This code will expire in 1 minute.
-                    </p>
-                    <p style="font-size: 16px;">If you didn’t request this, no action is needed.</p>
-                    <p style="font-size: 16px;">Best regards,<br>Walkoria Team</p>
-                </div>
-            </body>
-        </html>
-        """
+        subject, plain_message, html_message = _build_registration_otp_email(
+            name=name, otp=new_otp, is_resend=True
+        )
 
         try:
             send_mail(
@@ -207,7 +362,6 @@ def resend_otp_view(request):
                 fail_silently=False,
                 html_message=html_message
             )
-            # OTP already printed above
         except Exception:
             return JsonResponse({'success': False, 'message': 'Failed to send OTP. Please try again later.'}, status=500)
 
@@ -286,21 +440,8 @@ def forgot_password_view(request):
         request.session['reset_otp'] = otp
         request.session['reset_otp_created_at'] = _otp_now_iso()
 
-        # Send email
-        subject = 'Walkoria - Password Reset OTP'
-        plain_message = f'Your password reset OTP is: {otp}. It expires in 1 minute.'
-        html_message = f"""
-        <html>
-            <body style="font-family: Arial, sans-serif; color: #333;">
-                <h2 style="color:#ff429d; margin:0 0 10px;">Password Reset</h2>
-                <p style="font-size:16px; margin:0 0 8px;">
-                  Your OTP is
-                  <strong style="font-size:22px;color:#ff429d;">{otp}</strong>
-                </p>
-                <p style="font-size:16px;margin:0;">This code expires in 1 minute.</p>
-            </body>
-        </html>
-        """
+        # Send email using the shared password-reset template
+        subject, plain_message, html_message = _build_password_reset_otp_email(otp=otp, is_resend=False)
         print('\n' + '='*50)
         print('🔐 FORGOT PASSWORD OTP:', otp)
         print('='*50 + '\n')
@@ -418,20 +559,7 @@ def resend_reset_otp_view(request):
     request.session['reset_otp'] = otp
     request.session['reset_otp_created_at'] = _otp_now_iso()
 
-    subject = 'Walkoria - New Password Reset OTP'
-    plain_message = f'Your new password reset OTP is: {otp}. It expires in 1 minute.'
-    html_message = f"""
-    <html>
-        <body style="font-family: Arial, sans-serif; color: #333;">
-            <h2 style="color:#ff429d; margin:0 0 10px;">Password Reset</h2>
-            <p style="font-size:16px; margin:0 0 8px;">
-              Your new OTP is
-              <strong style="font-size:22px;color:#ff429d;">{otp}</strong>
-            </p>
-            <p style="font-size:16px;margin:0;">This code expires in 1 minute.</p>
-        </body>
-    </html>
-    """
+    subject, plain_message, html_message = _build_password_reset_otp_email(otp=otp, is_resend=True)
     print('\n' + '='*50)
     print('🔄 RESEND PASSWORD RESET OTP:', otp)
     print('='*50 + '\n')

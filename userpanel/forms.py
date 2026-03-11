@@ -67,6 +67,20 @@ class ProfileUpdateForm(forms.ModelForm):
         })
     )
 
+    MAX_IMAGE_SIZE_MB = 5
+
+    def clean_profile_image(self):
+        image = self.cleaned_data.get('profile_image')
+        if image:
+            max_bytes = self.MAX_IMAGE_SIZE_MB * 1024 * 1024
+            if image.size > max_bytes:
+                raise ValidationError(
+                    f"Image file is too large ({image.size / (1024*1024):.1f} MB). "
+                    f"Maximum allowed size is {self.MAX_IMAGE_SIZE_MB} MB. "
+                    f"Please compress or resize your image before uploading."
+                )
+        return image
+
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
@@ -83,8 +97,9 @@ class ProfileUpdateForm(forms.ModelForm):
 
     def clean_last_name(self):
         last_name = self.cleaned_data.get('last_name', '').strip()
-        if last_name and not re.match(r"^[A-Za-z]{2,}$", last_name):
-            raise ValidationError("Last name must contain only letters and be at least 2 characters long.")
+        # Allow empty (optional), single initials (e.g. "S"), dots, hyphens, and spaces
+        if last_name and not re.match(r"^[A-Za-z][A-Za-z .'-]*$", last_name):
+            raise ValidationError("Last name can contain letters, spaces, dots, hyphens, or apostrophes.")
         return last_name.title() if last_name else ''
 
     def clean_email(self):
