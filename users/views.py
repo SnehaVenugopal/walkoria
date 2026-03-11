@@ -15,6 +15,7 @@ from .forms import LoginForm
 from .forms import ResetPasswordForm
 from django.http import JsonResponse
 import json
+from django.views.decorators.csrf import csrf_exempt
 
 
 # ---------------------------------------------------------------------------
@@ -188,6 +189,7 @@ def _build_password_reset_otp_email(otp: str, is_resend: bool = False):
 # ---------------------------------------------------------------------------
 #user signup view
 
+@csrf_exempt
 def signup_view(request):
     if request.method == 'POST':
         form = SignUpForm(request.POST)
