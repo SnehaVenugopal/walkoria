@@ -568,7 +568,7 @@ def cancel_product(request, item_id):
                     transaction_type="Cr",
                     amount=refund_decimal,
                     status="Completed",
-                    description=f"Refund for cancelled product - Order #{order.order_number}",
+                    description=f"Refund for cancelled product - Order #{order.order_number} - Item #{order_item.id}",
                     order=order,
                     transaction_id="RF" + str(int(time.time()))[-5:] + uuid.uuid4().hex[:4].upper(),
                 )

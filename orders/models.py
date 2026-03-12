@@ -270,9 +270,12 @@ class OrderItem(models.Model):
     def get_actual_refund_credited(self):
         """
         Return the actual refund amount that was credited to the wallet for
-        this item's order cancellation/return by looking up the WalletTransaction.
-        This is used in the Order Timeline so we show the real credited amount
-        rather than recalculating (which returns 0 after order totals are zeroed).
+        THIS specific item's cancellation/return, by filtering on the item ID
+        embedded in the WalletTransaction description.
+
+        All refund transactions now include '- Item #<id>' in their description
+        (set in cancel_product, handle_return_request, and update_order_item),
+        so each item correctly shows its own credit amount in the order timeline.
         """
         try:
             from wallet.models import WalletTransaction
@@ -282,14 +285,26 @@ class OrderItem(models.Model):
                     order=self.order,
                     transaction_type='Cr',
                     status='Completed',
-                    description__icontains='Refund'
+                    description__icontains=f'Item #{self.id}'
                 )
                 .order_by('-created_at')
                 .first()
             )
             if txn:
                 return txn.amount
-            return None
+            # Fallback for old transactions (before this fix) that don't have Item # in description
+            txn_old = (
+                WalletTransaction.objects
+                .filter(
+                    order=self.order,
+                    transaction_type='Cr',
+                    status='Completed',
+                    description__icontains='Refund'
+                )
+                .order_by('created_at')   # oldest-first for old orders → closer to per-item
+                .first()
+            )
+            return txn_old.amount if txn_old else None
         except Exception:
             return None
 

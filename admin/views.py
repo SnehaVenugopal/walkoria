@@ -591,56 +591,60 @@ def handle_return_request(request, request_id, action):
             order_item.status = 'Returned'
             order_item.item_payment_status = 'Refunded'
             return_requests.status = 'Approved'
+            # Save status first so get_refund_amount() sees the correct item state
+            order_item.save()
+            return_requests.save()
 
-            # Refund = effective price (after offer) x qty, minus proportional coupon discount
+            # Use the same proven formula as cancel_product:
+            # proportional offer share + coupon deduction + delivery refund if last item
             from decimal import Decimal
-            effective_unit_price = order_item.get_effective_price()
-            effective_total = effective_unit_price * order_item.quantity
+            refund_amount = order_item.get_refund_amount()
 
-            order_total_before_coupon = order.total_amount + order.discount
-            if order_total_before_coupon > 0:
-                proportion = effective_total / order_total_before_coupon
+            # Update order totals (mirrors cancel_product logic)
+            effective_item_price = order_item.price * order_item.quantity
+            order.subtotal = max(order.subtotal - effective_item_price, Decimal('0'))
+            if order.subtotal <= 0:
+                order.shipping_cost = Decimal('0')
+                order.total_amount = Decimal('0')
             else:
-                proportion = Decimal('0')
-            allocated_coupon_discount = Decimal(str(order.discount)) * proportion
-            refund_amount = effective_total - allocated_coupon_discount
-            if refund_amount < 0:
-                refund_amount = Decimal('0')
+                order.total_amount = max(order.total_amount - refund_amount, Decimal('0'))
+            order.save()
 
+            if refund_amount > 0:
+                wallet, _ = Wallet.objects.get_or_create(user=order.user)
+                wallet.refresh_from_db()
+                refund_decimal = Decimal(str(refund_amount))
+                wallet.balance = wallet.balance + refund_decimal
+                wallet.save()
+                WalletTransaction.objects.create(
+                    wallet=wallet,
+                    transaction_type="Cr",
+                    amount=refund_decimal,
+                    status="Completed",
+                    description=f"Return approved refund - Order #{order.order_number} - Item #{order_item.id}",
+                    order=order,
+                    transaction_id="RT" + str(int(time.time()))[-6:] + uuid.uuid4().hex[:4].upper(),
+                )
 
-            wallet, _ = Wallet.objects.get_or_create(user=order.user)
-            from decimal import Decimal
-            wallet.refresh_from_db()
-            refund_decimal = Decimal(str(refund_amount))
-            wallet.balance = wallet.balance + refund_decimal
-            wallet.save()
-            WalletTransaction.objects.create(
-                            wallet=wallet,
-                            transaction_type="Cr",
-                            amount=refund_decimal,
-                            status="Completed",
-                            description=f"Return approved refund - Order #{order.order_number}",
-                            order=order,
-                            transaction_id="RT" + str(int(time.time()))[-6:] + uuid.uuid4().hex[:4].upper(),
-                        )
-
-            # qty
+            # Restore stock
             product_variant = order_item.product_variant
             product_variant.quantity += order_item.quantity
             product_variant.save()
 
-            messages.success(request, 'Return request approved successfully.')
+            messages.success(request, f'Return request approved. \u20b9{refund_amount:.2f} refunded to wallet.')
+            return redirect('orders')
+
         elif action == 'reject':
             order_item.status = 'Delivered'
             return_requests.status = 'Rejected'
+            order_item.save()
+            return_requests.save()
             messages.error(request, 'Return request rejected.')
+            return redirect('orders')
+
         else:
             messages.error(request, 'Invalid action.')
             return redirect('orders')
-        
-        order_item.save()
-        return_requests.save()
-        return redirect('orders')
         
     except OrderItem.DoesNotExist:
         messages.error(request, 'Return request not found.')
@@ -738,42 +742,41 @@ def update_order_item(request, item_id):
                 print(f"Error giving referral rewards: {e}")
 
         if request.POST.get('status') == 'Returned' and order_item.item_payment_status == 'Paid':
-            # Refund = effective price (after offer) x qty, minus proportional coupon discount
+            # Use the same proven formula as cancel_product:
+            # proportional offer share + coupon deduction + delivery refund if last item
+            # NOTE: item is already saved with status='Returned' above (line 718),
+            #       so get_refund_amount()'s exclude(pk=self.pk) correctly excludes it.
             from decimal import Decimal
-            effective_unit_price = order_item.get_effective_price()
-            effective_total = effective_unit_price * order_item.quantity
+            refund_amount = item.get_refund_amount()
 
-            order_total_before_coupon = order.total_amount + order.discount
-            if order_total_before_coupon > 0:
-                proportion = effective_total / order_total_before_coupon
+            # Update order totals (mirrors cancel_product logic)
+            effective_item_price = item.price * item.quantity
+            order.subtotal = max(order.subtotal - effective_item_price, Decimal('0'))
+            if order.subtotal <= 0:
+                order.shipping_cost = Decimal('0')
+                order.total_amount = Decimal('0')
             else:
-                proportion = Decimal('0')
-            allocated_coupon_discount = Decimal(str(order.discount)) * proportion
-            refund_amount = effective_total - allocated_coupon_discount
-            if refund_amount < 0:
-                refund_amount = Decimal('0')
-
-            order.total_amount -= refund_amount
-            order.subtotal -= order_item.original_price
+                order.total_amount = max(order.total_amount - refund_amount, Decimal('0'))
             order.save()
-            if order.payment_method in ['RP', 'WP', 'PP'] or (order.payment_method == 'COD' and order_item.status == 'Delivered'):
-                from decimal import Decimal
-                wallet, _ = Wallet.objects.get_or_create(user=order.user)
-                wallet.refresh_from_db()
-                refund_decimal = Decimal(str(refund_amount))
-                wallet.balance = wallet.balance + refund_decimal
-                wallet.save()
-                WalletTransaction.objects.create(
-                                wallet=wallet,
-                                transaction_type="Cr",
-                                amount=refund_decimal,
-                                status="Completed",
-                                description=f"Return refund - Order #{order.order_number}",
-                                order=order,
-                                transaction_id="RT" + str(int(time.time()))[-6:] + uuid.uuid4().hex[:4].upper(),
-                            )
-                order_item.item_payment_status = 'Refunded'
-                order_item.save()
+
+            if order.payment_method in ['RP', 'WP', 'PP'] or (order.payment_method == 'COD' and item.status == 'Delivered'):
+                if refund_amount > 0:
+                    wallet, _ = Wallet.objects.get_or_create(user=order.user)
+                    wallet.refresh_from_db()
+                    refund_decimal = Decimal(str(refund_amount))
+                    wallet.balance = wallet.balance + refund_decimal
+                    wallet.save()
+                    WalletTransaction.objects.create(
+                        wallet=wallet,
+                        transaction_type="Cr",
+                        amount=refund_decimal,
+                        status="Completed",
+                        description=f"Return refund - Order #{order.order_number} - Item #{item.id}",
+                        order=order,
+                        transaction_id="RT" + str(int(time.time()))[-6:] + uuid.uuid4().hex[:4].upper(),
+                    )
+                item.item_payment_status = 'Refunded'
+                item.save()
         messages.success(request, 'Status updated sucessful')
         return redirect('orders')
 
