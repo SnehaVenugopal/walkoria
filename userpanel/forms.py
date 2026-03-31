@@ -4,6 +4,7 @@ from django.core.validators import RegexValidator
 from django.core.exceptions import ValidationError
 from users.models import CustomUser
 from userpanel.models import Address
+from users.forms import validate_strong_password
 import re
 
 
@@ -179,10 +180,7 @@ class ChangePasswordForm(forms.Form):
 
     def clean_new_password(self):
         new_password = self.cleaned_data.get('new_password')
-        if ' ' in new_password:
-            raise ValidationError("Password cannot contain spaces.")
-        if len(new_password) < 8:
-            raise ValidationError("Password must be at least 8 characters long.")
+        validate_strong_password(new_password)
         return new_password
 
     def clean(self):

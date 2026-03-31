@@ -33,7 +33,7 @@ def products_view(request):
         products = products.filter(Q(name__istartswith=search_query))
     if category_id:
         products = products.filter(category_id=category_id)
-    products = products.annotate(min_sale_price=Min('variants__sale_price'))
+    products = products.annotate(min_sale_price=Min('variants__sale_price')).order_by('-id')
 
     # Pagination
     page = request.GET.get('page', 1)
@@ -69,20 +69,25 @@ def toggle_product_status(request, product_id):
             is_listed = bool(data.get('is_listed', True))
 
             if is_listed:
-                # List -> not deleted
-                product.is_deleted = False
-                product.deleted_at = None
-                product.save(update_fields=['is_deleted','deleted_at','updated_at'])
+                # List -> mark product and its variants as listed
+                product.is_listed = True
+                product.save(update_fields=['is_listed', 'updated_at'])
+                
+                # Restore variants as well
+                ProductVariant.objects.filter(product=product).update(
+                    is_deleted=False,
+                    deleted_at=None
+                )
                 message = 'Product listed successfully'
             else:
-                # Unlist -> soft delete product + variants, set quantity to 0
-                product.is_deleted = True
-                product.deleted_at = timezone.now()
-                product.save(update_fields=['is_deleted','deleted_at','updated_at'])
+                # Unlist -> mark product as unlisted without touching stock/quantity
+                product.is_listed = False
+                product.save(update_fields=['is_listed', 'updated_at'])
+                
+                # Soft-delete variants so they don't show on user side
                 ProductVariant.objects.filter(product=product).update(
                     is_deleted=True,
-                    deleted_at=timezone.now(),
-                    quantity=0
+                    deleted_at=timezone.now()
                 )
                 message = 'Product unlisted successfully'
 
@@ -132,8 +137,10 @@ def add_product(request):
         if Product.objects.filter(name=name).exists():
             errors['name'] = 'Product with this name already exists.'
 
-        # if not name or re.search(r'[^a-zA-Z0-9\s]', name):
-        #     errors['name'] = 'Product name should contain only text and numbers.'
+        if not name or re.search(r'[^a-zA-Z0-9\s]', name):
+            errors['name'] = 'Product name should contain only text and numbers.'
+        elif not re.search(r'[a-zA-Z]', name):
+            errors['name'] = 'Product name must contain at least one letter.'
         if not name:
             errors['name'] = 'Product name is required.'
 
@@ -149,45 +156,49 @@ def add_product(request):
         if not variants:
             errors['variants'] = 'At least one variant is required.'
 
-        for i, variant in enumerate(variants):
-            variant_name = f"Variant {i+1}"
-            if not variant.get('color', '').strip():
-                errors[f'color{i+1}'] = 'Color is required.'
+        for enum_i, variant in enumerate(variants):
+            idx = variant.get('id_index', enum_i + 1)
+            variant_name = f"Variant {idx}"
+            color = variant.get('color', '').strip()
+            if not color:
+                errors[f'color{idx}'] = 'Color is required.'
+            elif not re.match(r'^[a-zA-Z\s\-]+$', color):
+                errors[f'color{idx}'] = 'Color must contain only letters, spaces, and hyphens.'
             if not variant.get('size'):
-                errors[f'size{i+1}'] = 'Size is required.'
+                errors[f'size{idx}'] = 'Size is required.'
             if variant.get('quantity') is None:
-                errors[f'quantity{i+1}'] = 'Quantity is required.'
+                errors[f'quantity{idx}'] = 'Quantity is required.'
             else:
                 try:
                     quantity = int(variant['quantity'])
                     if quantity <= 0 or quantity > 1000:
-                        errors[f'quantity{i+1}'] = 'Quantity should be between 1 and 1000.'
+                        errors[f'quantity{idx}'] = 'Quantity should be between 1 and 1000.'
                 except ValueError:
-                    errors[f'quantity{i+1}'] = 'Quantity should be a valid number and cannot be empty.'
+                    errors[f'quantity{idx}'] = 'Quantity should be a valid number and cannot be empty.'
             
             if variant.get('actual_price') is None:
-                errors[f'actual_price{i+1}'] = 'Actual price is required.'
+                errors[f'actual_price{idx}'] = 'Actual price is required.'
             else:
                 try:
                     actual_price = float(variant['actual_price'])
-                    if actual_price <= 0:
-                        errors[f'actual_price{i+1}'] = 'Actual price must be a positive number.'
+                    if actual_price < 100:
+                        errors[f'actual_price{idx}'] = 'Actual price must be at least ₹100.'
                 except ValueError:
-                    errors[f'actual_price{i+1}'] = 'Please enter a valid price.'
+                    errors[f'actual_price{idx}'] = 'Please enter a valid price.'
 
                 try:
                     sale_price = float(variant['sale_price'])
-                    if sale_price <= 0:
-                        errors[f'sale_price{i+1}'] = 'Sale price must be a positive number.'
-                    if sale_price >= float(variant['actual_price']):
-                        errors[f'sale_price{i+1}'] = 'Sale price must be less than actual price.'
+                    if sale_price < 100:
+                        errors[f'sale_price{idx}'] = 'Sale price must be at least ₹100.'
+                    if sale_price > float(variant['actual_price']):
+                        errors[f'sale_price{idx}'] = 'Sale price must be less than or equal to actual price.'
                 except ValueError:
-                    errors[f'sale_price{i+1}'] = 'Please enter a valid sale price.'
+                    errors[f'sale_price{idx}'] = 'Please enter a valid sale price.'
 
-            variant_images = request.FILES.getlist(f'variant_image{i + 1}[]')
+            variant_images = request.FILES.getlist(f'variant_image{idx}[]')
             print('imgggggggggggg', variant_images)
             if len(variant_images) < 3:
-                errors[f'variant_image{i+1}'] = 'Please upload at least 3 images for each variant.'
+                errors[f'variant_image{idx}'] = 'Please upload at least 3 images for each variant.'
 
         if errors:
             print('errrrrr', errors)
@@ -297,6 +308,8 @@ def edit_product(request, product_id):
 
         if not name or re.search(r'[^a-zA-Z0-9\s]', name):
             errors['name'] = 'Product name should contain only text and numbers.'
+        elif not re.search(r'[a-zA-Z]', name):
+            errors['name'] = 'Product name must contain at least one letter.'
         if not name:
             errors['name'] = 'Product name is required.'
 
@@ -312,40 +325,44 @@ def edit_product(request, product_id):
         if not variants:
             errors['variants'] = 'At least one variant is required.'
 
-        for i, variant in enumerate(variants):
-            if not variant.get('color', '').strip():
-                errors[f'color{i+1}'] = 'Color is required.'
+        for enum_i, variant in enumerate(variants):
+            idx = variant.get('id_index', enum_i + 1)
+            color = variant.get('color', '').strip()
+            if not color:
+                errors[f'color{idx}'] = 'Color is required.'
+            elif not re.match(r'^[a-zA-Z\s\-]+$', color):
+                errors[f'color{idx}'] = 'Color must contain only letters, spaces, and hyphens.'
             if not variant.get('size'):
-                errors[f'size{i+1}'] = 'Size is required.'
+                errors[f'size{idx}'] = 'Size is required.'
             if variant.get('quantity') is None:
-                errors[f'quantity{i+1}'] = 'Quantity is required.'
+                errors[f'quantity{idx}'] = 'Quantity is required.'
             else:
                 try:
                     quantity = int(variant['quantity'])
-                    if quantity > 1000:
-                        errors[f'quantity{i+1}'] = "Can't add Quantity more than 1000."
+                    if quantity <= 0 or quantity > 1000:
+                        errors[f'quantity{idx}'] = 'Quantity should be between 1 and 1000.'
                 except ValueError:
-                    errors[f'quantity{i+1}'] = 'Quantity should be a valid number.'
+                    errors[f'quantity{idx}'] = 'Quantity should be a valid number.'
             
             if variant.get('actual_price') is None:
-                errors[f'actual_price{i+1}'] = 'Actual price is required.'
+                errors[f'actual_price{idx}'] = 'Actual price is required.'
             else:
                 try:
                     actual_price = float(variant['actual_price'])
-                    if actual_price <= 0:
-                        errors[f'actual_price{i+1}'] = 'Actual price must be a positive number.'
+                    if actual_price < 100:
+                        errors[f'actual_price{idx}'] = 'Actual price must be at least ₹100.'
                 except ValueError:
-                    errors[f'actual_price{i+1}'] = 'Please enter a valid price.'
+                    errors[f'actual_price{idx}'] = 'Please enter a valid price.'
 
             if variant.get('sale_price'):
                 try:
                     sale_price = float(variant['sale_price'])
-                    if sale_price <= 0:
-                        errors[f'sale_price{i+1}'] = 'Sale price must be a positive number.'
-                    if sale_price >= float(variant['actual_price']):
-                        errors[f'sale_price{i+1}'] = 'Sale price must be less than actual price.'
+                    if sale_price < 100:
+                        errors[f'sale_price{idx}'] = 'Sale price must be at least ₹100.'
+                    if sale_price > float(variant['actual_price']):
+                        errors[f'sale_price{idx}'] = 'Sale price must be less than or equal to actual price.'
                 except ValueError:
-                    errors[f'sale_price{i+1}'] = 'Please enter a valid sale price.'
+                    errors[f'sale_price{idx}'] = 'Please enter a valid sale price.'
 
         if errors:
             print("fdfgh",errors)
@@ -392,8 +409,9 @@ def edit_product(request, product_id):
                     image.delete()
 
                 # Process new images
-                for i, variant_data in enumerate(variants):
-                    variant_images = request.FILES.getlist(f'variant_image{i + 1}[]')
+                for enum_i, variant_data in enumerate(variants):
+                    idx = variant_data.get('id_index', enum_i + 1)
+                    variant_images = request.FILES.getlist(f'variant_image{idx}[]')
                     variant = product.variants.get(color=variant_data['color'], size=variant_data['size'])
                     for index, image in enumerate(variant_images):
                         cloudinary_response = cloudinary.uploader.upload(

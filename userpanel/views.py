@@ -376,7 +376,11 @@ def set_default_address(request, address_id):
 def wishlist(request):
     wishlist_items = list(
         Wishlist.objects.filter(
-            user=request.user
+            user=request.user,
+            variant__is_deleted=False,
+            variant__product__is_deleted=False,
+            variant__product__category__is_deleted=False,
+            variant__product__brand__is_deleted=False
         ).select_related(
             'variant__product', 'variant__product__brand', 'variant__product__category'
         ).prefetch_related(

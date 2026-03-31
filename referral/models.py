@@ -36,8 +36,8 @@ class Referral(models.Model):
     used_at = models.DateTimeField(null=True, blank=True)
     
     # Reward tracking
-    reward_given_to_referrer = models.BooleanField(default=False)
-    reward_given_to_referred = models.BooleanField(default=False)
+    reward_given_to_referrer = models.BooleanField(default=False)#existing
+    reward_given_to_referred = models.BooleanField(default=False)#new
 
     class Meta:
         ordering = ['-created_at']

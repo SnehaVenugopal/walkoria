@@ -438,6 +438,7 @@
         {% endif %}
 
         <!-- Status Update Form -->
+        {% if item.allowed_statuses %}
         <div class="update-form">
             <h6 style="color: #2c3e50; margin-bottom: 15px;">
                 <i class="fas fa-edit me-2"></i>Update Item Status
@@ -447,7 +448,7 @@
                 <div class="form-group">
                     <label for="status_{{ item.id }}" class="form-label">Status</label>
                     <select name="status" id="status_{{ item.id }}" class="form-control">
-                        {% for status in status_choices %}
+                        {% for status in item.allowed_statuses %}
                         <option value="{{ status.0 }}" {% if status.0 == item.status %}selected{% endif %}>
                             {{ status.1 }}
                         </option>
@@ -464,6 +465,13 @@
                 </button>
             </form>
         </div>
+        {% else %}
+        <div class="update-form" style="background: #f8f9fa; border: 1px dashed #dee2e6;">
+            <p style="color: #6c757d; margin: 0; text-align: center;">
+                <i class="fas fa-lock me-2"></i>This item is in a final state (<strong>{{ item.get_status_display }}</strong>) and cannot be updated.
+            </p>
+        </div>
+        {% endif %}
     </div>
     {% endfor %}
 </div>

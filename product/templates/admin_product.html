@@ -403,7 +403,7 @@
       </thead>
       <tbody>
           {% for product in products %}
-          <tr>
+          <tr{% if not product.is_listed %} style="opacity: 0.6; background-color: #f8f9fa;"{% endif %}>
               <td>{{ forloop.counter }}</td>
               <td>
                   {% if product.images.first %}
@@ -415,7 +415,11 @@
                   {% endif %}
               </td>
               <td>
-                  <div class="product-name">{{ product.name }}</div>
+                  <div class="product-name">{{ product.name }}
+                      {% if not product.is_listed %}
+                          <span class="stock-badge stock-out" style="margin-left: 8px; font-size: 11px;">Unlisted</span>
+                      {% endif %}
+                  </div>
                   <div class="product-description">{{ product.description|truncatechars:50 }}</div>
               </td>
               <td>
@@ -453,11 +457,11 @@
                       <i class="fas fa-edit"></i>
                   </a>
 
-                  {# REPLACED delete icon with List/Unlist toggle switch #}
+                  {# List/Unlist toggle switch using is_listed field #}
                   <label class="switch" title="List / Unlist">
                     <input
                       type="checkbox"
-                      {% if not product.is_deleted %}checked{% endif %}
+                      {% if product.is_listed %}checked{% endif %}
                       data-url="{% url 'toggle_product_status' product.id %}"
                       data-name="{{ product.name }}"
                       onchange="toggleProductStatus(this)"
@@ -557,6 +561,7 @@
         const url = inputEl.getAttribute('data-url');
         const isListChecked = inputEl.checked; // true => list, false => unlist
         const csrftoken = getCookie('csrftoken');
+        const row = inputEl.closest('tr');
 
         fetch(url, {
             method: 'POST',
@@ -577,10 +582,29 @@
         })
         .then(data => {
             if (data.success) {
-                // Always green toast, message comes from backend or fallback
                 showToast(data.message || (isListChecked ? 'Product listed successfully' : 'Product unlisted successfully'), 'success');
-                // If your products_view filters is_deleted=False, unlisted rows will hide on refresh
-                // setTimeout(() => location.reload(), 800);
+                
+                // Visually update the row without page reload
+                if (isListChecked) {
+                    // Listed: restore normal row appearance
+                    row.style.opacity = '1';
+                    row.style.backgroundColor = '';
+                    const badge = row.querySelector('.unlisted-badge');
+                    if (badge) badge.remove();
+                } else {
+                    // Unlisted: fade the row and add badge
+                    row.style.opacity = '0.6';
+                    row.style.backgroundColor = '#f8f9fa';
+                    const nameDiv = row.querySelector('.product-name');
+                    if (nameDiv && !nameDiv.querySelector('.unlisted-badge')) {
+                        const badge = document.createElement('span');
+                        badge.className = 'stock-badge stock-out unlisted-badge';
+                        badge.style.marginLeft = '8px';
+                        badge.style.fontSize = '11px';
+                        badge.textContent = 'Unlisted';
+                        nameDiv.appendChild(badge);
+                    }
+                }
             } else {
                 // revert UI if backend failed
                 inputEl.checked = !isListChecked;

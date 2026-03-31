@@ -260,8 +260,16 @@ def verify_otp_view(request):
 
     if request.method == 'POST':
         if is_expired:
-            messages.error(request, "OTP expired. Please sign up again.")
-            return redirect('signup')
+            # Stay on the OTP page — do NOT redirect to signup.
+            # Keep session intact so the Resend Code button can generate a new OTP.
+            messages.error(request, "OTP expired. Please request a new code using the Resend button.")
+            now = timezone.now()
+            remaining_seconds = 0
+            return render(request, 'verify_otp.html', {
+                'otp_expiry': expiry_time.isoformat(),
+                'remaining_seconds': remaining_seconds,
+                'is_expired': True,
+            })
 
         user_otp = ''.join([request.POST.get(f'otp{i}', '') for i in range(1, 7)])
 
@@ -310,8 +318,8 @@ def verify_otp_view(request):
             messages.error(request, "Invalid OTP.")
 
     elif is_expired:
-        messages.error(request, "OTP expired. Please sign up again.")
-        return redirect('signup')
+        # Stay on the OTP page — session is kept so Resend Code works.
+        messages.error(request, "OTP expired. Please request a new code using the Resend button.")
 
 
     now = timezone.now()

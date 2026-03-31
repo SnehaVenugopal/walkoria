@@ -686,6 +686,24 @@ def admin_order_overview(request, order_id):
 
         item.offer_details = None        # No live offer lookup needed
         item.final_price_display = sale_price
+
+        # Determine allowed statuses for this item
+        terminal_statuses = ['Cancelled', 'Returned', 'Refunded', 'Payment_Failed']
+        if item.status in terminal_statuses:
+            # No further status changes for terminal items
+            item.allowed_statuses = []
+        else:
+            # Check if item has a return request
+            has_return_request = item.return_requests.exists()
+            
+            allowed = []
+            for status_code, status_label in status_choices:
+                # Skip return-related statuses if no return request exists
+                if status_code in ['Return_Requested', 'Returned', 'Refunded'] and not has_return_request:
+                    continue
+                allowed.append((status_code, status_label))
+            item.allowed_statuses = allowed
+
         enhanced_items.append(item)
 
     # Sold price = sum of item.price × qty (already post-offer)
@@ -715,24 +733,27 @@ def update_order_item(request, item_id):
     order_item = get_object_or_404(OrderItem, id=item_id)
     order = order_item.order
     if request.method == 'POST':
+        from decimal import Decimal
         item = get_object_or_404(OrderItem, id=item_id)
-        item.status = request.POST.get('status')
+        new_status = request.POST.get('status')
         item.admin_note = request.POST.get('admin_note')
-        item.is_cancelled = 'True'
+
+        # Save the new status
+        item.status = new_status
+        if new_status == 'Cancelled':
+            item.is_cancelled = True
         item.save()
 
-        if request.POST.get('status') == 'Delivered':
+        # ── Handle Delivered ──────────────────────────────────────────
+        if new_status == 'Delivered':
             try:
                 referral = Referral.objects.get(referred_user=order.user)
-                # Check if rewards not yet given
                 if not referral.reward_given_to_referred or not referral.reward_given_to_referrer:
-                    # Find the offer that was active when the referral was created
                     offer = ReferralOffer.objects.filter(
                         valid_from__lte=referral.created_at
                     ).filter(
                         Q(valid_until__gte=referral.created_at) | Q(valid_until__isnull=True)
                     ).first()
-                    
                     if offer:
                         give_referral_rewards(referral, offer)
                         messages.success(request, 'Referral rewards distributed successfully.')
@@ -741,15 +762,17 @@ def update_order_item(request, item_id):
             except Exception as e:
                 print(f"Error giving referral rewards: {e}")
 
-        if request.POST.get('status') == 'Returned' and order_item.item_payment_status == 'Paid':
-            # Use the same proven formula as cancel_product:
-            # proportional offer share + coupon deduction + delivery refund if last item
-            # NOTE: item is already saved with status='Returned' above (line 718),
-            #       so get_refund_amount()'s exclude(pk=self.pk) correctly excludes it.
-            from decimal import Decimal
+        # ── Handle Cancelled (refund + restock) ───────────────────────
+        if new_status == 'Cancelled':
+            # Restore stock
+            if item.product_variant:
+                item.product_variant.quantity += item.quantity
+                item.product_variant.save()
+
+            # Calculate refund
             refund_amount = item.get_refund_amount()
 
-            # Update order totals (mirrors cancel_product logic)
+            # Update order totals
             effective_item_price = item.price * item.quantity
             order.subtotal = max(order.subtotal - effective_item_price, Decimal('0'))
             if order.subtotal <= 0:
@@ -759,7 +782,63 @@ def update_order_item(request, item_id):
                 order.total_amount = max(order.total_amount - refund_amount, Decimal('0'))
             order.save()
 
-            if order.payment_method in ['RP', 'WP', 'PP'] or (order.payment_method == 'COD' and item.status == 'Delivered'):
+            # Refund to wallet if paid
+            is_online_payment = order.payment_method in ['RP', 'WP', 'PP']
+            was_paid = (
+                order_item.item_payment_status == 'Paid' or
+                order.payment_status or
+                is_online_payment
+            )
+
+            if was_paid and refund_amount > 0:
+                wallet, _ = Wallet.objects.get_or_create(user=order.user)
+                wallet.refresh_from_db()
+                refund_decimal = Decimal(str(refund_amount))
+                wallet.balance = wallet.balance + refund_decimal
+                wallet.save()
+                WalletTransaction.objects.create(
+                    wallet=wallet,
+                    transaction_type="Cr",
+                    amount=refund_decimal,
+                    status="Completed",
+                    description=f"Admin cancelled refund - Order #{order.order_number} - Item #{item.id}",
+                    order=order,
+                    transaction_id="AC" + str(int(time.time()))[-6:] + uuid.uuid4().hex[:4].upper(),
+                )
+                item.item_payment_status = 'Refunded'
+                item.save()
+                messages.success(request, f'Order item cancelled. ₹{refund_amount:.2f} refunded to wallet. Stock restored.')
+            elif order.payment_method == 'COD':
+                item.item_payment_status = 'Cancelled'
+                item.save()
+                messages.success(request, 'Order item cancelled. Stock restored.')
+            else:
+                item.item_payment_status = 'Cancelled'
+                item.save()
+                messages.success(request, 'Order item cancelled. Stock restored.')
+
+            return redirect('orders')
+
+        # ── Handle Returned (refund + restock) ────────────────────────
+        if new_status == 'Returned' and order_item.item_payment_status == 'Paid':
+            # Restore stock
+            if item.product_variant:
+                item.product_variant.quantity += item.quantity
+                item.product_variant.save()
+
+            refund_amount = item.get_refund_amount()
+
+            # Update order totals
+            effective_item_price = item.price * item.quantity
+            order.subtotal = max(order.subtotal - effective_item_price, Decimal('0'))
+            if order.subtotal <= 0:
+                order.shipping_cost = Decimal('0')
+                order.total_amount = Decimal('0')
+            else:
+                order.total_amount = max(order.total_amount - refund_amount, Decimal('0'))
+            order.save()
+
+            if order.payment_method in ['RP', 'WP', 'PP'] or (order.payment_method == 'COD' and order_item.item_payment_status == 'Paid'):
                 if refund_amount > 0:
                     wallet, _ = Wallet.objects.get_or_create(user=order.user)
                     wallet.refresh_from_db()
@@ -777,7 +856,8 @@ def update_order_item(request, item_id):
                     )
                 item.item_payment_status = 'Refunded'
                 item.save()
-        messages.success(request, 'Status updated sucessful')
+
+        messages.success(request, 'Status updated successfully')
         return redirect('orders')
 
 

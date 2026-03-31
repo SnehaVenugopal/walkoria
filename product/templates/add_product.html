@@ -5,6 +5,8 @@
 {% block page_title %}Add New Product{% endblock %}
 
 {% block extra_css %}
+<!-- Cropper.js CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
 <style>
     .form-container {
         background: white;
@@ -252,7 +254,7 @@
 
 {% block content %}
 <div class="form-container">
-    <form id="productForm" enctype="multipart/form-data">
+    <form id="productForm" enctype="multipart/form-data" novalidate>
         {% csrf_token %}
         
         <!-- Basic Information Section -->
@@ -338,250 +340,435 @@
         <p>Saving product...</p>
     </div>
 </div>
+
+<!-- Image Crop Modal -->
+<div class="modal fade" id="imgCropModal" tabindex="-1"
+     data-bs-backdrop="static" data-bs-keyboard="false"
+     aria-labelledby="imgCropModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content" style="border:none;border-radius:12px;overflow:hidden;">
+
+            <!-- Header -->
+            <div class="modal-header" style="background:#2c3e50;color:white;padding:10px 18px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <i class="fas fa-crop-alt" style="color:var(--primary-color);"></i>
+                    <span style="font-weight:600;font-size:15px;">Crop Image</span>
+                    <span id="cropProgressBadge"
+                          style="background:rgba(255,255,255,.15);color:white;
+                                 padding:2px 10px;border-radius:20px;font-size:12px;"></span>
+                </div>
+                <small style="color:rgba(255,255,255,.6);font-size:12px;">
+                    Drag to reposition • Scroll to zoom
+                </small>
+            </div>
+
+            <!-- Crop Area -->
+            <div style="height:460px;background:#1a1a2e;position:relative;overflow:hidden;">
+                <img id="cropTargetImg" src="" alt="crop"
+                     style="display:block;max-width:100%;max-height:100%;">
+            </div>
+
+            <!-- Footer -->
+            <div class="modal-footer" style="background:#f8f9fa;padding:10px 18px;
+                                             display:flex;justify-content:space-between;
+                                             align-items:center;">
+                <div style="color:#6c757d;font-size:12px;">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Select area to crop, or skip to use the original image
+                </div>
+                <div style="display:flex;gap:10px;">
+                    <button type="button" id="skipCropBtn"
+                            style="padding:7px 18px;border:1px solid #dee2e6;background:white;
+                                   border-radius:8px;font-size:13px;cursor:pointer;color:#495057;">
+                        <i class="fas fa-forward me-1"></i> Skip
+                    </button>
+                    <button type="button" id="doCropBtn"
+                            style="padding:7px 22px;background:var(--primary-color);color:white;
+                                   border:none;border-radius:8px;font-weight:600;
+                                   font-size:13px;cursor:pointer;">
+                        <i class="fas fa-check me-1"></i> Crop &amp; Add
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_scripts %}
+<!-- Cropper.js JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
 <script>
-    let variantCount = 0;
-    let variantIds = []; // Track active variant IDs
-    const sizeOptions = ['5', '6', '7', '8', '9', '10'];
+// ── State ────────────────────────────────────────────────────────────────
+let variantCount = 0;
+let variantIds   = [];
+const sizeOptions = ['5', '6', '7', '8', '9', '10'];
 
-    function addVariant() {
-        variantCount++;
-        variantIds.push(variantCount); // Add to active variants
-        
-        const variantHtml = `
-            <div class="variant-container" id="variant${variantCount}" data-variant-id="${variantCount}">
-                <div class="variant-header">
-                    <h4 class="variant-title">Variant ${variantCount}</h4>
-                    <button type="button" class="remove-variant-btn" onclick="removeVariant(${variantCount})">
-                        <i class="fas fa-trash"></i> Remove
-                    </button>
-                </div>
-                
-                <div class="variant-row">
-                    <div class="form-group">
-                        <label class="form-label">Color *</label>
-                        <input type="text" name="color${variantCount}" class="form-input" required>
-                        <div id="color${variantCount}Error" class="error-message"></div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Size *</label>
-                        <select name="size${variantCount}" class="form-select" required>
-                            <option value="">Select Size</option>
-                            ${sizeOptions.map(size => `<option value="${size}">${size}</option>`).join('')}
-                        </select>
-                        <div id="size${variantCount}Error" class="error-message"></div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Quantity *</label>
-                        <input type="number" name="quantity${variantCount}" class="form-input" min="1" max="1000" required>
-                        <div id="quantity${variantCount}Error" class="error-message"></div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Actual Price *</label>
-                        <input type="number" name="actual_price${variantCount}" class="form-input" step="0.01" min="0" required>
-                        <div id="actual_price${variantCount}Error" class="error-message"></div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Sale Price</label>
-                        <input type="number" name="sale_price${variantCount}" class="form-input" step="0.01" min="0">
-                        <div id="sale_price${variantCount}Error" class="error-message"></div>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Images * (Minimum 3 images)</label>
-                    <div class="image-upload-container">
-                        <input type="file" id="variant_image${variantCount}" name="variant_image${variantCount}[]" 
-                               class="image-upload-input" multiple accept="image/*" onchange="previewImages(${variantCount})">
-                        <label for="variant_image${variantCount}" class="image-upload-label">
-                            <i class="fas fa-cloud-upload-alt" style="font-size: 2rem; margin-bottom: 10px;"></i><br>
-                            Click to upload images or drag and drop
-                        </label>
-                        <div id="imagePreview${variantCount}" class="image-preview"></div>
-                    </div>
-                    <div id="variant_image${variantCount}Error" class="error-message"></div>
-                </div>
+// variantImages[variantId] = [{file: File, url: string}, ...]
+const variantImages = {};
+
+// ── Variant DOM ──────────────────────────────────────────────────────────
+function addVariant() {
+    variantCount++;
+    variantIds.push(variantCount);
+    variantImages[variantCount] = [];
+
+    const html = `
+    <div class="variant-container" id="variant${variantCount}" data-variant-id="${variantCount}">
+        <div class="variant-header">
+            <h4 class="variant-title">Variant ${variantCount}</h4>
+            <button type="button" class="remove-variant-btn" onclick="removeVariant(${variantCount})">
+                <i class="fas fa-trash"></i> Remove
+            </button>
+        </div>
+
+        <div class="variant-row">
+            <div class="form-group">
+                <label class="form-label">Color *</label>
+                <input type="text" name="color${variantCount}" class="form-input" required>
+                <div id="color${variantCount}Error" class="error-message"></div>
             </div>
-        `;
-        
-        document.getElementById('variantsContainer').insertAdjacentHTML('beforeend', variantHtml);
-    }
+            <div class="form-group">
+                <label class="form-label">Size *</label>
+                <select name="size${variantCount}" class="form-select" required>
+                    <option value="">Select Size</option>
+                    ${sizeOptions.map(s => `<option value="${s}">${s}</option>`).join('')}
+                </select>
+                <div id="size${variantCount}Error" class="error-message"></div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Quantity *</label>
+                <input type="number" name="quantity${variantCount}" class="form-input" min="1" max="1000" required>
+                <div id="quantity${variantCount}Error" class="error-message"></div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Actual Price *</label>
+                <input type="number" name="actual_price${variantCount}" class="form-input" step="0.01" min="0" required>
+                <div id="actual_price${variantCount}Error" class="error-message"></div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Sale Price</label>
+                <input type="number" name="sale_price${variantCount}" class="form-input" step="0.01" min="0">
+                <div id="sale_price${variantCount}Error" class="error-message"></div>
+            </div>
+        </div>
 
-    function removeVariant(variantId) {
-        if (confirm('Are you sure you want to remove this variant?')) {
-            document.getElementById(`variant${variantId}`).remove();
-            // Remove from active variants array
-            variantIds = variantIds.filter(id => id !== variantId);
-        }
-    }
+        <div class="form-group">
+            <label class="form-label">
+                Images * <span style="color:#6c757d;font-weight:400;">(Minimum 3 images — JPG / PNG / WebP)</span>
+            </label>
+            <div class="image-upload-container" id="uploadArea${variantCount}"
+                 onclick="document.getElementById('fileInput${variantCount}').click()"
+                 style="cursor:pointer;">
+                <input type="file" id="fileInput${variantCount}"
+                       style="display:none;" multiple accept="image/*"
+                       onchange="handleFileSelect(event, ${variantCount})">
+                <i class="fas fa-cloud-upload-alt" style="font-size:2rem;color:#aaa;margin-bottom:8px;"></i>
+                <p style="margin:0;color:#6c757d;font-size:14px;">Click to upload images or drag &amp; drop</p>
+            </div>
+            <div id="imagePreview${variantCount}" class="image-preview" style="margin-top:10px;"></div>
+            <div id="variant_image${variantCount}Error" class="error-message"></div>
+        </div>
+    </div>`;
 
-    function previewImages(variantId) {
-        const input = document.getElementById(`variant_image${variantId}`);
-        const preview = document.getElementById(`imagePreview${variantId}`);
-        preview.innerHTML = '';
+    document.getElementById('variantsContainer').insertAdjacentHTML('beforeend', html);
 
-        if (input.files) {
-            Array.from(input.files).forEach((file, index) => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const imageItem = document.createElement('div');
-                    imageItem.className = 'image-preview-item';
-                    imageItem.innerHTML = `
-                        <img src="${e.target.result}" class="preview-image" alt="Preview">
-                        <button type="button" class="remove-image-btn" onclick="removePreviewImage(${variantId}, ${index})">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    `;
-                    preview.appendChild(imageItem);
-                };
-                reader.readAsDataURL(file);
-            });
-        }
-    }
-
-    function removePreviewImage(variantId, imageIndex) {
-        // This would need more complex logic to actually remove from file input
-        // For now, just remove the preview
-        const preview = document.getElementById(`imagePreview${variantId}`);
-        const items = preview.children;
-        if (items[imageIndex]) {
-            items[imageIndex].remove();
-        }
-    }
-
-    // Form submission
-    document.getElementById('productForm').addEventListener('submit', function(e) {
+    // Enable drag-and-drop on the upload area
+    const area = document.getElementById(`uploadArea${variantCount}`);
+    area.addEventListener('dragover',  e => { e.preventDefault(); area.style.borderColor = 'var(--primary-color)'; });
+    area.addEventListener('dragleave', () => { area.style.borderColor = '#ddd'; });
+    area.addEventListener('drop',      e => {
         e.preventDefault();
-        
-        // Clear previous errors
-        document.querySelectorAll('.error-message').forEach(el => el.style.display = 'none');
-        
-        // Collect form data
-        const formData = new FormData();
-        formData.append('name', document.getElementById('productName').value);
-        formData.append('category', document.getElementById('category').value);
-        formData.append('brand', document.getElementById('brand').value);
-        formData.append('description', document.getElementById('description').value);
-        
-        // Collect variants data - only from existing variants
-        const variants = [];
-        let variantIndex = 1; // Backend expects 1-based indexing
-        
-        variantIds.forEach(variantId => {
-            const variantElement = document.getElementById(`variant${variantId}`);
-            if (variantElement) {
-                const colorInput = variantElement.querySelector(`input[name="color${variantId}"]`);
-                const sizeSelect = variantElement.querySelector(`select[name="size${variantId}"]`);
-                const quantityInput = variantElement.querySelector(`input[name="quantity${variantId}"]`);
-                const actualPriceInput = variantElement.querySelector(`input[name="actual_price${variantId}"]`);
-                const salePriceInput = variantElement.querySelector(`input[name="sale_price${variantId}"]`);
-                
-                if (colorInput && sizeSelect && quantityInput && actualPriceInput) {
-                    variants.push({
-                        color: colorInput.value,
-                        size: sizeSelect.value,
-                        quantity: quantityInput.value,
-                        actual_price: actualPriceInput.value,
-                        sale_price: salePriceInput.value || ''
+        area.style.borderColor = '#ddd';
+        addFilesToVariant(Array.from(e.dataTransfer.files), variantCount);
+    });
+}
+
+function removeVariant(id) {
+    if (confirm('Remove this variant?')) {
+        document.getElementById(`variant${id}`).remove();
+        variantIds = variantIds.filter(v => v !== id);
+        delete variantImages[id];
+    }
+}
+
+// ── Crop queue state ────────────────────────────────────────────────────
+let _cq = [];        // crop queue: [{file, variantId}, ...]
+let _cqIdx = 0;
+let _cqInput = null; // the file input — reset AFTER all files are processed
+let _cropper = null;
+
+function _cropModal() { return document.getElementById('imgCropModal'); }
+function _bsModal()  {
+    return bootstrap.Modal.getInstance(_cropModal()) ||
+           new bootstrap.Modal(_cropModal());
+}
+
+// ── Image handling ──────────────────────────────────────────────────────
+function handleFileSelect(event, variantId) {
+    const inputEl = event.target;
+    const files   = Array.from(inputEl.files);
+    // Do NOT reset inputEl here — File objects must stay readable for FileReader.
+    // We reset only after all crops complete.
+
+    const accepted = files.filter(f => f.type.startsWith('image/'));
+    const rejected = files.filter(f => !f.type.startsWith('image/'));
+    if (rejected.length) {
+        showFieldError(`variant_image${variantId}`,
+            `Skipped non-image: ${rejected.map(f => f.name).join(', ')}`);
+    }
+    if (!accepted.length) { inputEl.value = ''; return; }
+
+    // If Cropper.js is available, queue files for cropping
+    if (typeof Cropper !== 'undefined') {
+        _cq      = accepted.map(f => ({ file: f, variantId }));
+        _cqIdx   = 0;
+        _cqInput = inputEl;
+        _openNextCrop();
+    } else {
+        // Cropper.js not loaded — add files directly
+        accepted.forEach(f => _addOneFile(variantId, f));
+        updateImageError(variantId);
+        inputEl.value = '';
+    }
+}
+
+function _openNextCrop() {
+    if (_cqIdx >= _cq.length) {
+        if (_cqInput) _cqInput.value = '';
+        updateImageError(_cq[_cq.length - 1]?.variantId);
+        return;
+    }
+
+    const { file, variantId } = _cq[_cqIdx];
+    document.getElementById('cropProgressBadge').textContent =
+        `${_cqIdx + 1} / ${_cq.length}`;
+
+    const reader = new FileReader();
+    reader.onerror = () => { _cqIdx++; _openNextCrop(); };
+    reader.onload  = e => {
+        const img     = document.getElementById('cropTargetImg');
+        const modalEl = document.getElementById('imgCropModal');
+
+        if (_cropper) { _cropper.destroy(); _cropper = null; }
+
+        // Init Cropper AFTER the Bootstrap fade animation finishes.
+        // 'shown.bs.modal' fires once the modal is fully visible with
+        // real pixel dimensions — if we init earlier (img.onload fires
+        // ~0ms for data URLs), the container is still 0x0 and Cropper
+        // renders the canvas tiny.
+        modalEl.addEventListener('shown.bs.modal', function() {
+            function startCropper() {
+                try {
+                    _cropper = new Cropper(img, {
+                        viewMode:     1,
+                        autoCropArea: 0.85,
+                        background:   false,
+                        responsive:   true,
+                        aspectRatio:  NaN,
                     });
-                    
-                    // Add images for this variant with sequential numbering
-                    const imageInput = variantElement.querySelector(`input[name="variant_image${variantId}[]"]`);
-                    if (imageInput && imageInput.files) {
-                        console.log(`Adding ${imageInput.files.length} files for variant ${variantIndex}`);
-                        Array.from(imageInput.files).forEach(file => {
-                            formData.append(`variant_image${variantIndex}[]`, file);
-                        });
-                    }
-                    
-                    variantIndex++; // Increment for next variant
+                } catch (ex) {
+                    _addOneFile(variantId, file);
+                    _closeCropModal();
                 }
             }
-        });
-        
-        formData.append('variants', JSON.stringify(variants));
-        
-        // Debug: Log FormData contents
-        console.log('FormData contents:');
-        for (let [key, value] of formData.entries()) {
-            if (value instanceof File) {
-                console.log(key, ':', value.name, value.size, 'bytes');
+            // If img already decoded (data URL usually decodes fast), go now
+            if (img.complete && img.naturalWidth) {
+                startCropper();
             } else {
-                console.log(key, ':', value);
+                img.onload = startCropper;
+            }
+        }, { once: true });
+
+        // 1. Show modal, 2. Set src — order matters for the timing fix
+        _bsModal().show();
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+
+document.getElementById('doCropBtn').addEventListener('click', () => {
+    if (!_cropper) return;
+    const { variantId } = _cq[_cqIdx];
+    _cropper.getCroppedCanvas({ imageSmoothingQuality: 'high' })
+        .toBlob(blob => {
+            const orig    = _cq[_cqIdx].file;
+            const cropped = new File([blob], orig.name, { type: 'image/jpeg' });
+            _addOneFile(variantId, cropped);
+            _closeCropModal();
+        }, 'image/jpeg', 0.92);
+});
+
+document.getElementById('skipCropBtn').addEventListener('click', () => {
+    if (_cqIdx < _cq.length) {
+        const { file, variantId } = _cq[_cqIdx];
+        _addOneFile(variantId, file);
+    }
+    _closeCropModal();
+});
+
+function _closeCropModal() {
+    if (_cropper) { _cropper.destroy(); _cropper = null; }
+    _bsModal().hide();
+    _cqIdx++;
+    setTimeout(_openNextCrop, 420);
+}
+
+function _addOneFile(variantId, file) {
+    if (!variantImages[variantId]) variantImages[variantId] = [];
+    const url = URL.createObjectURL(file);
+    variantImages[variantId].push({ file, url });
+
+    const preview = document.getElementById(`imagePreview${variantId}`);
+    const item    = document.createElement('div');
+    item.className = 'image-preview-item';
+    item.innerHTML = `
+        <img src="${url}" class="preview-image" alt="preview">
+        <button type="button" class="remove-image-btn"
+                onclick="removeImage(${variantId}, this)">
+            <i class="fas fa-times"></i>
+        </button>`;
+    preview.appendChild(item);
+}
+
+function removeImage(variantId, btn) {
+    const item    = btn.closest('.image-preview-item');
+    const preview = item.parentElement;
+    const idx     = Array.from(preview.children).indexOf(item);
+    URL.revokeObjectURL(variantImages[variantId][idx].url);
+    variantImages[variantId].splice(idx, 1);
+    item.remove();
+    updateImageError(variantId);
+}
+
+function updateImageError(variantId) {
+    const count   = (variantImages[variantId] || []).length;
+    const errorEl = document.getElementById(`variant_image${variantId}Error`);
+    if (count > 0 && count < 3) {
+        errorEl.textContent = `Please add at least 3 images (${count} added so far).`;
+        errorEl.style.display = 'block';
+    } else {
+        errorEl.style.display = 'none';
+    }
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function showFieldError(id, msg) {
+    const el = document.getElementById(`${id}Error`);
+    if (el) { el.textContent = msg; el.style.display = 'block'; }
+}
+
+// ── Form submission ──────────────────────────────────────────────────────
+document.getElementById('productForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    document.querySelectorAll('.error-message').forEach(el => el.style.display = 'none');
+
+    const formData = new FormData();
+    formData.append('name',        document.getElementById('productName').value);
+    formData.append('category',    document.getElementById('category').value);
+    formData.append('brand',       document.getElementById('brand').value);
+    formData.append('description', document.getElementById('description').value);
+
+    const variants = [];
+    let variantIndex  = 1;
+    let hasImageError = false;
+
+    variantIds.forEach(variantId => {
+        const el = document.getElementById(`variant${variantId}`);
+        if (!el) return;
+
+        const colorInput  = el.querySelector(`input[name="color${variantId}"]`);
+        const sizeSelect  = el.querySelector(`select[name="size${variantId}"]`);
+        const qtyInput    = el.querySelector(`input[name="quantity${variantId}"]`);
+        const actualInput = el.querySelector(`input[name="actual_price${variantId}"]`);
+        const saleInput   = el.querySelector(`input[name="sale_price${variantId}"]`);
+
+        if (colorInput && sizeSelect && qtyInput && actualInput) {
+            variants.push({
+                id_index:     variantId,
+                color:        colorInput.value,
+                size:         sizeSelect.value,
+                quantity:     qtyInput.value,
+                actual_price: actualInput.value,
+                sale_price:   saleInput ? saleInput.value : ''
+            });
+
+            const imgs = variantImages[variantId] || [];
+            if (imgs.length < 3) {
+                showFieldError(`variant_image${variantId}`,
+                    `At least 3 images required (${imgs.length} added).`);
+                hasImageError = true;
+            } else {
+                imgs.forEach(imgObj => {
+                    formData.append(`variant_image${variantId}[]`, imgObj.file);
+                });
             }
         }
-        
-        // Show loading
-        document.getElementById('loadingOverlay').style.display = 'block';
-        
-        // Submit form
-        fetch('{% url "add_product" %}', {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            document.getElementById('loadingOverlay').style.display = 'none';
-            
-            if (data.success) {
-                showToast(data.message, 'success');
-                setTimeout(() => {
-                    window.location.href = '{% url "product" %}';
-                }, 1500);
-            } else {
-                if (data.errors) {
-                    Object.keys(data.errors).forEach(key => {
-                        const errorElement = document.getElementById(`${key}Error`);
-                        if (errorElement) {
-                            errorElement.textContent = data.errors[key];
-                            errorElement.style.display = 'block';
-                        }
-                    });
-                }
-                showToast(data.message || 'Please fix the errors and try again', 'danger');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            document.getElementById('loadingOverlay').style.display = 'none';
-            showToast('An error occurred. Please try again.', 'danger');
-        });
     });
 
-    // Show toast notification
-    function showToast(message, type) {
-        const toast = document.createElement('div');
-        toast.className = `alert alert-${type}`;
-        toast.style.position = 'fixed';
-        toast.style.top = '20px';
-        toast.style.right = '20px';
-        toast.style.zIndex = '9999';
-        toast.style.minWidth = '300px';
-        toast.innerHTML = message;
-        
-        document.body.appendChild(toast);
-        
-        setTimeout(() => {
-            toast.style.opacity = '0';
-            toast.style.transition = 'opacity 0.5s ease';
-            setTimeout(() => {
-                document.body.removeChild(toast);
-            }, 500);
-        }, 3000);
+    if (hasImageError) {
+        showToast('Please add at least 3 images for each variant.', 'danger');
+        return;
     }
 
-    // Initialize with one variant
-    addVariant();
+    formData.append('variants', JSON.stringify(variants));
+    document.getElementById('loadingOverlay').style.display = 'block';
 
-    
+    fetch('{% url "add_product" %}', {
+        method: 'POST',
+        body:    formData,
+        headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+    })
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('loadingOverlay').style.display = 'none';
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(() => { window.location.href = '{% url "product" %}'; }, 1500);
+        } else {
+            if (data.errors) {
+                console.error("Backend errors:", data.errors);
+                let allErrors = [];
+                Object.keys(data.errors).forEach(key => {
+                    allErrors.push(data.errors[key]);
+                    const el = document.getElementById(`${key}Error`);
+                    if (el) { 
+                        el.textContent = data.errors[key]; 
+                        el.style.display = 'block'; 
+                    }
+                });
+                
+                let toastMsg = data.message || allErrors[0];
+                showToast(toastMsg, 'danger');
+            } else {
+                showToast(data.message || 'Validation failed. Please try again.', 'danger');
+            }
+        }
+    })
+    .catch(() => {
+        document.getElementById('loadingOverlay').style.display = 'none';
+        showToast('Network error. Please try again.', 'danger');
+    });
+});
+
+// ── Toast ────────────────────────────────────────────────────────────────
+function showToast(message, type) {
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type}`;
+    Object.assign(toast.style, { position:'fixed', top:'20px', right:'20px',
+                                  zIndex:'9999', minWidth:'300px' });
+    toast.innerHTML = message;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.5s ease';
+        setTimeout(() => document.body.removeChild(toast), 500);
+    }, 3000);
+}
+
+// Init with one variant
+addVariant();
 </script>
 {% endblock %}

@@ -5,6 +5,25 @@ from django.contrib.auth import authenticate
 import re
 from django.utils.translation import gettext_lazy as _
 
+
+def validate_strong_password(password):
+    """Raise ValidationError if password does not meet strength requirements."""
+    errors = []
+    if len(password) < 8:
+        errors.append("Password must be at least 8 characters long.")
+    if re.search(r'\s', password):
+        errors.append("Password must not contain spaces.")
+    if not re.search(r'[A-Z]', password):
+        errors.append("Password must contain at least one uppercase letter (A-Z).")
+    if not re.search(r'[a-z]', password):
+        errors.append("Password must contain at least one lowercase letter (a-z).")
+    if not re.search(r'[0-9]', password):
+        errors.append("Password must contain at least one digit (0-9).")
+    if not re.search(r'[^A-Za-z0-9]', password):
+        errors.append("Password must contain at least one special character (e.g. @, #, $, !).")
+    if errors:
+        raise ValidationError(errors)
+
 #signup form validation for userside 
 class SignUpForm(forms.Form):
     name = forms.CharField(max_length=100, required=True)
@@ -36,25 +55,23 @@ class SignUpForm(forms.Form):
 
     def clean_mobile_no(self):
         mobile = self.cleaned_data.get('mobile_no')
+        
+        pattern = r'^[6-9]\d{9}$'
+        
+        if not re.match(pattern,mobile):
+            raise ValidationError("enter a valid indian mobile number")
+        
         if not mobile.isdigit() or len(mobile) != 10:
             raise ValidationError("Mobile number must be exactly 10 digits.")
+        
+        if mobile == mobile[0] * 10:
+            raise ValidationError("invalid mobile number")
+        
         if CustomUser.objects.filter(mobile_no=mobile).exists():
             raise ValidationError("Mobile number already exists.")
         return mobile
 
-    # def clean(self):
-    #     cleaned_data = super().clean()
-    #     password = cleaned_data.get('password')
-    #     confirm_password = cleaned_data.get('confirm_password')
-    #     if (password and " " in password) or (confirm_password and " " in confirm_password):
-    #         raise ValidationError("Password should not contain spaces.")
-    #     elif (password and re.search(r"\s", password)) or (confirm_password and re.search(r"\s", confirm_password)):
-    #         raise ValidationError("Password should not contain spaces or blank characters.")
-    #     elif len(password) < 8:
-    #         raise ValidationError('Password length should atleast 8 char.')
-    #     elif password != confirm_password:
-    #         raise ValidationError('Password do not match.')
-    #     return password
+   
     
     def clean(self):
         cleaned_data = super().clean()
@@ -62,16 +79,17 @@ class SignUpForm(forms.Form):
         confirm_password = cleaned_data.get('confirm_password')
         referral_code = cleaned_data.get('referral_code')
     
-        # 1. Space checks
-        if password and re.search(r"\s", password):
-            self.add_error('password', "Password should not contain spaces or blank characters.")
+        # 1. Strong password validation
+        if password:
+            try:
+                validate_strong_password(password)
+            except ValidationError as e:
+                for msg in e.messages:
+                    self.add_error('password', msg)
     
+        # 2. Confirm password space check
         if confirm_password and re.search(r"\s", confirm_password):
             self.add_error('confirm_password', "Password should not contain spaces or blank characters.")
-    
-        # 2. Length check
-        if password and len(password) < 8:
-            self.add_error('password', "Password length should be at least 8 characters.")
     
         # 3. Match check
         if password and confirm_password and password != confirm_password:
@@ -87,15 +105,6 @@ class SignUpForm(forms.Form):
                 self.add_error('referral_code', "Invalid or already used referral code.")
     
         return cleaned_data
-
-    # def clean(self):
-    #     cleaned_data = super().clean()
-    #     password = cleaned_data.get('password')
-    #     confirm_password = cleaned_data.get('confirm_password')
-    #     if password and confirm_password and password != confirm_password:
-    #         self.add_error('confirm_password',"Passwords do not match.")
-
-
 
 #reset password validations 
 
@@ -119,10 +128,7 @@ class ResetPasswordForm(forms.Form):
 
     def clean_password(self):
         password = self.cleaned_data.get('password', '')
-        if re.search(r'\s', password):
-            raise ValidationError('Password must not contain spaces or blank characters.')
-        if len(password) < 8:
-            raise ValidationError('Password must be at least 8 characters long.')
+        validate_strong_password(password)
         return password
 
     def clean(self):

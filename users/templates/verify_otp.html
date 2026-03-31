@@ -112,7 +112,7 @@
             </form>
 
             <div class="timer-container">
-                <p>Resend code in <span class="timer" id="countdown">01:00</span></p>
+                <p id="resend-timer-label">Resend code in <span class="timer" id="countdown">01:00</span></p>
                 <p><a href="#" id="resendLink" class="resend-link">Resend Code</a></p>
             </div>
         </div>
@@ -122,7 +122,7 @@
 
 {% block scripts %}
 <script>
-    // Auto-focus to next input box
+    // ── OTP input auto-advance & backspace ────────────────────────────────
     const inputs = document.querySelectorAll('.otp-input');
     inputs.forEach((input, i) => {
         input.addEventListener('input', () => {
@@ -130,8 +130,6 @@
                 inputs[i + 1].focus();
             }
         });
-
-        // Handle backspace key
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Backspace' && input.value === '' && i > 0) {
                 inputs[i - 1].focus();
@@ -139,185 +137,111 @@
         });
     });
 
-    // Set focus to first input on page load
-    document.addEventListener('DOMContentLoaded', () => {
-        inputs[0].focus();
-        startCountdown();
-    });
+    // ── Timer ─────────────────────────────────────────────────────────────
+    let countdownInterval = null;
 
-    // Countdown timer
-    {% comment %} function startCountdown() {
-        let timeLeft = 60; // 1 minute in seconds
+    function formatTime(totalSecs) {
+        const m = Math.floor(totalSecs / 60);
+        const s = totalSecs % 60;
+        return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+
+    function startCountdown(timeLeft) {
         const countdownEl = document.getElementById('countdown');
-        const resendLink = document.getElementById('resendLink');
-        
-        const countdownInterval = setInterval(() => {
-            const minutes = Math.floor(timeLeft / 60);
-            const seconds = timeLeft % 60;
-            
-            // Format the time as MM:SS
-            countdownEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-            
+        const resendLink  = document.getElementById('resendLink');
+
+        // Clear any running interval before starting a new one
+        if (countdownInterval) clearInterval(countdownInterval);
+
+        timeLeft = Math.max(0, timeLeft);
+
+        // Display the correct value IMMEDIATELY — no 1-second blank/wrong-number period
+        countdownEl.textContent = formatTime(timeLeft);
+
+        if (timeLeft <= 0) {
+            resendLink.classList.add('active');
+            return;
+        }
+
+        resendLink.classList.remove('active');
+
+        countdownInterval = setInterval(() => {
+            timeLeft--;
+            countdownEl.textContent = formatTime(Math.max(0, timeLeft));
             if (timeLeft <= 0) {
                 clearInterval(countdownInterval);
-                countdownEl.textContent = '00:00';
                 resendLink.classList.add('active');
             }
-            
-            timeLeft--;
         }, 1000);
-    } {% endcomment %}
-
-function startCountdown() {
-    const countdownEl = document.getElementById('countdown');
-    const resendLink = document.getElementById('resendLink');
-    
-    // Get remaining time from backend (in seconds)
-    let timeLeft = {{ remaining_seconds }};
-    
-    // If OTP is already expired, show 00:00 and enable resend
-    if (timeLeft <= 0) {
-        countdownEl.textContent = '00:00';
-        resendLink.classList.add('active');
-        return;
-    }
-    
-    const countdownInterval = setInterval(() => {
-        const minutes = Math.floor(timeLeft / 60);
-        const seconds = timeLeft % 60;
-        
-        // Format the time as MM:SS
-        countdownEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        
-        if (timeLeft <= 0) {
-            clearInterval(countdownInterval);
-            countdownEl.textContent = '00:00';
-            resendLink.classList.add('active');
-        }
-        
-        timeLeft--;
-    }, 1000);
-}
-
-    // Resend OTP functionality
-  // Resend OTP functionality
-{% comment %} document.getElementById('resendLink').addEventListener('click', function(e) {
-    if (!this.classList.contains('active')) {
-        e.preventDefault();
-        return;
     }
 
-    e.preventDefault();
-    const resendLink = this;
-
-    // Disable the link and restart the timer
-    resendLink.classList.remove('active');
-    startCountdown();
-
-    // Send AJAX request to resend OTP
-    fetch("{% url 'resend' %}", {
-        method: "POST",
-        headers: {
-            "X-CSRFToken": "{{ csrf_token }}",
-            "X-Requested-With": "XMLHttpRequest"
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        // Show a notification that the OTP has been resent
-        const alertsContainer = document.getElementById('otp-alerts') || document.createElement('div');
-        alertsContainer.id = 'otp-alerts';
-        alertsContainer.className = 'mt-3';
-
-        const alert = document.createElement('div');
-        alert.className = data.success 
-            ? 'alert alert-info alert-dismissible fade show' 
-            : 'alert alert-danger alert-dismissible fade show';
-        alert.style.fontSize = '0.9rem';
-        alert.innerHTML = `
-            ${data.message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        `;
-
-        alertsContainer.innerHTML = ''; // clear old alert if any
-        alertsContainer.appendChild(alert);
-
-        const form = document.querySelector('form');
-        if (!document.getElementById('otp-alerts')) {
-            form.parentNode.insertBefore(alertsContainer, form);
-        }
-
-        // Clear the input fields
-        inputs.forEach(input => {
-            input.value = '';
-        });
-        inputs[0].focus();
-    })
-    .catch(error => {
-        console.error("Error:", error);
-    }); {% endcomment %}
-//});
-// Resend OTP functionality
-document.getElementById('resendLink').addEventListener('click', function(e) {
-    if (!this.classList.contains('active')) {
-        e.preventDefault();
-        return;
-    }
-
-    e.preventDefault();
-    const resendLink = this;
-
-    // Disable the link temporarily
-    resendLink.classList.remove('active');
-
-    // Send AJAX request to resend OTP
-    fetch("{% url 'resend' %}", {
-        method: "POST",
-        headers: {
-            "X-CSRFToken": "{{ csrf_token }}",
-            "X-Requested-With": "XMLHttpRequest"
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Redirect to refresh the page with new OTP timing
-            window.location.reload();
-        } else {
-            // Show error message
-            const alertsContainer = document.getElementById('otp-alerts') || document.createElement('div');
-            alertsContainer.id = 'otp-alerts';
-            alertsContainer.className = 'mt-3';
-
-            const alert = document.createElement('div');
-            alert.className = 'alert alert-danger alert-dismissible fade show';
-            alert.style.fontSize = '0.9rem';
-            alert.innerHTML = `
-                ${data.message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            `;
-
-            alertsContainer.innerHTML = '';
-            alertsContainer.appendChild(alert);
-
+    // ── Inline alert helper ───────────────────────────────────────────────
+    function showInlineAlert(msg, type) {
+        const colorMap = { danger: 'red', success: '#28a745', info: '#28a745', warning: '#856404' };
+        let container = document.getElementById('otp-alerts');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'otp-alerts';
+            container.className = 'mt-3';
             const form = document.querySelector('form');
-            if (!document.getElementById('otp-alerts')) {
-                form.parentNode.insertBefore(alertsContainer, form);
-            }
-            
-            // Re-enable resend link if there was an error
-            resendLink.classList.add('active');
+            form.parentNode.insertBefore(container, form);
         }
-    })
-    .catch(error => {
-        console.error("Error:", error);
-        // Re-enable resend link on error
-        resendLink.classList.add('active');
+        container.innerHTML = '';   // wipe previous alert
+        const div = document.createElement('div');
+        div.className = `alert alert-${type} alert-dismissible fade show`;
+        // White background with coloured text (matches error style: white bg + red text)
+        const bgOverride = (type === 'success' || type === 'info') ? 'background-color:#fff;border-color:#28a745;' : '';
+        div.style.cssText = `font-size:0.9rem; color:${colorMap[type] || '#333'}; ${bgOverride}`;
+        div.innerHTML = `${msg}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`;
+        container.appendChild(div);
+    }
+
+    // ── Resend OTP (pure client-side reset — NO window.location.reload) ──
+    document.getElementById('resendLink').addEventListener('click', function (e) {
+        if (!this.classList.contains('active')) { e.preventDefault(); return; }
+
+        e.preventDefault();
+        const resendLink = this;
+        resendLink.classList.remove('active');  // disable while request is in flight
+
+        fetch("{% url 'resend' %}", {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                // 1. Wipe any stale error message from the DOM
+                const alertsContainer = document.getElementById('otp-alerts');
+                if (alertsContainer) alertsContainer.innerHTML = '';
+
+                // 2. Show success notice
+                showInlineAlert('A new OTP has been sent to your email.', 'success');
+
+                // 3. Clear OTP input boxes
+                inputs.forEach(inp => { inp.value = ''; });
+                inputs[0].focus();
+
+                // 4. Reset timer to exactly 60 s — client-side only, no round-trip delay
+                startCountdown(60);
+            } else {
+                showInlineAlert(data.message, 'danger');
+                resendLink.classList.add('active');
+            }
+        })
+        .catch(() => {
+            showInlineAlert('Failed to resend OTP. Please try again.', 'danger');
+            resendLink.classList.add('active');
+        });
     });
-});             
 
-
+    // ── Kickoff ───────────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+        inputs[0].focus();
+        startCountdown({{ remaining_seconds }});
+    });
 </script>
 {% endblock %}
-
-

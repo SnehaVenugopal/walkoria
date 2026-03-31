@@ -66,9 +66,9 @@ def get_best_offer(product):
 
 @cache_control(no_cache=True, must_revalidate=True, no_store=True)
 def home(request):
-    latest_products = Product.objects.filter(is_deleted=False).order_by('-created_at')[:4]
-    featured_products = Product.objects.filter(is_deleted=False, variants__sale_price__isnull=False).distinct()[:4]
-    trending_products = Product.objects.filter(is_deleted=False).order_by('-total_quantity')[:4]
+    latest_products = Product.objects.filter(is_deleted=False, is_listed=True).order_by('-created_at')[:4]
+    featured_products = Product.objects.filter(is_deleted=False, is_listed=True, variants__sale_price__isnull=False).distinct()[:4]
+    trending_products = Product.objects.filter(is_deleted=False, is_listed=True).order_by('-total_quantity')[:4]
    
     
     # get review, offer percentage, and offer price
@@ -102,11 +102,11 @@ def product_detail(request, product_id):
             Prefetch('variants', queryset=ProductVariant.objects.filter(is_deleted=False)),
             Prefetch('images', queryset=ProductImage.objects.filter(is_deleted=False))
         )
-        .filter(is_deleted=False),
+        .filter(is_deleted=False, is_listed=True),
         id=product_id
     )
 
-    related_products_qs = Product.objects.filter(is_deleted=False).exclude(id=product.id)[:4]
+    related_products_qs = Product.objects.filter(is_deleted=False, is_listed=True).exclude(id=product.id)[:4]
     related_products = list(related_products_qs)
     for rp in related_products:
         rp.offer_percentage, rp.offer_type = get_best_offer(rp)
@@ -195,17 +195,51 @@ def get_variant_details(request):
 def product_listing(request):
     categories = Category.objects.filter(is_deleted=False, is_listed=True)
     brands = Brand.objects.filter(is_deleted=False, is_listed=True)
-    price_range = Product.objects.filter(is_deleted=False).aggregate(
+    price_range = Product.objects.filter(is_deleted=False, is_listed=True).aggregate(
         min_price=Min('variants__sale_price', filter=Q(variants__is_deleted=False)),
         max_price=Max('variants__sale_price', filter=Q(variants__is_deleted=False))
     )
+
+    # Read search & sort from URL query params (shareable / refresh-safe)
+    search_query = request.GET.get('search', '').strip()
+    sort_by = request.GET.get('sort', 'newest')
+
     # 🔹 Changed: prefetch only non-deleted variants
-    all_products = Product.objects.filter(is_deleted=False) \
+    all_products = Product.objects.filter(is_deleted=False, is_listed=True) \
         .prefetch_related(
             Prefetch('variants', queryset=ProductVariant.objects.filter(is_deleted=False)),
             'images'
-        ).order_by('-created_at')
-    
+        )
+
+    # Apply search filter if present
+    if search_query:
+        all_products = all_products.filter(
+            Q(name__icontains=search_query) |
+            Q(description__icontains=search_query) |
+            Q(brand__name__icontains=search_query) |
+            Q(category__name__icontains=search_query)
+        )
+        # Resolve IDs on the filtered queryset (which has brand/category JOINs)
+        # then rebuild a clean queryset so subsequent sorts don't inherit those JOINs.
+        # Without this, DISTINCT + ORDER BY on any field can return non-matching products.
+        matching_ids = list(all_products.values_list('id', flat=True).distinct())
+        all_products = Product.objects.filter(id__in=matching_ids).prefetch_related(
+            Prefetch('variants', queryset=ProductVariant.objects.filter(is_deleted=False)),
+            'images'
+        )
+
+    # Apply sort on the clean queryset (no stale JOINs)
+    if sort_by in ('price_asc', 'price_desc'):
+        all_products = all_products.annotate(min_sale_price=Min('variants__sale_price'))
+        order_field = 'min_sale_price' if sort_by == 'price_asc' else '-min_sale_price'
+        all_products = all_products.order_by(order_field)
+    elif sort_by == 'name_asc':
+        all_products = all_products.order_by('name')
+    elif sort_by == 'name_desc':
+        all_products = all_products.order_by('-name')
+    else:
+        all_products = all_products.order_by('-created_at')
+
     # get review + offer info
     for product in all_products:
         product.avg_rating = ProductReview.objects.filter(product=product).aggregate(Avg('rating'))['rating__avg'] or 0
@@ -229,6 +263,8 @@ def product_listing(request):
         'min_price': price_range['min_price'],
         'max_price': price_range['max_price'],
         'products': products,
+        'search_query': search_query,   # restores search box value
+        'current_sort': sort_by,        # restores sort dropdown selection
     }
     
     return render(request, 'product_listing.html', data)
@@ -244,7 +280,7 @@ def filter_products(request):
     max_price = request.GET.get('max_price')
     page = request.GET.get('page', 1)
    # 🔹 Changed: prefetch only non-deleted variants
-    products = Product.objects.filter(is_deleted=False).prefetch_related(
+    products = Product.objects.filter(is_deleted=False, is_listed=True).prefetch_related(
         Prefetch('variants', queryset=ProductVariant.objects.filter(is_deleted=False)),
         'images',
         'reviews'
@@ -286,20 +322,34 @@ def filter_products(request):
             variants__sale_price__lte=max_price,
             variants__is_deleted=False
         )
-    if sort_by == 'newest':
+    # ── Resolve clean IDs before sorting ──────────────────────────────────
+    # The search filter (Q(brand__name__icontains=...) etc.) and the price-range
+    # filter (variants__sale_price__gte/lte) both add JOINs to the queryset.
+    # DISTINCT + ORDER BY on ANY field can return non-matching products when
+    # multiple JOINs are active.  Solution: materialise the matching IDs first,
+    # then rebuild a clean queryset from those IDs before applying the sort.
+    matching_ids = list(products.values_list('id', flat=True).distinct())
+    products = Product.objects.filter(id__in=matching_ids).prefetch_related(
+        Prefetch('variants', queryset=ProductVariant.objects.filter(is_deleted=False)),
+        'images',
+        'reviews'
+    )
+
+    # Apply sort on the clean queryset (no stale JOINs)
+    if sort_by in ('price_asc', 'price_desc'):
+        products = products.annotate(min_sale_price=Min('variants__sale_price'))
+        order_field = 'min_sale_price' if sort_by == 'price_asc' else '-min_sale_price'
+        products = products.order_by(order_field)
+    elif sort_by == 'newest':
         products = products.order_by('-created_at')
     elif sort_by == 'name_asc':
         products = products.order_by('name')
     elif sort_by == 'name_desc':
         products = products.order_by('-name')
-    elif sort_by == 'price_asc':
-        products = products.order_by('variants__sale_price')
-    elif sort_by == 'price_desc':
-        products = products.order_by('-variants__sale_price')
     elif sort_by == 'rating':
-        products = products.annotate(avg_rating=Avg('reviews__rating')).order_by('-avg_rating')
-    products = products.distinct()
-
+        products = products.annotate(avg_rating_sort=Avg('reviews__rating')).order_by('-avg_rating_sort')
+    else:
+        products = products.order_by('-created_at')
     # get review + offer info
     products = products.annotate(avg_rating=Avg('reviews__rating'), review_count=Count('reviews'))
     products_list = list(products)

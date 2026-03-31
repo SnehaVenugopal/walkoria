@@ -5,8 +5,9 @@
 {% block page_title %}Edit Product{% endblock %}
 
 {% block extra_css %}
+<!-- Cropper.js CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
 <style>
-    /* Same styles as add_product.html */
     .form-container {
         background: white;
         border-radius: 15px;
@@ -288,7 +289,7 @@
 
 {% block content %}
 <div class="form-container">
-    <form id="productForm" enctype="multipart/form-data">
+    <form id="productForm" enctype="multipart/form-data" novalidate>
         {% csrf_token %}
         
         <!-- Basic Information Section -->
@@ -418,15 +419,18 @@
                         {% endif %}
                         
                         <!-- Upload New Images -->
-                        <div class="image-upload-container">
+                        <div class="image-upload-container" id="uploadArea{{ forloop.counter }}"
+                             onclick="document.getElementById('variant_image{{ forloop.counter }}').click()"
+                             style="cursor:pointer;"
+                             ondragover="event.preventDefault(); this.style.borderColor = 'var(--primary-color)';"
+                             ondragleave="this.style.borderColor = '#ddd';"
+                             ondrop="event.preventDefault(); this.style.borderColor = '#ddd'; handleFileSelect({target: {files: event.dataTransfer.files}, preventDefault: ()=>{}}, {{ forloop.counter }})">
                             <input type="file" id="variant_image{{ forloop.counter }}" name="variant_image{{ forloop.counter }}[]" 
-                                   class="image-upload-input" multiple accept="image/*" onchange="previewImages({{ forloop.counter }})">
-                            <label for="variant_image{{ forloop.counter }}" class="image-upload-label">
-                                <i class="fas fa-cloud-upload-alt" style="font-size: 2rem; margin-bottom: 10px;"></i><br>
-                                Click to upload additional images
-                            </label>
-                            <div id="imagePreview{{ forloop.counter }}" class="image-preview"></div>
+                                   style="display:none;" multiple accept="image/*" onchange="handleFileSelect(event, {{ forloop.counter }})">
+                            <i class="fas fa-cloud-upload-alt" style="font-size: 2rem; color: #aaa; margin-bottom: 8px;"></i>
+                            <p style="margin: 0; color: #6c757d; font-size: 14px;">Click to upload images or drag &amp; drop</p>
                         </div>
+                        <div id="imagePreview{{ forloop.counter }}" class="image-preview" style="margin-top: 10px;"></div>
                         <div id="variant_image{{ forloop.counter }}Error" class="error-message"></div>
                     </div>
                 </div>
@@ -452,10 +456,69 @@
         <p>Updating product...</p>
     </div>
 </div>
+
+<!-- Image Crop Modal -->
+<div class="modal fade" id="imgCropModal" tabindex="-1"
+     data-bs-backdrop="static" data-bs-keyboard="false"
+     aria-labelledby="imgCropModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content" style="border:none;border-radius:12px;overflow:hidden;">
+            <div class="modal-header" style="background:#2c3e50;color:white;padding:10px 18px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <i class="fas fa-crop-alt" style="color:var(--primary-color);"></i>
+                    <span style="font-weight:600;font-size:15px;">Crop Image</span>
+                    <span id="cropProgressBadge"
+                          style="background:rgba(255,255,255,.15);color:white;
+                                 padding:2px 10px;border-radius:20px;font-size:12px;"></span>
+                </div>
+                <small style="color:rgba(255,255,255,.6);font-size:12px;">
+                    Drag to reposition • Scroll to zoom
+                </small>
+            </div>
+            <div style="height:460px;background:#1a1a2e;position:relative;overflow:hidden;">
+                <img id="cropTargetImg" src="" alt="crop"
+                     style="display:block;max-width:100%;max-height:100%;">
+            </div>
+            <div class="modal-footer" style="background:#f8f9fa;padding:10px 18px;
+                                             display:flex;justify-content:space-between;
+                                             align-items:center;">
+                <div style="color:#6c757d;font-size:12px;">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Select area to crop, or skip to use the original image
+                </div>
+                <div style="display:flex;gap:10px;">
+                    <button type="button" id="skipCropBtn"
+                            style="padding:7px 18px;border:1px solid #dee2e6;background:white;
+                                   border-radius:8px;font-size:13px;cursor:pointer;color:#495057;">
+                        <i class="fas fa-forward me-1"></i> Skip
+                    </button>
+                    <button type="button" id="doCropBtn"
+                            style="padding:7px 22px;background:var(--primary-color);color:white;
+                                   border:none;border-radius:8px;font-weight:600;
+                                   font-size:13px;cursor:pointer;">
+                        <i class="fas fa-check me-1"></i> Crop &amp; Add
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_scripts %}
+<!-- Cropper.js JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
 <script>
+    const variantImages = {};
+    let _cq = [];
+    let _cqIdx = 0;
+    let _cqInput = null;
+    let _cropper = null;
+
+    function _cropModal() { return document.getElementById('imgCropModal'); }
+    function _bsModal()  {
+        return bootstrap.Modal.getInstance(_cropModal()) || new bootstrap.Modal(_cropModal());
+    }
     let variantCount = {{ product.variants.count }};
     const sizeOptions = {{ sizes|safe }};
     const deletedImages = [];
@@ -508,15 +571,18 @@
                 
                 <div class="form-group">
                     <label class="form-label">Images * (Minimum 3 images)</label>
-                    <div class="image-upload-container">
+                    <div class="image-upload-container" id="uploadArea${variantCount}"
+                         onclick="document.getElementById('variant_image${variantCount}').click()"
+                         style="cursor:pointer;"
+                         ondragover="event.preventDefault(); this.style.borderColor = 'var(--primary-color)';"
+                         ondragleave="this.style.borderColor = '#ddd';"
+                         ondrop="event.preventDefault(); this.style.borderColor = '#ddd'; handleFileSelect({target: {files: event.dataTransfer.files}, preventDefault: ()=>{}}, ${variantCount})">
                         <input type="file" id="variant_image${variantCount}" name="variant_image${variantCount}[]" 
-                               class="image-upload-input" multiple accept="image/*" onchange="previewImages(${variantCount})">
-                        <label for="variant_image${variantCount}" class="image-upload-label">
-                            <i class="fas fa-cloud-upload-alt" style="font-size: 2rem; margin-bottom: 10px;"></i><br>
-                            Click to upload images or drag and drop
-                        </label>
-                        <div id="imagePreview${variantCount}" class="image-preview"></div>
+                               style="display:none;" multiple accept="image/*" onchange="handleFileSelect(event, ${variantCount})">
+                        <i class="fas fa-cloud-upload-alt" style="font-size: 2rem; color: #aaa; margin-bottom: 8px;"></i>
+                        <p style="margin: 0; color: #6c757d; font-size: 14px;">Click to upload images or drag &amp; drop</p>
                     </div>
+                    <div id="imagePreview${variantCount}" class="image-preview" style="margin-top: 10px;"></div>
                     <div id="variant_image${variantCount}Error" class="error-message"></div>
                 </div>
             </div>
@@ -573,36 +639,152 @@
         }
     }
 
-    function previewImages(variantId) {
-        const input = document.getElementById(`variant_image${variantId}`);
-        const preview = document.getElementById(`imagePreview${variantId}`);
-        preview.innerHTML = '';
-
-        if (input.files) {
-            Array.from(input.files).forEach((file, index) => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const imageItem = document.createElement('div');
-                    imageItem.className = 'image-preview-item';
-                    imageItem.innerHTML = `
-                        <img src="${e.target.result}" class="preview-image" alt="Preview">
-                        <button type="button" class="remove-image-btn" onclick="removePreviewImage(${variantId}, ${index})">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    `;
-                    preview.appendChild(imageItem);
-                };
-                reader.readAsDataURL(file);
-            });
+    function updateImageError(variantId) {
+        const existingEl = document.querySelectorAll(`#variant${variantId} .existing-image-item:not([style*="display: none"])`);
+        const existingCount = existingEl.length;
+        const newCount = (variantImages[variantId] || []).length;
+        const total = existingCount + newCount;
+        
+        const errorEl = document.getElementById(`variant_image${variantId}Error`);
+        if (total > 0 && total < 3) {
+            errorEl.textContent = `Please add at least 3 images (${total} added so far).`;
+            errorEl.style.display = 'block';
+        } else {
+            errorEl.style.display = 'none';
         }
     }
 
-    function removePreviewImage(variantId, imageIndex) {
-        const preview = document.getElementById(`imagePreview${variantId}`);
-        const items = preview.children;
-        if (items[imageIndex]) {
-            items[imageIndex].remove();
+    // Intercept deletion to trigger error validation
+    window.originalMarkImageForDeletion = window.originalMarkImageForDeletion || markImageForDeletion;
+    window.markImageForDeletion = function(imageId) {
+        originalMarkImageForDeletion(imageId);
+        const el = document.querySelector(`[data-image-id="${imageId}"]`);
+        if (el) {
+            const variantContainer = el.closest('.variant-container');
+            if (variantContainer && variantContainer.id.startsWith('variant')) {
+                const vId = variantContainer.id.replace('variant', '');
+                updateImageError(vId);
+            }
         }
+    };
+
+    function handleFileSelect(event, variantId) {
+        const inputEl = event.target;
+        const files   = Array.from(inputEl.files || []);
+        if (event.preventDefault) event.preventDefault();
+        
+        const accepted = files.filter(f => f.type.startsWith('image/'));
+        const rejected = files.filter(f => !f.type.startsWith('image/'));
+        if (rejected.length) {
+            const el = document.getElementById(`variant_image${variantId}Error`);
+            if(el) { el.textContent = `Skipped non-image files.`; el.style.display = 'block'; }
+        }
+        if (!accepted.length) { if(inputEl.value) inputEl.value = ''; return; }
+
+        if (typeof Cropper !== 'undefined') {
+            _cq      = accepted.map(f => ({ file: f, variantId }));
+            _cqIdx   = 0;
+            _cqInput = inputEl;
+            _openNextCrop();
+        } else {
+            accepted.forEach(f => _addOneFile(variantId, f));
+            updateImageError(variantId);
+            if(inputEl.value) inputEl.value = '';
+        }
+    }
+
+    function _openNextCrop() {
+        if (_cqIdx >= _cq.length) {
+            if (_cqInput && _cqInput.value) _cqInput.value = '';
+            updateImageError(_cq[_cq.length - 1]?.variantId);
+            return;
+        }
+
+        const { file, variantId } = _cq[_cqIdx];
+        document.getElementById('cropProgressBadge').textContent = `${_cqIdx + 1} / ${_cq.length}`;
+
+        const reader = new FileReader();
+        reader.onerror = () => { _cqIdx++; _openNextCrop(); };
+        reader.onload  = e => {
+            const img     = document.getElementById('cropTargetImg');
+            const modalEl = document.getElementById('imgCropModal');
+
+            if (_cropper) { _cropper.destroy(); _cropper = null; }
+
+            modalEl.addEventListener('shown.bs.modal', function() {
+                function startCropper() {
+                    try {
+                        _cropper = new Cropper(img, {
+                            viewMode: 1, autoCropArea: 0.85, background: false, responsive: true, aspectRatio: NaN,
+                        });
+                    } catch (ex) {
+                        _addOneFile(variantId, file);
+                        _closeCropModal();
+                    }
+                }
+                if (img.complete && img.naturalWidth) startCropper();
+                else img.onload = startCropper;
+            }, { once: true });
+
+            _bsModal().show();
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    document.getElementById('doCropBtn').addEventListener('click', () => {
+        if (!_cropper) return;
+        const { variantId } = _cq[_cqIdx];
+        _cropper.getCroppedCanvas({ imageSmoothingQuality: 'high' }).toBlob(blob => {
+            const orig    = _cq[_cqIdx].file;
+            const cropped = new File([blob], orig.name, { type: 'image/jpeg' });
+            _addOneFile(variantId, cropped);
+            _closeCropModal();
+        }, 'image/jpeg', 0.92);
+    });
+
+    document.getElementById('skipCropBtn').addEventListener('click', () => {
+        if (_cqIdx < _cq.length) {
+            const { file, variantId } = _cq[_cqIdx];
+            _addOneFile(variantId, file);
+        }
+        _closeCropModal();
+    });
+
+    function _closeCropModal() {
+        if (_cropper) { _cropper.destroy(); _cropper = null; }
+        _bsModal().hide();
+        _cqIdx++;
+        setTimeout(_openNextCrop, 420);
+    }
+
+    function _addOneFile(variantId, file) {
+        if (!variantImages[variantId]) variantImages[variantId] = [];
+        const url = URL.createObjectURL(file);
+        variantImages[variantId].push({ file, url });
+
+        const preview = document.getElementById(`imagePreview${variantId}`);
+        const item    = document.createElement('div');
+        item.className = 'image-preview-item';
+        item.innerHTML = `
+            <img src="${url}" class="preview-image" alt="preview">
+            <button type="button" class="remove-image-btn" onclick="removeImage(${variantId}, this)">
+                <i class="fas fa-times"></i>
+            </button>`;
+        preview.appendChild(item);
+        updateImageError(variantId);
+    }
+
+    function removeImage(variantId, btn) {
+        const item    = btn.closest('.image-preview-item');
+        const preview = item.parentElement;
+        const idx     = Array.from(preview.children).indexOf(item);
+        if(idx > -1) {
+            URL.revokeObjectURL(variantImages[variantId][idx].url);
+            variantImages[variantId].splice(idx, 1);
+        }
+        item.remove();
+        updateImageError(variantId);
     }
 
     // Form submission
@@ -612,6 +794,8 @@
         // Clear previous errors
         document.querySelectorAll('.error-message').forEach(el => el.style.display = 'none');
         
+        let hasError = false;
+
         // Collect form data
         const formData = new FormData();
         formData.append('name', document.getElementById('productName').value);
@@ -633,6 +817,7 @@
                 
                 if (colorInput && sizeSelect && quantityInput && actualPriceInput) {
                     variants.push({
+                        id_index: i,
                         color: colorInput.value,
                         size: sizeSelect.value,
                         quantity: quantityInput.value,
@@ -640,11 +825,24 @@
                         sale_price: salePriceInput.value
                     });
                     
-                    // Add images for this variant
-                    const imageInput = variantElement.querySelector(`input[name="variant_image${i}[]"]`);
-                    if (imageInput && imageInput.files) {
-                        Array.from(imageInput.files).forEach(file => {
-                            formData.append(`variant_image${i}[]`, file);
+                    // Add images for this variant (from state)
+                    const imgs = variantImages[i] || [];
+                    const existingCount = document.querySelectorAll(`#variant${i} .existing-image-item:not([style*="display: none"])`).length;
+                    const totalImages = existingCount + imgs.length;
+                    
+                    if (totalImages < 3) {
+                        const errEl = document.getElementById(`variant_image${i}Error`);
+                        if (errEl) {
+                            errEl.textContent = `At least 3 images required (${totalImages} currently).`;
+                            errEl.style.display = 'block';
+                        }
+                        
+                        document.getElementById('loadingOverlay').style.display = 'none';
+                        showToast(`Variant ${i} requires at least 3 images.`, 'danger');
+                        hasError = true;
+                    } else {
+                        imgs.forEach(imgObj => {
+                            formData.append(`variant_image${i}[]`, imgObj.file);
                         });
                     }
                 }
@@ -653,6 +851,10 @@
         
         formData.append('variants', JSON.stringify(variants));
         
+        if (hasError) {
+            return;
+        }
+
         // Show loading
         document.getElementById('loadingOverlay').style.display = 'block';
         
@@ -675,15 +877,22 @@
                 }, 1500);
             } else {
                 if (data.errors) {
+                    console.error("Backend errors:", data.errors);
+                    let allErrors = [];
                     Object.keys(data.errors).forEach(key => {
+                        allErrors.push(data.errors[key]);
                         const errorElement = document.getElementById(`${key}Error`);
                         if (errorElement) {
                             errorElement.textContent = data.errors[key];
                             errorElement.style.display = 'block';
                         }
                     });
+                    
+                    let toastMsg = data.message || allErrors[0]; // Show the first specific error in tooltip
+                    showToast(toastMsg, 'danger');
+                } else {
+                    showToast(data.message || 'Validation failed. Please try again.', 'danger');
                 }
-                showToast(data.message || 'Please fix the errors and try again', 'danger');
             }
         })
         .catch(error => {

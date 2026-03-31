@@ -51,16 +51,31 @@ def add_coupon(request):
                 raise ValidationError("A coupon with this code already exists.")
             if not code or not code.isalnum():
                 raise ValidationError("Coupon code is required and contains only letters and numbers.")
-            if not discount_value or not str(discount_value).isdigit():
+            if not discount_value or not str(discount_value).replace('.', '').isdigit():
                 raise ValidationError("Invalid discount value.")
 
-            if discount_type == 'percent' and not (0 < int(discount_value) <= 100):
-                raise ValidationError("Discount value must be between 1 and 100 for a percentage discount.")
-            elif discount_type == 'fixed' and int(discount_value) < 1:
-                raise ValidationError("Discount value must be greater than 0.")
+            min_cart = float(min_cart_value)
+            
+            if min_cart < 100:
+                raise ValidationError("Minimum Cart Value must be at least ₹100.")
+            
+            if min_cart < 500:
+                max_percent = 20
+            elif min_cart <= 1000:
+                max_percent = 50
+            elif min_cart <= 2000:
+                max_percent = 60
+            else:
+                max_percent = 70
 
-            if int(min_cart_value) <= 0:
-                raise ValidationError("Minimum Cart Value is required and must be a positive digit.")
+            if discount_type == 'percent':
+                if not (0 < float(discount_value) <= max_percent):
+                    raise ValidationError(f"For a cart value of ₹{min_cart:.2f}, the maximum allowed discount is {max_percent}%.")
+            elif discount_type == 'fixed':
+                if float(discount_value) < 1:
+                    raise ValidationError("Discount value must be greater than 0.")
+                if float(discount_value) >= (min_cart * (max_percent / 100.0)):
+                    raise ValidationError(f"For a cart value of ₹{min_cart:.2f}, the fixed discount cannot exceed ₹{min_cart * (max_percent/100.0):.2f} ({max_percent}%).")
             if int(max_usage) <= 0:
                 raise ValidationError("Maximum Usage is required and must be a positive digit.")
             if int(max_usage_per_user) <= 0:
@@ -145,16 +160,31 @@ def edit_coupon(request, coupon_id):
             if active is not None:
                 coupon.active = active in [True, 'true', 'True', 1, '1']
 
-            if not coupon.discount_value or not str(coupon.discount_value).isdigit():
+            if not coupon.discount_value or not str(coupon.discount_value).replace('.', '').isdigit():
                 raise ValidationError("Invalid discount value.")
 
-            if coupon.discount_type == 'percent' and not (0 < float(coupon.discount_value) <= 100):
-                raise ValidationError("Discount value must be between 1 and 100 for a percentage discount.")
-            elif coupon.discount_type == 'fixed' and float(coupon.discount_value) < 1:
-                raise ValidationError("Discount value must be greater than 0.")
+            min_cart = float(coupon.min_cart_value)
+            
+            if min_cart < 100:
+                raise ValidationError("Minimum Cart Value must be at least ₹100.")
 
-            if float(coupon.min_cart_value) <= 0:
-                raise ValidationError("Minimum Cart Value is required and must be a positive digit.")
+            if min_cart < 500:
+                max_percent = 20
+            elif min_cart <= 1000:
+                max_percent = 50
+            elif min_cart <= 2000:
+                max_percent = 60
+            else:
+                max_percent = 70
+
+            if coupon.discount_type == 'percent':
+                if not (0 < float(coupon.discount_value) <= max_percent):
+                    raise ValidationError(f"For a cart value of ₹{min_cart:.2f}, the maximum allowed discount is {max_percent}%.")
+            elif coupon.discount_type == 'fixed':
+                if float(coupon.discount_value) < 1:
+                    raise ValidationError("Discount value must be greater than 0.")
+                if float(coupon.discount_value) >= (min_cart * (max_percent / 100.0)):
+                    raise ValidationError(f"For a cart value of ₹{min_cart:.2f}, the fixed discount cannot exceed ₹{min_cart * (max_percent/100.0):.2f} ({max_percent}%).")
             if float(coupon.max_usage) <= 0:
                 raise ValidationError("Maximum Usage is required and must be a positive digit.")
             if float(coupon.max_usage_per_user) <= 0:

@@ -574,7 +574,7 @@
                         <div class="mb-3">
                             <label for="password" class="form-label">Password</label>
                             <div class="password-field">
-                                <input type="password" class="form-control {% if form.password.errors %}is-invalid{% endif %}" id="password" name="password" placeholder="Enter your password" required>
+                                <input type="password" class="form-control {% if form.password.errors %}is-invalid{% endif %}" id="password" name="password" placeholder="Enter your password" required oninput="checkPasswordStrength()">
                                 <button type="button" class="password-toggle" onclick="togglePassword('password')">
                                     <i class="far fa-eye" id="password-icon"></i>
                                 </button>
@@ -582,17 +582,33 @@
                             {% for error in form.password.errors %}
                                 <div class="invalid-feedback d-block">{{ error }}</div>
                             {% endfor %}
+                            <!-- Strength Bar -->
+                            <div id="strength-bar-wrap" class="mt-2" style="display:none;">
+                                <div style="background:rgba(255,255,255,0.2);border-radius:4px;height:6px;">
+                                    <div id="strength-bar" style="height:6px;border-radius:4px;width:0%;transition:width .3s,background .3s;"></div>
+                                </div>
+                                <small id="strength-label" style="font-size:0.78rem;"></small>
+                            </div>
+                            <!-- Requirement checklist -->
+                            <ul id="pwd-requirements" class="mt-2 mb-0" style="list-style:none;padding:0;font-size:0.78rem;display:none;">
+                                <li id="req-len"  ><i class="fas fa-times-circle" style="color:#ff6b6b;margin-right:4px;"></i>At least 8 characters</li>
+                                <li id="req-upper"><i class="fas fa-times-circle" style="color:#ff6b6b;margin-right:4px;"></i>One uppercase letter (A-Z)</li>
+                                <li id="req-lower"><i class="fas fa-times-circle" style="color:#ff6b6b;margin-right:4px;"></i>One lowercase letter (a-z)</li>
+                                <li id="req-digit"><i class="fas fa-times-circle" style="color:#ff6b6b;margin-right:4px;"></i>One digit (0-9)</li>
+                                <li id="req-spec" ><i class="fas fa-times-circle" style="color:#ff6b6b;margin-right:4px;"></i>One special character (@, #, $, ! …)</li>
+                            </ul>
                         </div>
 
                         <!-- Confirm Password -->
                         <div class="mb-3">
                             <label for="confirm_password" class="form-label">Confirm Password</label>
                             <div class="password-field">
-                                <input type="password" class="form-control {% if form.confirm_password.errors %}is-invalid{% endif %}" id="confirm_password" name="confirm_password" placeholder="Confirm your password" required>
+                                <input type="password" class="form-control {% if form.confirm_password.errors %}is-invalid{% endif %}" id="confirm_password" name="confirm_password" placeholder="Confirm your password" required oninput="checkConfirmMatch()">
                                 <button type="button" class="password-toggle" onclick="togglePassword('confirm_password')">
                                     <i class="far fa-eye" id="confirm-password-icon"></i>
                                 </button>
                             </div>
+                            <div id="confirm-mismatch" style="color:#ff6b6b;font-size:0.82rem;margin-top:4px;display:none;">Passwords do not match.</div>
                             {% for error in form.confirm_password.errors %}
                                 <div class="invalid-feedback d-block">{{ error }}</div>
                             {% endfor %}
@@ -742,16 +758,92 @@
                 passwordField.type = 'password';
                 icon.classList.remove('fa-eye-slash');
                 icon.classList.add('fa-eye');
-
             }
         }
 
+        // ── Password strength ──────────────────────────────────────────────
+        const rules = [
+            { id: 'req-len',   test: p => p.length >= 8 },
+            { id: 'req-upper', test: p => /[A-Z]/.test(p) },
+            { id: 'req-lower', test: p => /[a-z]/.test(p) },
+            { id: 'req-digit', test: p => /[0-9]/.test(p) },
+            { id: 'req-spec',  test: p => /[^A-Za-z0-9]/.test(p) },
+        ];
+        const colors  = ['#dc3545','#fd7e14','#ffc107','#20c997','#28a745'];
+        const labels  = ['Very Weak','Weak','Fair','Good','Strong'];
 
+        function setReq(id, pass) {
+            const li = document.getElementById(id);
+            const ic = li.querySelector('i');
+            if (pass) {
+                ic.className = 'fas fa-check-circle';
+                ic.style.color = '#28a745';
+            } else {
+                ic.className = 'fas fa-times-circle';
+                ic.style.color = '#ff6b6b';
+            }
+        }
 
-    
-  
+        function checkPasswordStrength() {
+            const pwd = document.getElementById('password').value;
+            const wrap  = document.getElementById('strength-bar-wrap');
+            const reqs  = document.getElementById('pwd-requirements');
+            const bar   = document.getElementById('strength-bar');
+            const lbl   = document.getElementById('strength-label');
 
+            if (pwd.length === 0) {
+                wrap.style.display = 'none';
+                reqs.style.display = 'none';
+                return;
+            }
+            wrap.style.display = 'block';
+            reqs.style.display = 'block';
 
+            let passed = 0;
+            rules.forEach(r => {
+                const ok = r.test(pwd);
+                setReq(r.id, ok);
+                if (ok) passed++;
+            });
+
+            const pct   = (passed / rules.length) * 100;
+            const color = colors[passed - 1] || colors[0];
+            bar.style.width      = pct + '%';
+            bar.style.background = color;
+            lbl.textContent      = labels[passed - 1] || labels[0];
+            lbl.style.color      = color;
+
+            checkConfirmMatch();
+        }
+
+        function checkConfirmMatch() {
+            const pwd  = document.getElementById('password').value;
+            const cpwd = document.getElementById('confirm_password').value;
+            const msg  = document.getElementById('confirm-mismatch');
+            if (cpwd && pwd !== cpwd) {
+                msg.style.display = 'block';
+            } else {
+                msg.style.display = 'none';
+            }
+        }
+
+        // Block form submission if password is weak or mismatched
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const pwd  = document.getElementById('password').value;
+            const cpwd = document.getElementById('confirm_password').value;
+            const allPass = rules.every(r => r.test(pwd));
+            if (!allPass) {
+                e.preventDefault();
+                checkPasswordStrength();
+                document.getElementById('password').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+            if (pwd !== cpwd) {
+                e.preventDefault();
+                document.getElementById('confirm-mismatch').style.display = 'block';
+                document.getElementById('confirm_password').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
     </script>
 </body>
 </html>
