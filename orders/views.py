@@ -94,8 +94,8 @@ def checkout(request):
                 subtotal = sum(item.price * item.quantity for item in cart.items.all())
                 
                 # COD limit check (based on total payable amount after discounts)
-                if payment_method == 'COD' and total_amount > 1000:
-                    messages.error(request, 'Cash on Delivery is not available for orders above ₹1,000. Please choose an online payment method.')
+                if payment_method == 'COD' and total_amount > 1500:
+                    messages.error(request, 'Cash on Delivery is not available for orders above ₹1500. Please choose an online payment method.')
                     return redirect('checkout')
                 
                 # Wallet payment validation
